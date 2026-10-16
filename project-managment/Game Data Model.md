@@ -20,7 +20,7 @@
 
 - `id`: string (socket id)
 - `displayName`: string
-- `seatId`: int (where they sit)
+- `seatId`: int (1–4, where they sit; existing IDs stay fixed if a seat opens)
 - `hand`: HandSlot[] — empty in the undealt lobby; starts at 4 after a deal, then can increase or decrease, with a maximum of 8 cards
 - `drawnCard`: Card | null — card held after drawing, before the discard/swap decision; a deck-drawn power card remains here until its power is completed or skipped and the server discards it. A deck draw is initially private to its drawer; a discard-pile draw is public.
 - `drawnFrom`: `"deck"` | `"discard"` | null — source of `drawnCard`; null when no draw is pending. Used to validate whether the card may be discarded and its initial visibility. The source is public in `GameStateView` for resynchronization.
@@ -71,4 +71,4 @@
 - When any deck draw, including a penalty draw, leaves two cards, shuffle all discard cards below the top two and put them under the remaining deck cards. If the discard pile has fewer than three cards, move none and retry after later draws or discards while the deck remains low. The visible discard top and deck graphic do not change during this refill; clients receive no pile counts.
 - Before the first `turnChanged`, a disconnect frees that seat. In the undealt lobby, remaining players keep their ready marks; during memorization, discard the deal and reset their ready marks. A disconnect during `active` or `finalRound`, including one caused by an eight-card overflow, aborts the match and returns connected players to the undealt lobby with readiness cleared.
 - After an abort, connected players use the same `ready` flow as the initial lobby. A returning disconnected player joins as a new, unready player. A completed one-round game remains final.
-- `LobbyView` in [Events Contract.md](Events%20Contract.md) exposes ordered seats, each player's `isReady`, and phase for lobby updates. `GameStateView` is a per-player display projection, never authoritative state. It includes the visible discard top but no deck stack, deck count, discard count, or buried discards; the server retains the complete piles.
+- `LobbyView` in [Events Contract.md](Events%20Contract.md) is `{ players: PlayerSummary[] }`, derived from `GameState.players` in `seatId` order. A summary exposes `Player.id` as `playerId` plus `displayName`, `seatId`, `connected`, and `isReady`; it never exposes the full server `Player`, cards, or game phase. Keep `seatId` even though the array is ordered, because vacant seats do not renumber other players. `GameStateView` is a per-player display projection, never authoritative state. It includes the visible discard top but no deck stack, deck count, discard count, or buried discards; the server retains the complete piles.
