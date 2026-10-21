@@ -2,6 +2,7 @@
 
 import { JoinRoomError, joinPlayer } from '../game/state.js';
 import { toLobbyView } from '../game/lobbyView.js';
+import { logSocket, logUnexpectedSocketError } from './log.js';
 
 const PLAYER_ROOM = 'players';
 
@@ -15,18 +16,26 @@ export function registerJoinRoom(io, socket, gameState) {
       };
       const player = joinPlayer(gameState, joinRequest);
       socket.join(PLAYER_ROOM);
+      logSocket('info', socket.id, 'joinRoom', 'accepted', {
+        seatId: player.seatId,
+        lobbySize: gameState.players.length,
+      });
 
       if (typeof ack === 'function') {
         ack({ playerId: player.id, seatId: player.seatId });
+        logSocket('info', socket.id, 'joinRoom', 'acknowledged', { seatId: player.seatId });
       }
 
       const lobbyView = toLobbyView(gameState);
       io.to(PLAYER_ROOM).emit('playerJoined', lobbyView);
+      logSocket('info', socket.id, 'playerJoined', 'broadcast', { room: PLAYER_ROOM });
     } catch (error) {
       if (!(error instanceof JoinRoomError)) {
+        logUnexpectedSocketError(socket.id, 'joinRoom', error);
         throw error;
       }
 
+      logSocket('warn', socket.id, 'joinRoom', 'rejected', { code: error.code });
       socket.emit('error', { code: error.code, message: error.message });
     }
   });
