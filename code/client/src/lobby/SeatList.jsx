@@ -1,0 +1,31 @@
+// Renders the server-assigned players in four stable lobby seats.
+const positions = ['bottom', 'left', 'top', 'right'];
+
+/** Rotate the four stable seats around the local player's position. */
+export function SeatList({ players, localPlayerId, localSeatId = 1 }) {
+  return (
+    <ol className="seats" aria-label="Lobby seats">
+      {[1, 2, 3, 4].map(seatId => {
+        const player = players.find(candidate => candidate.seatId === seatId);
+        const position = positions[(seatId - localSeatId + 4) % 4];
+        return (
+          <li className={`seat seat--${position}`} key={seatId} aria-label={`Seat ${seatId}`}>
+            <span className="seat__circle" aria-hidden="true" />
+            <span className="seat__details">
+              {player ? (
+                <>
+                  <span className="seat__name">{player.displayName}{player.playerId === localPlayerId ? ' (you)' : ''}</span>
+                  <span className={`seat__readiness seat__readiness--${player.isReady ? 'ready' : 'waiting'}`}>
+                    <span className="visually-hidden">{player.isReady ? 'Ready' : 'Not ready'}</span>
+                  </span>
+                </>
+              ) : (
+                <span className="seat__empty">Empty</span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
