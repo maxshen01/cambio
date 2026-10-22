@@ -1,4 +1,4 @@
-// Owns socket listeners and React state for lobby membership and connection loss.
+// Owns socket listeners and React state for lobby membership, readiness, and connection loss.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { logClientEvent } from '../socket/log.js';
 
@@ -7,10 +7,13 @@ export function useLobby(socket) {
   const [connected, setConnected] = useState(socket.connected);
   const [connectionLost, setConnectionLost] = useState(false);
   const [pending, setPending] = useState(false);
+  const [readyPending, setReadyPending] = useState(false);
   const [identity, setIdentity] = useState(null);
   const [players, setPlayers] = useState([]);
   const [error, setError] = useState(null);
   const pendingRef = useRef(false);
+  const readyPendingRef = useRef(false);
+  const readyPlayerIdRef = useRef(null);
   const connectionLostRef = useRef(false);
 
   // Attach lobby listeners once per socket and remove them on unmount.
@@ -28,7 +31,10 @@ export function useLobby(socket) {
       if (connectionLostRef.current) return;
       setConnected(false);
       pendingRef.current = false;
+      readyPendingRef.current = false;
+      readyPlayerIdRef.current = null;
       setPending(false);
+      setReadyPending(false);
       setError('Unable to connect to the server.');
       logClientEvent('connect_error', 'failed');
     }
@@ -37,9 +43,12 @@ export function useLobby(socket) {
     function onDisconnect() {
       connectionLostRef.current = true;
       pendingRef.current = false;
+      readyPendingRef.current = false;
+      readyPlayerIdRef.current = null;
       setConnected(false);
       setConnectionLost(true);
       setPending(false);
+      setReadyPending(false);
       setIdentity(null);
       setPlayers([]);
       setError('Connection lost. Reload to rejoin.');
@@ -60,11 +69,28 @@ export function useLobby(socket) {
       logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
     }
 
+    /** Apply a ready mark only when the server announces it. */
+    function onPlayerReady({ playerId }) {
+      if (connectionLostRef.current) return;
+      setPlayers(current => current.map(player => (
+        player.playerId === playerId ? { ...player, isReady: true } : player
+      )));
+      if (readyPlayerIdRef.current === playerId) {
+        readyPendingRef.current = false;
+        readyPlayerIdRef.current = null;
+        setReadyPending(false);
+      }
+      logClientEvent('playerReady', 'received');
+    }
+
     /** Show a rejected join and make the form available for retry. */
     function onServerError(serverError) {
       if (connectionLostRef.current) return;
       pendingRef.current = false;
+      readyPendingRef.current = false;
+      readyPlayerIdRef.current = null;
       setPending(false);
+      setReadyPending(false);
       setError(serverError.message);
       logClientEvent('error', 'received', { code: serverError.code });
     }
@@ -74,6 +100,7 @@ export function useLobby(socket) {
     socket.on('disconnect', onDisconnect);
     socket.on('playerJoined', onPlayerJoined);
     socket.on('playerDisconnected', onPlayerDisconnected);
+    socket.on('playerReady', onPlayerReady);
     socket.on('error', onServerError);
     if (!socket.connected) socket.connect();
 
@@ -83,6 +110,7 @@ export function useLobby(socket) {
       socket.off('disconnect', onDisconnect);
       socket.off('playerJoined', onPlayerJoined);
       socket.off('playerDisconnected', onPlayerDisconnected);
+      socket.off('playerReady', onPlayerReady);
       socket.off('error', onServerError);
     };
   }, [socket]);
@@ -105,5 +133,18 @@ export function useLobby(socket) {
     });
   }, [socket, identity]);
 
-  return { connected, connectionLost, pending, identity, players, error, join };
+  /** Send one ready action, leaving the mark unchanged until playerReady arrives. */
+  const ready = useCallback(() => {
+    if (connectionLostRef.current || !socket.connected || !identity || readyPendingRef.current) return;
+    const localPlayer = players.find(player => player.playerId === identity.playerId);
+    if (!localPlayer || localPlayer.isReady) return;
+    readyPendingRef.current = true;
+    readyPlayerIdRef.current = identity.playerId;
+    setReadyPending(true);
+    setError(null);
+    socket.emit('ready', {});
+    logClientEvent('ready', 'sent');
+  }, [socket, identity, players]);
+
+  return { connected, connectionLost, pending, readyPending, identity, players, error, join, ready };
 }

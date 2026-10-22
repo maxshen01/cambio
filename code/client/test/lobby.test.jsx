@@ -82,7 +82,50 @@ describe('lobby join flow', () => {
     expect(within(screen.getByRole('listitem', { name: 'Seat 3' })).getByText('Not ready')).toBeInTheDocument();
     expect(within(screen.getByRole('listitem', { name: 'Seat 2' })).queryByText(/ready/i)).not.toBeInTheDocument();
     expect(screen.getAllByText('Empty')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+  });
+
+  it('sends one ready request and waits for the server event before showing ready', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
+
+    const ready = screen.getByRole('button', { name: 'Ready Up' });
+    expect(ready).toBeEnabled();
+    await user.click(ready);
+    expect(socket.emissions[1]).toEqual({ event: 'ready', payload: {}, ack: undefined });
+    expect(ready).toBeDisabled();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Not ready')).toBeInTheDocument();
+    await user.click(ready);
+    expect(socket.emissions).toHaveLength(2);
+
+    act(() => socket.receive('playerReady', { playerId: 'p1' }));
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
+    expect(ready).toBeDisabled();
+  });
+
+  it('restores Ready Up after rejection and applies other players ready events', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    const view = render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice'), player(2, 'p2', 'Bob')] }));
+
+    await user.click(screen.getByRole('button', { name: 'Ready Up' }));
+    act(() => socket.receive('error', { code: 'READY_NOT_AVAILABLE', message: 'Ready is not available right now.' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Ready is not available right now.');
+    expect(screen.getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+    act(() => socket.receive('playerReady', { playerId: 'p2' }));
+    expect(within(screen.getByRole('listitem', { name: 'Seat 2' })).getByText('Ready')).toBeInTheDocument();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Not ready')).toBeInTheDocument();
+    view.unmount();
+    expect(socket.listeners.get('playerReady')?.size).toBe(0);
   });
 
   it('keeps independent lobby views for different sockets', async () => {
@@ -135,7 +178,10 @@ describe('lobby join flow', () => {
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
 
+    await user.click(screen.getByRole('button', { name: 'Ready Up' }));
+    expect(screen.getByRole('button', { name: 'Ready Up' })).toBeDisabled();
     act(() => socket.disconnect());
+    act(() => socket.receive('playerReady', { playerId: 'p1' }));
     expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
     expect(within(screen.getByRole('dialog')).getByRole('alert'))
       .toHaveTextContent('Connection lost. Reload to rejoin.');

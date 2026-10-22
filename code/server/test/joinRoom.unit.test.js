@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGameState, joinPlayer, removeLobbyPlayer } from '../src/game/state.js';
+import { createGameState, joinPlayer, removeLobbyPlayer, readyPlayer } from '../src/game/state.js';
 import { toLobbyView } from '../src/game/lobbyView.js';
 
 test('joins take the lowest vacant seat and keep players in seat order', () => {
@@ -61,6 +61,37 @@ test('disconnect cleanup defers dealt and later-phase players', () => {
     assert.equal(removeLobbyPlayer(state, 'one'), false);
     assert.deepEqual(state, before);
   }
+});
+
+test('readiness works before four seats fill and survives seat replacement', () => {
+  const state = createGameState();
+  joinPlayer(state, { id: 'one', displayName: 'One' });
+  joinPlayer(state, { id: 'two', displayName: 'Two' });
+  assert.equal(readyPlayer(state, 'one'), true);
+  assert.equal(readyPlayer(state, 'one'), false);
+  assert.equal(removeLobbyPlayer(state, 'two'), true);
+  const replacement = joinPlayer(state, { id: 'replacement', displayName: 'Replacement' });
+  assert.equal(replacement.isReady, false);
+  assert.deepEqual(toLobbyView(state).players.map(player => [player.seatId, player.isReady]), [
+    [1, true], [2, false],
+  ]);
+});
+
+test('readiness rejects unseated and non-lobby senders without changing state', () => {
+  const state = createGameState();
+  joinPlayer(state, { id: 'one', displayName: 'One' });
+  assert.throws(() => readyPlayer(state, 'outsider'), { code: 'NOT_IN_ROOM' });
+  for (const change of [
+    room => { room.phase = 'active'; },
+    room => { room.players[0].hand.push({ handSlotId: 1 }); },
+  ]) {
+    const room = structuredClone(state);
+    change(room);
+    const before = structuredClone(room);
+    assert.throws(() => readyPlayer(room, 'one'), { code: 'READY_NOT_AVAILABLE' });
+    assert.deepEqual(room, before);
+  }
+  assert.equal(state.players[0].isReady, false);
 });
 
 test('lobby view exposes only public player fields in seat order', () => {

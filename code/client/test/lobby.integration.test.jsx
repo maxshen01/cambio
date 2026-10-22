@@ -44,6 +44,27 @@ it('shows the lobby filling on four separate socket connections', async () => {
         .toHaveTextContent(`Player ${seat} (you)`);
       expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
         .toHaveClass('seat--bottom');
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+      if (seat === 1) {
+        await user.click(within(view.container).getByRole('button', { name: 'Ready Up' }));
+        for (const joinedView of views) {
+          await waitFor(() => expect(within(joinedView.container).getByRole('listitem', { name: 'Seat 1' }))
+            .toHaveTextContent('Ready'));
+        }
+      }
+    }
+
+    for (let seat = 2; seat <= 4; seat++) {
+      const user = userEvent.setup();
+      await user.click(within(views[seat - 1].container).getByRole('button', { name: 'Ready Up' }));
+    }
+    for (const view of views) {
+      await waitFor(() => {
+        for (let seat = 1; seat <= 4; seat++) {
+          expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
+            .toHaveTextContent('Ready');
+        }
+      });
       expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeDisabled();
     }
   } finally {

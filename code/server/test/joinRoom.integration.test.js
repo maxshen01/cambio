@@ -227,6 +227,89 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
   assert.equal(JSON.stringify(firstView).includes('drawnCard'), false);
 });
 
+test('ready broadcasts only new lobby marks and retains four ready players without dealing', async t => {
+  const { connect, gameState } = await harness(t);
+  const outsider = await connect();
+  let outsiderUpdates = 0;
+  outsider.on('playerReady', () => { outsiderUpdates++; });
+  const clients = [];
+  const readyEvents = [];
+  let setupEvents = 0;
+  for (let seat = 1; seat <= 4; seat++) {
+    const client = await connect();
+    client.on('playerReady', payload => readyEvents.push([seat, payload]));
+    for (const event of ['dealComplete', 'turnChanged', 'gameState']) {
+      client.on(event, () => { setupEvents++; });
+    }
+    await join(client, `Player ${seat}`, clients);
+    clients.push(client);
+    if (seat === 1) {
+      const ready = nextEvent(client, 'playerReady');
+      client.emit('ready', {});
+      assert.deepEqual(await ready, { playerId: client.id });
+      assert.equal(gameState.players[0].isReady, true);
+    }
+  }
+
+  assert.deepEqual(gameState.players.map(player => player.isReady), [true, false, false, false]);
+  for (const client of clients.slice(1)) {
+    const events = clients.map(recipient => nextEvent(recipient, 'playerReady'));
+    client.emit('ready', {});
+    assert.deepEqual(await Promise.all(events), clients.map(() => ({ playerId: client.id })));
+  }
+  const count = readyEvents.length;
+  clients[0].emit('ready', {});
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(readyEvents.length, count);
+  assert.equal(outsiderUpdates, 0);
+  assert.equal(setupEvents, 0);
+  assert.equal(gameState.phase, 'deal');
+  assert.deepEqual(gameState.players.map(player => player.isReady), [true, true, true, true]);
+
+  const survivors = [clients[0], clients[2], clients[3]];
+  const departure = survivors.map(client => nextEvent(client, 'playerDisconnected'));
+  clients[1].disconnect();
+  await Promise.all(departure);
+  const replacement = await connect();
+  const { view } = await join(replacement, 'Replacement', survivors);
+  assert.deepEqual(view.players.map(player => [player.seatId, player.isReady]), [
+    [1, true], [2, false], [3, true], [4, true],
+  ]);
+  const replacementReady = survivors.map(client => nextEvent(client, 'playerReady'));
+  replacement.emit('ready', {});
+  assert.deepEqual(await Promise.all(replacementReady), survivors.map(() => ({ playerId: replacement.id })));
+});
+
+test('ready rejects unseated and dealt senders only at the requesting socket', async t => {
+  const { connect, gameState } = await harness(t);
+  const seated = await connect();
+  const outsider = await connect();
+  await join(seated, 'One');
+  let broadcasts = 0;
+  let otherErrors = 0;
+  seated.on('playerReady', () => { broadcasts++; });
+  outsider.on('error', () => { otherErrors++; });
+  const unseatedError = nextEvent(outsider, 'error');
+  outsider.emit('ready', {});
+  assert.deepEqual(await unseatedError, {
+    code: 'NOT_IN_ROOM', message: 'You are not in this room.',
+  });
+  assert.equal(otherErrors, 1);
+  otherErrors = 0;
+
+  gameState.players[0].hand.push({ handSlotId: 1 });
+  const before = structuredClone(gameState);
+  const stageError = nextEvent(seated, 'error');
+  seated.emit('ready', {});
+  assert.deepEqual(await stageError, {
+    code: 'READY_NOT_AVAILABLE', message: 'Ready is not available right now.',
+  });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(broadcasts, 0);
+  assert.equal(otherErrors, 0);
+  assert.deepEqual(gameState, before);
+});
+
 test('duplicate and invalid names only reach the requester, then a departed name can be reused', async t => {
   const { connect, gameState } = await harness(t);
   const first = await connect();

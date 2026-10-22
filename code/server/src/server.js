@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { createGameState } from "./game/state.js";
 import { registerJoinRoom } from "./sockets/joinRoom.js";
 import { registerLobbyDisconnect } from "./sockets/disconnect.js";
+import { registerReady } from "./sockets/ready.js";
 import { logSocket } from "./sockets/log.js";
 
 /** Build one shared room; injecting state keeps socket tests isolated. */
@@ -14,6 +15,7 @@ export function createServer({ gameState = createGameState() } = {}) {
     io.on("connection", (socket) => {
         logSocket("info", socket.id, "connection", "connected");
         registerJoinRoom(io, socket, gameState);
+        registerReady(io, socket, gameState);
         registerLobbyDisconnect(io, socket, gameState);
 
         socket.onAny((eventName, ...args) => {

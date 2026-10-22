@@ -31,6 +31,13 @@ export class JoinRoomError extends Error {
   }
 }
 
+export class ReadyError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
+
 /** Create an empty, undealt room. Other game fields start without a pending turn or action. */
 export function createGameState() {
   return {
@@ -102,5 +109,19 @@ export function removeLobbyPlayer(state, id) {
   const index = state.players.findIndex(player => player.id === id);
   if (index === -1) return false;
   state.players.splice(index, 1);
+  return true;
+}
+
+/** Mark a seated player ready once in the undealt lobby. Memorization readiness is deferred. */
+export function readyPlayer(state, id) {
+  const player = state.players.find(candidate => candidate.id === id);
+  if (!player) {
+    throw new ReadyError('NOT_IN_ROOM', 'You are not in this room.');
+  }
+  if (state.phase !== 'deal' || state.players.some(candidate => candidate.hand.length > 0)) {
+    throw new ReadyError('READY_NOT_AVAILABLE', 'Ready is not available right now.');
+  }
+  if (player.isReady) return false;
+  player.isReady = true;
   return true;
 }

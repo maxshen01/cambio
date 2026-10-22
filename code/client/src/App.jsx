@@ -5,8 +5,10 @@ import { useLobby } from './lobby/useLobby.js';
 
 /** Show the lobby using state from this browser's socket connection. */
 export function App({ socket }) {
-  const { connected, connectionLost, pending, identity, players, error, join } = useLobby(socket);
+  const { connected, connectionLost, pending, readyPending, identity, players, error, join, ready } = useLobby(socket);
   const showJoinDialog = !identity || !players.some(player => player.playerId === identity.playerId);
+  const localPlayer = players.find(player => player.playerId === identity?.playerId);
+  const canReady = connected && !connectionLost && localPlayer && !localPlayer.isReady && !readyPending;
   const connectionStatus = connectionLost ? 'Connection lost' : !connected ? 'Connecting to server…' : showJoinDialog && (pending || identity) ? 'Joining lobby…' : 'Connected';
 
   /** Keep keyboard navigation inside the non-dismissible name dialog. */
@@ -33,7 +35,7 @@ export function App({ socket }) {
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error}</p>}
         <div className="lobby__table">
           <SeatList players={players} localPlayerId={identity?.playerId} localSeatId={identity?.seatId} />
-          <button className="ready-button" type="button" disabled>Ready Up</button>
+          <button className="ready-button" type="button" disabled={!canReady} onClick={ready}>Ready Up</button>
         </div>
       </div>
       {showJoinDialog && (

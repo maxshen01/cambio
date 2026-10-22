@@ -12,4 +12,6 @@ Each diagnostic line includes a timestamp, socket ID, event name, and outcome. I
 
 In Postman, create a **Socket.IO** request to `ws://localhost:3000`. Set the event name to `joinRoom`, send `{"displayName":"Alice"}` as its JSON argument, enable **Ack**, and listen for `playerJoined` and `error`. If the event name is left blank, Postman sends `message`; the terminal will show it as `unhandled`.
 
+After joining, send `ready` with `{}` and no Ack. The server sends `playerReady` with the new player's ID to seated clients. Four ready players remain in the undealt lobby; dealing and memorization readiness are deferred.
+
 Run the automated checks with `npm.cmd test`.
