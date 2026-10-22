@@ -1,4 +1,4 @@
-// Defines the server game state and the rules for adding a player.
+// Defines server game state and undealt-lobby player membership rules.
 
 /**
  * @typedef {Object} Player
@@ -86,4 +86,16 @@ export function joinPlayer(state, { id, displayName } = {}) {
   state.players.push(player);
   state.players.sort((a, b) => a.seatId - b.seatId);
   return player;
+}
+
+/** Free a seated player's lobby seat only before any cards have been dealt. */
+export function removeLobbyPlayer(state, id) {
+  if (state.phase !== 'deal' || state.players.some(player => player.hand.length > 0)) {
+    return false;
+  }
+
+  const index = state.players.findIndex(player => player.id === id);
+  if (index === -1) return false;
+  state.players.splice(index, 1);
+  return true;
 }

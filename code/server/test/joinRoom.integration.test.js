@@ -181,3 +181,48 @@ test('invalid, repeated, full, and started or dealt joins only send requester er
   gameState.players[0].hand = [{ handSlotId: 1, card: { cardId: 10 } }];
   await rejectJoin(outsider, { displayName: 'Late' }, 'GAME_ALREADY_STARTED');
 });
+
+test('disconnect broadcasts a public view only for seated departures and reuses the gap', async t => {
+  const { connect, gameState } = await harness(t);
+  const first = await connect();
+  const middle = await connect();
+  const last = await connect();
+  const outsider = await connect();
+  await join(first, 'One');
+  await join(middle, 'Two', [first]);
+  await join(last, 'Three', [first, middle]);
+  gameState.players[0].isReady = true;
+  gameState.players[2].isReady = true;
+
+  let unexpected = 0;
+  outsider.on('playerDisconnected', () => { unexpected++; });
+  first.on('playerJoined', () => { unexpected++; });
+  const firstUpdate = nextEvent(first, 'playerDisconnected');
+  const lastUpdate = nextEvent(last, 'playerDisconnected');
+  middle.disconnect();
+  const [firstView, lastView] = await Promise.all([firstUpdate, lastUpdate]);
+  assert.deepEqual(firstView, lastView);
+  assert.deepEqual(firstView, { players: [
+    { playerId: first.id, displayName: 'One', seatId: 1, connected: true, isReady: true },
+    { playerId: last.id, displayName: 'Three', seatId: 3, connected: true, isReady: true },
+  ] });
+  assert.deepEqual(gameState.players.map(player => player.seatId), [1, 3]);
+
+  let extraDisconnects = 0;
+  first.on('playerDisconnected', () => { extraDisconnects++; });
+  last.on('playerDisconnected', () => { extraDisconnects++; });
+  outsider.disconnect();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(unexpected, 0);
+  assert.equal(extraDisconnects, 0);
+  assert.deepEqual(gameState.players.map(player => player.seatId), [1, 3]);
+
+  const replacement = await connect();
+  const { ack, view } = await join(replacement, 'Replacement', [first, last]);
+  assert.equal(ack.seatId, 2);
+  assert.deepEqual(view.players.map(player => [player.seatId, player.isReady]), [
+    [1, true], [2, false], [3, true],
+  ]);
+  assert.equal(JSON.stringify(firstView).includes('hand'), false);
+  assert.equal(JSON.stringify(firstView).includes('drawnCard'), false);
+});

@@ -103,4 +103,26 @@ describe('lobby join flow', () => {
     expect(within(firstView.container).getByText('Bob')).toBeVisible();
     expect(within(secondView.container).getByText('Bob')).toBeVisible();
   });
+
+  it('replaces seats after playerDisconnected and removes the listener on unmount', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    const view = render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Cara');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p3', seatId: 3 }));
+    act(() => socket.receive('playerJoined', { players: [
+      player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob'), player(3, 'p3', 'Cara'),
+    ] }));
+
+    act(() => socket.receive('playerDisconnected', { players: [
+      player(1, 'p1', 'Alice', true), player(3, 'p3', 'Cara'),
+    ] }));
+    expect(within(screen.getByRole('listitem', { name: 'Seat 2' })).getByText('Empty')).toBeVisible();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 3' })).getByText(/Cara.*you/)).toBeVisible();
+
+    view.unmount();
+    expect(socket.listeners.get('playerDisconnected')?.size).toBe(0);
+  });
 });

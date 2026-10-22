@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGameState, joinPlayer } from '../src/game/state.js';
+import { createGameState, joinPlayer, removeLobbyPlayer } from '../src/game/state.js';
 import { toLobbyView } from '../src/game/lobbyView.js';
 
 test('joins take the lowest vacant seat and keep players in seat order', () => {
@@ -27,6 +27,40 @@ test('joins take the lowest vacant seat and keep players in seat order', () => {
   assert.equal(state.players[0].isReady, true);
   assert.equal(player.isReady, false);
   assert.deepEqual(player.hand, []);
+});
+
+test('disconnect cleanup frees only an undealt seated player and preserves survivors', () => {
+  const state = createGameState();
+  joinPlayer(state, { id: 'one', displayName: 'One' }).isReady = true;
+  joinPlayer(state, { id: 'two', displayName: 'Two' });
+  joinPlayer(state, { id: 'three', displayName: 'Three' }).isReady = true;
+
+  assert.equal(removeLobbyPlayer(state, 'missing'), false);
+  assert.equal(removeLobbyPlayer(state, 'two'), true);
+  assert.equal(removeLobbyPlayer(state, 'two'), false);
+  assert.deepEqual(toLobbyView(state), { players: [
+    { playerId: 'one', displayName: 'One', seatId: 1, connected: true, isReady: true },
+    { playerId: 'three', displayName: 'Three', seatId: 3, connected: true, isReady: true },
+  ] });
+
+  const replacement = joinPlayer(state, { id: 'replacement', displayName: 'Replacement' });
+  assert.equal(replacement.seatId, 2);
+  assert.equal(replacement.isReady, false);
+  assert.deepEqual(state.players.map(player => player.seatId), [1, 2, 3]);
+});
+
+test('disconnect cleanup defers dealt and later-phase players', () => {
+  for (const change of [
+    state => { state.phase = 'active'; },
+    state => { state.players[0].hand.push({ handSlotId: 1 }); },
+  ]) {
+    const state = createGameState();
+    joinPlayer(state, { id: 'one', displayName: 'One' });
+    change(state);
+    const before = structuredClone(state);
+    assert.equal(removeLobbyPlayer(state, 'one'), false);
+    assert.deepEqual(state, before);
+  }
 });
 
 test('lobby view exposes only public player fields in seat order', () => {

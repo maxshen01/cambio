@@ -4,7 +4,7 @@ import { JoinRoomError, joinPlayer } from '../game/state.js';
 import { toLobbyView } from '../game/lobbyView.js';
 import { logSocket, logUnexpectedSocketError } from './log.js';
 
-const PLAYER_ROOM = 'players';
+export const PLAYER_ROOM = 'players';
 
 /** Handle joins; only seated sockets receive the public lobby broadcast. */
 export function registerJoinRoom(io, socket, gameState) {

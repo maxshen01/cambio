@@ -35,6 +35,12 @@ export function useLobby(socket) {
       logClientEvent('playerJoined', 'received', { playerCount: lobby.players.length });
     }
 
+    /** Replace seats after another seated player leaves the lobby. */
+    function onPlayerDisconnected(lobby) {
+      setPlayers(lobby.players);
+      logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
+    }
+
     /** Show a rejected join and make the form available for retry. */
     function onServerError(serverError) {
       pendingRef.current = false;
@@ -46,6 +52,7 @@ export function useLobby(socket) {
     socket.on('connect', onConnect);
     socket.on('connect_error', onConnectError);
     socket.on('playerJoined', onPlayerJoined);
+    socket.on('playerDisconnected', onPlayerDisconnected);
     socket.on('error', onServerError);
     if (!socket.connected) socket.connect();
 
@@ -53,6 +60,7 @@ export function useLobby(socket) {
       socket.off('connect', onConnect);
       socket.off('connect_error', onConnectError);
       socket.off('playerJoined', onPlayerJoined);
+      socket.off('playerDisconnected', onPlayerDisconnected);
       socket.off('error', onServerError);
     };
   }, [socket]);
