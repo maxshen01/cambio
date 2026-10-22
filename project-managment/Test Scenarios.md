@@ -14,8 +14,8 @@ Browser testing is manual for this MVP. No automated browser end-to-end suite or
 
 - **Components:** Lobby and readiness handlers, dealing, first-player selection, recipient-specific `CardView` construction, and four socket clients.
 - **Start:** An empty, undealt room. Configure a known deck and first player.
-- **Actions:** P1–P4 each send `joinRoom`; then all four send `ready`. Once dealt, all four send `ready` again.
-- **Expected events and state:** Each successful `joinRoom` ack gives the new player ID and seat before that join's `playerJoined` update. Filling seat four does not deal by itself. Each new lobby `ready` sends `playerReady` to all; the fourth is followed by `dealComplete` to all. Every `dealComplete` contains the same 16 slot references in seat and slot order, but only the receiving player's own slots `2` and `4` are face up with `cardId`; all other views omit it. Dealing resets readiness for memorization. In that stage, each `ready` sends `playerReady`; the fourth is followed by one `turnChanged` to all for the chosen starter. The game is then `active` and awaiting that player's draw. No `gameState` event is emitted.
+- **Actions:** P1–P4 each send `joinRoom`; before the fourth ready mark, P1 sends `ready`, `unready`, then `ready` again. The other players send `ready`. Once dealt, all four send `ready` again.
+- **Expected events and state:** Each successful `joinRoom` ack gives the new player ID and seat before that join's `playerJoined` update. Filling seat four does not deal by itself. Each new lobby `ready` sends `playerReady` to all; P1's `unready` sends `playerUnready` to all and clears only P1's mark. The fourth `playerReady` is followed by `dealComplete` to all. Every `dealComplete` contains the same 16 slot references in seat and slot order, but only the receiving player's own slots `2` and `4` are face up with `cardId`; all other views omit it. Dealing resets readiness for memorization. In that stage, each `ready` sends `playerReady`; the fourth is followed by one `turnChanged` to all for the chosen starter. The game is then `active` and awaiting that player's draw. No `gameState` event is emitted.
 - **Contract:** [Connection and lobby](Events%20Contract.md#connection--lobby-events) and [setup and deal](Events%20Contract.md#setup--deal-events).
 
 ### IT-02 — Private deck draw through turn completion
@@ -106,6 +106,7 @@ Use focused unit tests for power target rules and stages; scoring values, tie br
 
 | Scenario | What to try | Expected outcome |
 | --- | --- | --- |
+| Current undealt-lobby milestone | Submit a taken name, edit it, then join in four tabs. Toggle ready and unready before all four are ready; ready all four, close one tab, and try unready in a survivor. | The name error clears on edit without browser suggestions; all tabs agree on ready marks; four ready players cannot unready until a departure lowers the ready count. This stopping point is replaced when fourth-ready dealing is implemented. |
 | Complete desktop round | Four people join by shared link, ready twice, play, call Cambio, and finish the round. | Everyone can follow the turn and available choices; final hands, scores, and winners are correct and the round ends. |
 | Visibility and powers | Compare four screens during memorization, a deck draw, a discard draw, and several powers. | Only authorized players see private faces; public reveals appear at the right time; peeks remain visible until Done; all cards use readable images. |
 | Matching interaction | Try correct and wrong flips, a gift, and repeated clicking during a flip animation. | Removals, penalties, and the gift are understandable; the local flip interaction does not produce confusing duplicate clicks or reveals. |

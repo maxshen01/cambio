@@ -51,6 +51,12 @@ it('shows the lobby filling on four separate socket connections', async () => {
           await waitFor(() => expect(within(joinedView.container).getByRole('listitem', { name: 'Seat 1' }))
             .toHaveTextContent('Ready'));
         }
+        await user.click(within(view.container).getByRole('button', { name: 'Unready' }));
+        await waitFor(() => expect(within(view.container).getByRole('listitem', { name: 'Seat 1' }))
+          .toHaveTextContent('Not ready'));
+        await user.click(within(view.container).getByRole('button', { name: 'Ready Up' }));
+        await waitFor(() => expect(within(view.container).getByRole('listitem', { name: 'Seat 1' }))
+          .toHaveTextContent('Ready'));
       }
     }
 
@@ -65,7 +71,7 @@ it('shows the lobby filling on four separate socket connections', async () => {
             .toHaveTextContent('Ready');
         }
       });
-      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+      expect(within(view.container).getByRole('button', { name: 'Unready' })).toBeDisabled();
     }
   } finally {
     for (const socket of sockets) socket.disconnect();

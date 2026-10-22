@@ -22,6 +22,15 @@ describe('JoinForm', () => {
     expect(onJoin).toHaveBeenCalledExactlyOnceWith('Alice');
   });
 
+  it('disables browser name suggestions while keeping the format hint', () => {
+    render(<JoinForm onJoin={() => {}} connected />);
+    const name = screen.getByRole('textbox', { name: /name/i });
+    expect(name.form).toHaveAttribute('autocomplete', 'off');
+    expect(name).toHaveAttribute('autocomplete', 'off');
+    expect(name).toHaveAttribute('spellcheck', 'false');
+    expect(screen.getByText(/1–20 characters/i)).toBeInTheDocument();
+  });
+
   it('blocks submission while a join is pending or the socket is unavailable', async () => {
     const user = userEvent.setup();
     const onJoin = vi.fn();

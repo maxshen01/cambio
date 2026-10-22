@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGameState, joinPlayer, removeLobbyPlayer, readyPlayer } from '../src/game/state.js';
+import { createGameState, joinPlayer, removeLobbyPlayer, readyPlayer, unreadyPlayer } from '../src/game/state.js';
 import { toLobbyView } from '../src/game/lobbyView.js';
 
 test('joins take the lowest vacant seat and keep players in seat order', () => {
@@ -92,6 +92,43 @@ test('readiness rejects unseated and non-lobby senders without changing state', 
     assert.deepEqual(room, before);
   }
   assert.equal(state.players[0].isReady, false);
+});
+
+test('unready changes one mark, ignores repeats, and unlocks after a departure', () => {
+  const state = createGameState();
+  for (let seat = 1; seat <= 4; seat++) {
+    joinPlayer(state, { id: `${seat}`, displayName: `Player ${seat}` });
+  }
+  readyPlayer(state, '1');
+  assert.equal(unreadyPlayer(state, '1'), true);
+  assert.equal(unreadyPlayer(state, '1'), false);
+  assert.equal(state.players[0].isReady, false);
+
+  for (let seat = 1; seat <= 4; seat++) readyPlayer(state, `${seat}`);
+  const beforeLock = structuredClone(state);
+  assert.throws(() => unreadyPlayer(state, '1'), { code: 'READY_NOT_AVAILABLE' });
+  assert.deepEqual(state, beforeLock);
+
+  removeLobbyPlayer(state, '2');
+  assert.equal(unreadyPlayer(state, '1'), true);
+  assert.deepEqual(state.players.map(player => player.isReady), [false, true, true]);
+});
+
+test('unready rejects unseated and non-lobby senders without mutation', () => {
+  const state = createGameState();
+  joinPlayer(state, { id: 'one', displayName: 'One' });
+  readyPlayer(state, 'one');
+  assert.throws(() => unreadyPlayer(state, 'outsider'), { code: 'NOT_IN_ROOM' });
+  for (const change of [
+    room => { room.phase = 'active'; },
+    room => { room.players[0].hand.push({ handSlotId: 1 }); },
+  ]) {
+    const room = structuredClone(state);
+    change(room);
+    const before = structuredClone(room);
+    assert.throws(() => unreadyPlayer(room, 'one'), { code: 'READY_NOT_AVAILABLE' });
+    assert.deepEqual(room, before);
+  }
 });
 
 test('lobby view exposes only public player fields in seat order', () => {

@@ -15,6 +15,9 @@ export function useLobby(socket) {
   const readyPendingRef = useRef(false);
   const readyPlayerIdRef = useRef(null);
   const connectionLostRef = useRef(false);
+  const errorCodeRef = useRef(null);
+  const nameRevisionRef = useRef(0);
+  const submittedNameRevisionRef = useRef(null);
 
   // Attach lobby listeners once per socket and remove them on unmount.
   useEffect(() => {
@@ -22,6 +25,7 @@ export function useLobby(socket) {
     function onConnect() {
       if (connectionLostRef.current) return;
       setConnected(true);
+      errorCodeRef.current = null;
       setError(null);
       logClientEvent('connect', 'connected');
     }
@@ -35,6 +39,7 @@ export function useLobby(socket) {
       readyPlayerIdRef.current = null;
       setPending(false);
       setReadyPending(false);
+      errorCodeRef.current = null;
       setError('Unable to connect to the server.');
       logClientEvent('connect_error', 'failed');
     }
@@ -51,6 +56,7 @@ export function useLobby(socket) {
       setReadyPending(false);
       setIdentity(null);
       setPlayers([]);
+      errorCodeRef.current = null;
       setError('Connection lost. Reload to rejoin.');
       logClientEvent('disconnect', 'disconnected');
     }
@@ -83,15 +89,35 @@ export function useLobby(socket) {
       logClientEvent('playerReady', 'received');
     }
 
+    /** Apply a cleared ready mark only after the server announces it. */
+    function onPlayerUnready({ playerId }) {
+      if (connectionLostRef.current) return;
+      setPlayers(current => current.map(player => (
+        player.playerId === playerId ? { ...player, isReady: false } : player
+      )));
+      if (readyPlayerIdRef.current === playerId) {
+        readyPendingRef.current = false;
+        readyPlayerIdRef.current = null;
+        setReadyPending(false);
+      }
+      logClientEvent('playerUnready', 'received');
+    }
+
     /** Show a rejected join and make the form available for retry. */
     function onServerError(serverError) {
       if (connectionLostRef.current) return;
+      const staleNameError = serverError.code === 'INVALID_NAME'
+        && pendingRef.current
+        && submittedNameRevisionRef.current !== nameRevisionRef.current;
       pendingRef.current = false;
       readyPendingRef.current = false;
       readyPlayerIdRef.current = null;
       setPending(false);
       setReadyPending(false);
-      setError(serverError.message);
+      if (!staleNameError) {
+        errorCodeRef.current = serverError.code;
+        setError(serverError.message);
+      }
       logClientEvent('error', 'received', { code: serverError.code });
     }
 
@@ -101,6 +127,7 @@ export function useLobby(socket) {
     socket.on('playerJoined', onPlayerJoined);
     socket.on('playerDisconnected', onPlayerDisconnected);
     socket.on('playerReady', onPlayerReady);
+    socket.on('playerUnready', onPlayerUnready);
     socket.on('error', onServerError);
     if (!socket.connected) socket.connect();
 
@@ -111,9 +138,19 @@ export function useLobby(socket) {
       socket.off('playerJoined', onPlayerJoined);
       socket.off('playerDisconnected', onPlayerDisconnected);
       socket.off('playerReady', onPlayerReady);
+      socket.off('playerUnready', onPlayerUnready);
       socket.off('error', onServerError);
     };
   }, [socket]);
+
+  /** Clear a name-specific rejection as soon as the input changes. */
+  const nameChanged = useCallback(() => {
+    nameRevisionRef.current++;
+    if (errorCodeRef.current === 'INVALID_NAME') {
+      errorCodeRef.current = null;
+      setError(null);
+    }
+  }, []);
 
   /** Send one trimmed join request and store the acknowledged seat. */
   const join = useCallback(displayName => {
@@ -121,7 +158,9 @@ export function useLobby(socket) {
     if (connectionLostRef.current || !socket.connected || pendingRef.current || identity || !trimmedName) return;
 
     pendingRef.current = true;
+    submittedNameRevisionRef.current = nameRevisionRef.current;
     setPending(true);
+    errorCodeRef.current = null;
     setError(null);
     logClientEvent('joinRoom', 'sent');
     socket.emit('joinRoom', { displayName: trimmedName }, ack => {
@@ -133,18 +172,20 @@ export function useLobby(socket) {
     });
   }, [socket, identity]);
 
-  /** Send one ready action, leaving the mark unchanged until playerReady arrives. */
-  const ready = useCallback(() => {
+  /** Request the opposite lobby mark without changing it before the server event. */
+  const toggleReady = useCallback(() => {
     if (connectionLostRef.current || !socket.connected || !identity || readyPendingRef.current) return;
     const localPlayer = players.find(player => player.playerId === identity.playerId);
-    if (!localPlayer || localPlayer.isReady) return;
+    if (!localPlayer || (localPlayer.isReady && players.filter(player => player.isReady).length === 4)) return;
+    const event = localPlayer.isReady ? 'unready' : 'ready';
     readyPendingRef.current = true;
     readyPlayerIdRef.current = identity.playerId;
     setReadyPending(true);
+    errorCodeRef.current = null;
     setError(null);
-    socket.emit('ready', {});
-    logClientEvent('ready', 'sent');
+    socket.emit(event, {});
+    logClientEvent(event, 'sent');
   }, [socket, identity, players]);
 
-  return { connected, connectionLost, pending, readyPending, identity, players, error, join, ready };
+  return { connected, connectionLost, pending, readyPending, identity, players, error, join, nameChanged, toggleReady };
 }

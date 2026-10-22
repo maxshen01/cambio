@@ -56,10 +56,28 @@ describe('lobby join flow', () => {
     act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'Enter a different name.' }));
     expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('Enter a different name.');
     expect(screen.getByRole('button', { name: /join/i })).toBeEnabled();
+    await user.type(name, 'x');
+    expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
     await user.clear(name);
     await user.type(name, 'Bob');
     await user.click(screen.getByRole('button', { name: /join/i }));
     expect(socket.emissions[1]).toMatchObject({ event: 'joinRoom', payload: { displayName: 'Bob' } });
+  });
+
+  it('ignores a stale name rejection but keeps unrelated errors during edits', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    render(<App socket={socket} />);
+    const name = screen.getByRole('textbox', { name: /name/i });
+    await user.type(name, 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.type(name, '2');
+    act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'That name is already taken.' }));
+    expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
+    act(() => socket.receive('error', { code: 'ROOM_FULL', message: 'This room is full.' }));
+    expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('This room is full.');
+    await user.type(name, '3');
+    expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('This room is full.');
   });
 
   it('keeps vacant seats fixed and shows readiness supplied by the server', async () => {
@@ -105,7 +123,68 @@ describe('lobby join flow', () => {
 
     act(() => socket.receive('playerReady', { playerId: 'p1' }));
     expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
-    expect(ready).toBeDisabled();
+    const unready = screen.getByRole('button', { name: 'Unready' });
+    expect(unready).toBeEnabled();
+    await user.click(unready);
+    expect(socket.emissions[2]).toEqual({ event: 'unready', payload: {}, ack: undefined });
+    expect(unready).toBeDisabled();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
+    act(() => socket.receive('playerUnready', { playerId: 'p1' }));
+    expect(screen.getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Not ready')).toBeInTheDocument();
+  });
+
+  it('locks at four ready players, then unlocks when a player leaves', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [
+      player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob', true),
+      player(3, 'p3', 'Cara', true), player(4, 'p4', 'Dan', true),
+    ] }));
+    expect(screen.getByRole('button', { name: 'Unready' })).toBeDisabled();
+    act(() => socket.receive('playerDisconnected', { players: [
+      player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob', true), player(3, 'p3', 'Cara', true),
+    ] }));
+    expect(screen.getByRole('button', { name: 'Unready' })).toBeEnabled();
+  });
+
+  it('restores Unready after a server rejection and keeps the mark unchanged', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    const view = render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice', true)] }));
+    await user.click(screen.getByRole('button', { name: 'Unready' }));
+    act(() => socket.receive('error', { code: 'READY_NOT_AVAILABLE', message: 'Ready is not available right now.' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Ready is not available right now.');
+    expect(screen.getByRole('button', { name: 'Unready' })).toBeEnabled();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
+    view.unmount();
+    expect(socket.listeners.get('playerUnready')?.size).toBe(0);
+  });
+
+  it('keeps Unready locked if a fourth ready mark arrives before rejection', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [
+      player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob', true),
+      player(3, 'p3', 'Cara', true), player(4, 'p4', 'Dan'),
+    ] }));
+    await user.click(screen.getByRole('button', { name: 'Unready' }));
+    act(() => socket.receive('playerReady', { playerId: 'p4' }));
+    act(() => socket.receive('error', { code: 'READY_NOT_AVAILABLE', message: 'Ready is not available right now.' }));
+    expect(screen.getByRole('button', { name: 'Unready' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Ready is not available right now.');
   });
 
   it('restores Ready Up after rejection and applies other players ready events', async () => {

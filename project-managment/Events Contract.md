@@ -145,6 +145,8 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 - `gameAborted` (Server to All): `{ reason: "PLAYER_DISCONNECTED" | "SERVER_ERROR", playerId?: string, lobby: LobbyView }`; ends a match and supplies the reset lobby view.
 - `ready` (Client to Server): `{}`; marks a seated player ready for a deal or, after dealing, ready to begin play.
 - `playerReady` (Server to All): `{ playerId: string }`; announces a newly ready player in either stage.
+- `unready` (Client to Server): `{}`; clears a seated player's ready mark in the undealt lobby before all four are ready.
+- `playerUnready` (Server to All): `{ playerId: string }`; announces a newly cleared lobby ready mark.
 
 ### Setup and deal
 
@@ -274,6 +276,32 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Preconditions | The named player was not already ready in the current stage. |
 | Server effects | None; `ready` already updated `isReady`. |
 | Resulting events | In the lobby, clients mark that seat ready. During memorization, clients mark that seat ready and the named player's client hides their two card faces. On the fourth ready mark, `dealComplete` or `turnChanged` follows according to the stage. |
+| Ack | None. |
+| Errors | None. |
+
+### `unready`
+
+| Field | Value |
+| --- | --- |
+| Direction | (Client to Server) |
+| Trigger | A ready player presses Unready in the undealt lobby before all four players are ready. |
+| Payload | `{}` |
+| Preconditions | The sender is seated, `phase === "deal"`, no cards have been dealt, and fewer than four players are ready. |
+| Server effects | Set the sender's `isReady` to `false` once. A duplicate request changes nothing. If a player leaves after all four were ready, the remaining ready players may unready again while fewer than four are ready. |
+| Resulting events | For a newly cleared mark, send `playerUnready` (Server to All). A duplicate request emits nothing. |
+| Ack | None. |
+| Errors | `NOT_IN_ROOM` for an unseated sender; `READY_NOT_AVAILABLE` outside the undealt lobby or while all four players are ready, via `error` (Server to Player). |
+
+### `playerUnready`
+
+| Field | Value |
+| --- | --- |
+| Direction | (Server to All) |
+| Trigger | A valid `unready` request newly clears a lobby ready mark. |
+| Payload | `{ playerId: string }` for the newly unready player. |
+| Preconditions | The named player was ready in the undealt lobby. |
+| Server effects | None; `unready` already updated `isReady`. |
+| Resulting events | Clients mark that seat not ready. |
 | Ack | None. |
 | Errors | None. |
 

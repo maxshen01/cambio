@@ -310,6 +310,58 @@ test('ready rejects unseated and dealt senders only at the requesting socket', a
   assert.deepEqual(gameState, before);
 });
 
+test('unready reaches seated clients, locks at four ready, and unlocks after departure', async t => {
+  const { connect, gameState } = await harness(t);
+  const outsider = await connect();
+  const clients = [];
+  let outsiderUpdates = 0;
+  let extraUpdates = 0;
+  outsider.on('playerUnready', () => { outsiderUpdates++; });
+  for (let seat = 1; seat <= 4; seat++) {
+    const client = await connect();
+    client.on('playerUnready', () => { extraUpdates++; });
+    await join(client, `Player ${seat}`, clients);
+    clients.push(client);
+  }
+  const notInRoom = nextEvent(outsider, 'error');
+  outsider.emit('unready', {});
+  assert.equal((await notInRoom).code, 'NOT_IN_ROOM');
+
+  const initialReady = nextEvent(clients[0], 'playerReady');
+  clients[0].emit('ready', {});
+  await initialReady;
+  assert.equal(gameState.players[0].isReady, true);
+  const updates = clients.map(client => nextEvent(client, 'playerUnready'));
+  clients[0].emit('unready', {});
+  assert.deepEqual(await Promise.all(updates), clients.map(() => ({ playerId: clients[0].id })));
+  assert.equal(gameState.players[0].isReady, false);
+  const broadcastCount = extraUpdates;
+  clients[0].emit('unready', {});
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(extraUpdates, broadcastCount);
+  assert.equal(outsiderUpdates, 0);
+
+  for (const client of clients) {
+    const event = nextEvent(clients[0], 'playerReady');
+    client.emit('ready', {});
+    assert.deepEqual(await event, { playerId: client.id });
+  }
+  const lockedState = structuredClone(gameState);
+  const lockedError = nextEvent(clients[0], 'error');
+  clients[0].emit('unready', {});
+  assert.equal((await lockedError).code, 'READY_NOT_AVAILABLE');
+  assert.deepEqual(gameState, lockedState);
+  assert.equal(extraUpdates, broadcastCount);
+
+  const departure = nextEvent(clients[0], 'playerDisconnected');
+  clients[1].disconnect();
+  await departure;
+  const unlocked = nextEvent(clients[2], 'playerUnready');
+  clients[0].emit('unready', {});
+  assert.deepEqual(await unlocked, { playerId: clients[0].id });
+  assert.equal(gameState.players.find(player => player.id === clients[0].id).isReady, false);
+});
+
 test('duplicate and invalid names only reach the requester, then a departed name can be reused', async t => {
   const { connect, gameState } = await harness(t);
   const first = await connect();

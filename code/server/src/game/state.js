@@ -125,3 +125,18 @@ export function readyPlayer(state, id) {
   player.isReady = true;
   return true;
 }
+
+/** Clear one lobby ready mark unless all four players are already ready. */
+export function unreadyPlayer(state, id) {
+  const player = state.players.find(candidate => candidate.id === id);
+  if (!player) {
+    throw new ReadyError('NOT_IN_ROOM', 'You are not in this room.');
+  }
+  if (state.phase !== 'deal' || state.players.some(candidate => candidate.hand.length > 0)
+    || state.players.filter(candidate => candidate.isReady).length === 4) {
+    throw new ReadyError('READY_NOT_AVAILABLE', 'Ready is not available right now.');
+  }
+  if (!player.isReady) return false;
+  player.isReady = false;
+  return true;
+}
