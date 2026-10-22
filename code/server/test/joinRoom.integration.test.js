@@ -226,3 +226,42 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
   assert.equal(JSON.stringify(firstView).includes('hand'), false);
   assert.equal(JSON.stringify(firstView).includes('drawnCard'), false);
 });
+
+test('duplicate and invalid names only reach the requester, then a departed name can be reused', async t => {
+  const { connect, gameState } = await harness(t);
+  const first = await connect();
+  const outsider = await connect();
+  await join(first, '  Éva   Smith ');
+
+  let lobbyUpdates = 0;
+  let otherErrors = 0;
+  first.on('playerJoined', () => { lobbyUpdates++; });
+  first.on('error', () => { otherErrors++; });
+  for (const displayName of ['e\u0301VA Smith', 'Alice😀']) {
+    const before = structuredClone(gameState);
+    let acked = false;
+    const error = nextEvent(outsider, 'error');
+    outsider.emit('joinRoom', { displayName }, () => { acked = true; });
+    assert.deepEqual(await error, {
+      code: 'INVALID_NAME',
+      message: displayName === 'Alice😀'
+        ? 'Use letters, numbers, spaces, apostrophes, hyphens, or periods.'
+        : 'That name is already taken.',
+    });
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(acked, false);
+    assert.equal(lobbyUpdates, 0);
+    assert.equal(otherErrors, 0);
+    assert.deepEqual(gameState, before);
+  }
+
+  const { ack } = await join(outsider, 'Bob', [first]);
+  assert.equal(ack.seatId, 2);
+  const departed = nextEvent(outsider, 'playerDisconnected');
+  first.disconnect();
+  await departed;
+  const replacement = await connect();
+  const { ack: replacementAck, view } = await join(replacement, 'éva smith', [outsider]);
+  assert.equal(replacementAck.seatId, 1);
+  assert.deepEqual(view.players.map(player => player.displayName), ['éva smith', 'Bob']);
+});

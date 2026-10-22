@@ -10,9 +10,9 @@ This document explains [Start Screen.png](Start%20Screen.png). It is the layout 
 
 ## Joining the lobby
 
-- Opening the shared link shows a name-entry prompt over the start screen. The player must enter a nonblank name before the client sends `joinRoom` with `{ displayName }`. The client must not send `ready` before `joinRoom` succeeds.
+- Opening the shared link shows a name-entry prompt over the start screen. Before sending `joinRoom` with `{ displayName }`, the client trims surrounding whitespace, collapses repeated ordinary spaces, normalizes to Unicode NFC, and accepts 1–20 Unicode code points. The name must start with a letter or number and otherwise contain only letters, combining marks, numbers, ordinary spaces, apostrophes (`'` and `’`), hyphens, or periods. Emoji, other symbols, and control characters are invalid. The client must not send `ready` before `joinRoom` succeeds.
 - Keep **Ready Up** visible but disabled while the name is empty, the join request is pending, or the server has not accepted the join. A successful join acknowledgement supplies the player's `playerId` and `seatId`; `playerJoined` then supplies the lobby seats.
-- If the server rejects the join with `INVALID_NAME`, `ROOM_FULL`, or `GAME_ALREADY_STARTED`, show the error and leave the player unjoined with Ready Up disabled. A rejected name can be corrected and submitted again. The server remains responsible for validating names and seats.
+- The server applies the same name rules and rejects a name already used by a seated player, ignoring case and normalized spacing. A departed player's name becomes available again. If the server rejects the join with `INVALID_NAME`, `ROOM_FULL`, or `GAME_ALREADY_STARTED`, show the error and leave the player unjoined with Ready Up disabled. A rejected name can be corrected and submitted again. The server remains responsible for validating names and seats.
 
 ## Seats and readiness
 

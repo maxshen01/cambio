@@ -5,9 +5,9 @@ import { useLobby } from './lobby/useLobby.js';
 
 /** Show the lobby using state from this browser's socket connection. */
 export function App({ socket }) {
-  const { connected, pending, identity, players, error, join } = useLobby(socket);
+  const { connected, connectionLost, pending, identity, players, error, join } = useLobby(socket);
   const showJoinDialog = !identity || !players.some(player => player.playerId === identity.playerId);
-  const connectionStatus = !connected ? 'Connecting to server…' : showJoinDialog && (pending || identity) ? 'Joining lobby…' : 'Connected';
+  const connectionStatus = connectionLost ? 'Connection lost' : !connected ? 'Connecting to server…' : showJoinDialog && (pending || identity) ? 'Joining lobby…' : 'Connected';
 
   /** Keep keyboard navigation inside the non-dismissible name dialog. */
   function keepDialogFocus(event) {
@@ -41,7 +41,7 @@ export function App({ socket }) {
           <section className="join-dialog" role="dialog" aria-modal="true" aria-labelledby="join-title" onKeyDown={keepDialogFocus}>
             <h2 id="join-title">Join the lobby</h2>
             <p className="connection-status" role="status">{connectionStatus}</p>
-            <JoinForm connected={connected} pending={pending || Boolean(identity)} onJoin={join} />
+            <JoinForm connected={connected} connectionLost={connectionLost} pending={pending || Boolean(identity)} onJoin={join} />
             {error && <p className="join-dialog__error" role="alert">{error}</p>}
           </section>
         </div>

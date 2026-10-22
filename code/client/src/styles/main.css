@@ -203,6 +203,12 @@ input {
   gap: 0.6rem;
 }
 
+.join-dialog__hint {
+  margin: 0;
+  color: #52606d;
+  font-size: 0.875rem;
+}
+
 .join-dialog input,
 .join-dialog button {
   width: 100%;

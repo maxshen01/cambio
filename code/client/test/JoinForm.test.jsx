@@ -34,4 +34,28 @@ describe('JoinForm', () => {
     expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
     expect(onJoin).not.toHaveBeenCalled();
   });
+
+  it('enforces the name format and 20-code-point limit with local feedback', async () => {
+    const user = userEvent.setup();
+    const onJoin = vi.fn();
+    render(<JoinForm onJoin={onJoin} connected />);
+    const name = screen.getByRole('textbox', { name: /name/i });
+    const join = screen.getByRole('button', { name: /join/i });
+    expect(screen.getByText(/1–20 characters/i)).toBeInTheDocument();
+
+    for (const invalid of ['😀', 'Alice!', '.Alice', 'A'.repeat(21), '𐐷'.repeat(21)]) {
+      await user.clear(name);
+      await user.type(name, invalid);
+      expect(join).toBeDisabled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    }
+    await user.clear(name);
+    await user.type(name, '𐐷'.repeat(20));
+    expect(join).toBeEnabled();
+    await user.clear(name);
+    await user.type(name, '  O’Neil   李明  ');
+    expect(join).toBeEnabled();
+    await user.click(join);
+    expect(onJoin).toHaveBeenCalledExactlyOnceWith('O’Neil 李明');
+  });
 });

@@ -18,6 +18,11 @@ export class FakeSocket {
     this.receive('connect');
   }
 
+  disconnect() {
+    this.connected = false;
+    this.receive('disconnect', 'transport close');
+  }
+
   emit(event, payload, ack) {
     this.emissions.push({ event, payload, ack });
   }

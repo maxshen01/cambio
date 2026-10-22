@@ -125,4 +125,50 @@ describe('lobby join flow', () => {
     view.unmount();
     expect(socket.listeners.get('playerDisconnected')?.size).toBe(0);
   });
+
+  it('clears a departed browser’s identity and seats and requires a reload', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    const view = render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+    act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
+
+    act(() => socket.disconnect());
+    expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog')).getByRole('alert'))
+      .toHaveTextContent('Connection lost. Reload to rejoin.');
+    expect(screen.getByRole('textbox', { name: /name/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ready Up', hidden: true })).toBeDisabled();
+    expect(screen.getAllByText('Empty')).toHaveLength(4);
+
+    act(() => socket.connect());
+    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(within(screen.getByRole('dialog')).getByRole('alert'))
+      .toHaveTextContent('Connection lost. Reload to rejoin.');
+
+    view.unmount();
+    expect(socket.listeners.get('disconnect')?.size).toBe(0);
+  });
+
+  it('ignores an old join acknowledgement and events after disconnect', async () => {
+    const user = userEvent.setup();
+    const socket = new FakeSocket();
+    render(<App socket={socket} />);
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+    await user.click(screen.getByRole('button', { name: /join/i }));
+
+    act(() => socket.disconnect());
+    act(() => socket.emissions[0].ack({ playerId: 'old', seatId: 1 }));
+    act(() => socket.receive('playerJoined', { players: [player(1, 'old', 'Alice')] }));
+    act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'Old error' }));
+
+    expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog')).getByRole('alert'))
+      .toHaveTextContent('Connection lost. Reload to rejoin.');
+    expect(screen.getAllByText('Empty')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+  });
 });

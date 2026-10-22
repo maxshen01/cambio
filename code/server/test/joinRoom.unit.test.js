@@ -96,6 +96,53 @@ test('invalid and repeated joins leave state unchanged', () => {
   }
 });
 
+test('display names normalize and accept international letters and common punctuation', () => {
+  const state = createGameState();
+  const names = [
+    ['  O’Neil  ', 'O’Neil'],
+    ['Anne-  Marie', 'Anne- Marie'],
+    ['李明', '李明'],
+    ['Player   1', 'Player 1'],
+  ];
+  names.forEach(([input, expected], index) => {
+    const player = joinPlayer(state, { id: `${index}`, displayName: input });
+    assert.equal(player.displayName, expected);
+  });
+
+  const accented = createGameState();
+  assert.equal(joinPlayer(accented, { id: 'accent', displayName: '  e\u0301  ' }).displayName, 'é');
+});
+
+test('display names enforce boundaries and reject invalid characters without changing state', () => {
+  const state = createGameState();
+  assert.equal(joinPlayer(state, { id: 'max', displayName: 'A'.repeat(20) }).displayName.length, 20);
+  assert.equal(joinPlayer(state, { id: 'astral', displayName: '𐐷'.repeat(20) }).displayName, '𐐷'.repeat(20));
+  const before = structuredClone(state);
+  for (const displayName of [
+    '', '   ', 'A'.repeat(21), '𐐷'.repeat(21), '😀', 'Alice😀', 'Alice\nBob', '.Alice',
+    'Alice!', 'Alice/', 'Alice\u200b', 42, null,
+  ]) {
+    assert.throws(() => joinPlayer(state, { id: 'invalid', displayName }), { code: 'INVALID_NAME' });
+    assert.deepEqual(state, before);
+  }
+});
+
+test('display names must be unique in occupied seats after normalization and case folding', () => {
+  const state = createGameState();
+  joinPlayer(state, { id: 'one', displayName: '  Éva   Smith ' });
+  const before = structuredClone(state);
+  for (const displayName of ['éVA Smith', 'E\u0301va  Smith']) {
+    assert.throws(() => joinPlayer(state, { id: 'two', displayName }), { code: 'INVALID_NAME' });
+    assert.deepEqual(state, before);
+  }
+  assert.equal(removeLobbyPlayer(state, 'one'), true);
+  assert.equal(joinPlayer(state, { id: 'two', displayName: 'éva smith' }).seatId, 1);
+
+  const greek = createGameState();
+  joinPlayer(greek, { id: 'upper', displayName: 'Σ' });
+  assert.throws(() => joinPlayer(greek, { id: 'lower', displayName: 'ς' }), { code: 'INVALID_NAME' });
+});
+
 test('full and started or dealt rooms reject joins without changing state', () => {
   const full = createGameState();
   for (let i = 1; i <= 4; i++) {

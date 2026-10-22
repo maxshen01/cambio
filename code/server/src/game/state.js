@@ -1,4 +1,5 @@
 // Defines server game state and undealt-lobby player membership rules.
+import { checkDisplayName, sameDisplayName } from '../../../shared/displayName.js';
 
 /**
  * @typedef {Object} Player
@@ -55,8 +56,12 @@ export function joinPlayer(state, { id, displayName } = {}) {
     throw new JoinRoomError('ALREADY_IN_ROOM', 'You are already in this room.');
   }
 
-  if (typeof displayName !== 'string' || !displayName.trim()) {
-    throw new JoinRoomError('INVALID_NAME', 'Enter a nonblank display name.');
+  const { name, error } = checkDisplayName(displayName);
+  if (error) {
+    throw new JoinRoomError('INVALID_NAME', error);
+  }
+  if (state.players.some(player => sameDisplayName(player.displayName, name))) {
+    throw new JoinRoomError('INVALID_NAME', 'That name is already taken.');
   }
 
   const cardsHaveBeenDealt = state.players.some(player => player.hand.length > 0);
@@ -72,7 +77,7 @@ export function joinPlayer(state, { id, displayName } = {}) {
 
   const player = {
     id,
-    displayName: displayName.trim(),
+    displayName: name,
     seatId,
     hand: [],
     drawnCard: null,
