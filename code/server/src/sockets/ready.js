@@ -1,47 +1,29 @@
-// Handles undealt-lobby readiness changes for seated players.
-import { ReadyError, readyPlayer, unreadyPlayer } from '../game/state.js';
-import { PLAYER_ROOM } from './joinRoom.js';
-import { logSocket, logUnexpectedSocketError } from './log.js';
+// Adapts undealt-lobby readiness actions to public server-confirmed marks.
+import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
+import { PLAYER_ROOM } from './rooms.js';
+import { logSocket } from './log.js';
 
-/** Register the ready action; the protocol sends no acknowledgement. */
-export function registerReady(io, socket, gameState) {
-  socket.on('ready', () => {
-    try {
-      if (!readyPlayer(gameState, socket.id)) {
-        logSocket('info', socket.id, 'ready', 'duplicate');
+/** Register readiness actions, which intentionally have no acknowledgement.
+ * @param {import('./types.js').LobbyServer} io
+ * @param {import('./types.js').LobbySocket} socket
+ * @param {import('../game/types.js').GameState} gameState
+ * @param {import('./types.js').LobbyBoundary} run
+ */
+export function registerReady(io, socket, gameState, run) {
+  /** @param {'ready' | 'unready'} event */
+  function changeReady(event) {
+    run(socket, event, () => {
+      const changed = (event === 'ready' ? readyPlayer : unreadyPlayer)(gameState, socket.id);
+      if (!changed) {
+        logSocket('info', socket.id, event, 'duplicate');
         return;
       }
-      io.to(PLAYER_ROOM).emit('playerReady', { playerId: socket.id });
-      logSocket('info', socket.id, 'ready', 'accepted', {
+      io.to(PLAYER_ROOM).emit(event === 'ready' ? 'playerReady' : 'playerUnready', { playerId: socket.id });
+      logSocket('info', socket.id, event, 'accepted', {
         readyCount: gameState.players.filter(player => player.isReady).length,
       });
-    } catch (error) {
-      if (!(error instanceof ReadyError)) {
-        logUnexpectedSocketError(socket.id, 'ready', error);
-        throw error;
-      }
-      socket.emit('error', { code: error.code, message: error.message });
-      logSocket('warn', socket.id, 'ready', 'rejected', { code: error.code });
-    }
-  });
-
-  socket.on('unready', () => {
-    try {
-      if (!unreadyPlayer(gameState, socket.id)) {
-        logSocket('info', socket.id, 'unready', 'duplicate');
-        return;
-      }
-      io.to(PLAYER_ROOM).emit('playerUnready', { playerId: socket.id });
-      logSocket('info', socket.id, 'unready', 'accepted', {
-        readyCount: gameState.players.filter(player => player.isReady).length,
-      });
-    } catch (error) {
-      if (!(error instanceof ReadyError)) {
-        logUnexpectedSocketError(socket.id, 'unready', error);
-        throw error;
-      }
-      socket.emit('error', { code: error.code, message: error.message });
-      logSocket('warn', socket.id, 'unready', 'rejected', { code: error.code });
-    }
-  });
+    });
+  }
+  socket.on('ready', () => changeReady('ready'));
+  socket.on('unready', () => changeReady('unready'));
 }

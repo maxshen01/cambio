@@ -1,12 +1,17 @@
 // Frees undealt-lobby seats and sends the public lobby view to survivors.
-import { removeLobbyPlayer } from '../game/state.js';
+import { removeLobbyPlayer } from '../game/lobby.js';
 import { toLobbyView } from '../game/lobbyView.js';
-import { PLAYER_ROOM } from './joinRoom.js';
+import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
-/** Register cleanup for a seated socket that leaves the undealt lobby. */
-export function registerLobbyDisconnect(io, socket, gameState) {
-  socket.on('disconnect', reason => {
+/** Register cleanup for a seated socket that leaves the undealt lobby.
+ * @param {import('./types.js').LobbyServer} io
+ * @param {import('./types.js').LobbySocket} socket
+ * @param {import('../game/types.js').GameState} gameState
+ * @param {import('./types.js').LobbyBoundary} run
+ */
+export function registerLobbyDisconnect(io, socket, gameState, run) {
+  socket.on('disconnect', reason => run(socket, 'disconnect', () => {
     logSocket('info', socket.id, 'disconnect', 'disconnected', { reason });
     if (!removeLobbyPlayer(gameState, socket.id)) return;
 
@@ -15,5 +20,5 @@ export function registerLobbyDisconnect(io, socket, gameState) {
     logSocket('info', socket.id, 'playerDisconnected', 'broadcast', {
       playerCount: lobbyView.players.length,
     });
-  });
+  }));
 }

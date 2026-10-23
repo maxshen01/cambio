@@ -7,16 +7,21 @@ import { registerJoinRoom } from "./sockets/joinRoom.js";
 import { registerLobbyDisconnect } from "./sockets/disconnect.js";
 import { registerReady } from "./sockets/ready.js";
 import { logSocket } from "./sockets/log.js";
+import { createLobbyBoundary } from "./sockets/boundary.js";
 
-/** Build one shared room; injecting state keeps socket tests isolated. */
+/** Build one shared room; injecting state keeps socket tests isolated.
+ * @param {{ gameState?: import('./game/types.js').GameState }} options
+ */
 export function createServer({ gameState = createGameState() } = {}) {
     const httpServer = createHttpServer();
+    /** @type {import('./sockets/types.js').LobbyServer} */
     const io = new Server(httpServer);
+    const run = createLobbyBoundary(io, gameState);
     io.on("connection", (socket) => {
         logSocket("info", socket.id, "connection", "connected");
-        registerJoinRoom(io, socket, gameState);
-        registerReady(io, socket, gameState);
-        registerLobbyDisconnect(io, socket, gameState);
+        registerJoinRoom(io, socket, gameState, run);
+        registerReady(io, socket, gameState, run);
+        registerLobbyDisconnect(io, socket, gameState, run);
 
         socket.onAny((eventName, ...args) => {
             const outcome =

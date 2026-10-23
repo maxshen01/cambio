@@ -2,6 +2,8 @@
 
 ## Conventions
 
+- **Unexpected undealt-lobby faults**: an unexpected exception in a lobby action or disconnect handler is logged, resets the shared room to a fresh empty state, and disconnects all current clients. The server stays listening for fresh connections. Recovery preserves the shared state object's identity, prevents recursive cleanup, and emits no partial departure broadcasts. Clients clear membership and pending actions and require reload to rejoin. Expected domain validation failures remain requester-only `error` events with unchanged payloads and no room reset. This lobby recovery does not emit `gameAborted` or add a `SERVER_ERROR` client-action code; active-game abort handling remains deferred.
+
 - **Naming**: all event names are `camelCase` (e.g. `joinRoom`, `playerJoined`).
 - **Event list format**: `eventName` `(Direction)`: payload; behavior.
 - **Payloads**: always a JSON object, never a bare value — even events with no data send `{}`, not nothing.

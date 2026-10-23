@@ -1,191 +1,135 @@
-// Owns socket listeners and React state for lobby membership, readiness, and connection loss.
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Bridges socket effects to pure lobby transitions; refs only guard immediate requests and lifetimes.
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { checkDisplayName } from '../../../shared/displayName.js';
 import { logClientEvent } from '../socket/log.js';
+import { initialLobbyState, lobbyReducer, selectLobby } from './lobbyReducer.js';
 
-/** Track connection, join response, lobby seats, and join errors for one socket. */
+/** @typedef {import('socket.io-client').Socket<import('../../../shared/lobbyTypes.js').ServerEvents, import('../../../shared/lobbyTypes.js').ClientEvents>} LobbySocket */
+
+/** Attach one set of listeners per socket and keep membership server-confirmed.
+ * @param {LobbySocket} socket
+ */
 export function useLobby(socket) {
-  const [connected, setConnected] = useState(socket.connected);
-  const [connectionLost, setConnectionLost] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [readyPending, setReadyPending] = useState(false);
-  const [identity, setIdentity] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [error, setError] = useState(null);
-  const pendingRef = useRef(false);
-  const readyPendingRef = useRef(false);
-  const readyPlayerIdRef = useRef(null);
-  const connectionLostRef = useRef(false);
-  const errorCodeRef = useRef(null);
-  const nameRevisionRef = useRef(0);
-  const submittedNameRevisionRef = useRef(null);
+  const [state, dispatch] = useReducer(lobbyReducer, socket.connected, initialLobbyState);
+  const eligibility = selectLobby(state);
+  const lifetime = useRef({ generation: 0, active: false, lost: false });
+  const requests = useRef({ connecting: false, join: false, ready: /** @type {string | null} */ (null) });
 
-  // Attach lobby listeners once per socket and remove them on unmount.
   useEffect(() => {
-    /** Mark the socket usable after its connection succeeds. */
+    const guard = lifetime.current;
+    guard.active = true;
+    const generation = ++guard.generation;
+    const valid = () => guard.active && !guard.lost && guard.generation === generation;
     function onConnect() {
-      if (connectionLostRef.current) return;
-      setConnected(true);
-      errorCodeRef.current = null;
-      setError(null);
+      if (!valid()) return;
+      requests.current.connecting = false;
+      dispatch({ type: 'connected' });
       logClientEvent('connect', 'connected');
     }
-
-    /** Surface a failed connection and release a pending join. */
     function onConnectError() {
-      if (connectionLostRef.current) return;
-      setConnected(false);
-      pendingRef.current = false;
-      readyPendingRef.current = false;
-      readyPlayerIdRef.current = null;
-      setPending(false);
-      setReadyPending(false);
-      errorCodeRef.current = null;
-      setError('Unable to connect to the server.');
+      if (!valid()) return;
+      requests.current = { connecting: false, join: false, ready: null };
+      dispatch({ type: 'failed' });
       logClientEvent('connect_error', 'failed');
     }
-
-    /** Forget this connection's membership; rejoining requires a page reload. */
     function onDisconnect() {
-      connectionLostRef.current = true;
-      pendingRef.current = false;
-      readyPendingRef.current = false;
-      readyPlayerIdRef.current = null;
-      setConnected(false);
-      setConnectionLost(true);
-      setPending(false);
-      setReadyPending(false);
-      setIdentity(null);
-      setPlayers([]);
-      errorCodeRef.current = null;
-      setError('Connection lost. Reload to rejoin.');
-      logClientEvent('disconnect', 'disconnected');
+      if (!valid()) return;
+      guard.lost = true;
+      ++guard.generation;
+      requests.current = { connecting: false, join: false, ready: null };
+      dispatch({ type: 'lost' });
+      logClientEvent('disconnect', 'lost');
     }
-
-    /** Replace the displayed seats with the server's complete lobby view. */
-    function onPlayerJoined(lobby) {
-      if (connectionLostRef.current) return;
-      setPlayers(lobby.players);
-      logClientEvent('playerJoined', 'received', { playerCount: lobby.players.length });
+    /** @param {import('../../../shared/lobbyTypes.js').LobbyView} lobby */
+    function onPlayers(lobby) {
+      if (!valid()) return;
+      dispatch({ type: 'players', players: lobby.players });
+      logClientEvent('lobby', 'received', { playerCount: lobby.players.length });
     }
-
-    /** Replace seats after another seated player leaves the lobby. */
-    function onPlayerDisconnected(lobby) {
-      if (connectionLostRef.current) return;
-      setPlayers(lobby.players);
-      logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
+    /** @param {string} playerId @param {boolean} isReady */
+    function onMark(playerId, isReady) {
+      if (!valid()) return;
+      if (requests.current.ready === playerId) requests.current.ready = null;
+      dispatch({ type: 'readyMark', playerId, isReady });
+      logClientEvent(isReady ? 'playerReady' : 'playerUnready', 'received');
     }
-
-    /** Apply a ready mark only when the server announces it. */
-    function onPlayerReady({ playerId }) {
-      if (connectionLostRef.current) return;
-      setPlayers(current => current.map(player => (
-        player.playerId === playerId ? { ...player, isReady: true } : player
-      )));
-      if (readyPlayerIdRef.current === playerId) {
-        readyPendingRef.current = false;
-        readyPlayerIdRef.current = null;
-        setReadyPending(false);
-      }
-      logClientEvent('playerReady', 'received');
+    /** @param {import('../../../shared/lobbyTypes.js').ReadyNotice} notice */
+    const onReady = ({ playerId }) => onMark(playerId, true);
+    /** @param {import('../../../shared/lobbyTypes.js').ReadyNotice} notice */
+    const onUnready = ({ playerId }) => onMark(playerId, false);
+    /** @param {import('../../../shared/lobbyTypes.js').LobbyError} error */
+    function onError(error) {
+      if (!valid()) return;
+      requests.current.join = false;
+      requests.current.ready = null;
+      dispatch({ type: 'error', error });
+      logClientEvent('error', 'received', { code: error.code });
     }
-
-    /** Apply a cleared ready mark only after the server announces it. */
-    function onPlayerUnready({ playerId }) {
-      if (connectionLostRef.current) return;
-      setPlayers(current => current.map(player => (
-        player.playerId === playerId ? { ...player, isReady: false } : player
-      )));
-      if (readyPlayerIdRef.current === playerId) {
-        readyPendingRef.current = false;
-        readyPlayerIdRef.current = null;
-        setReadyPending(false);
-      }
-      logClientEvent('playerUnready', 'received');
-    }
-
-    /** Show a rejected join and make the form available for retry. */
-    function onServerError(serverError) {
-      if (connectionLostRef.current) return;
-      const staleNameError = serverError.code === 'INVALID_NAME'
-        && pendingRef.current
-        && submittedNameRevisionRef.current !== nameRevisionRef.current;
-      pendingRef.current = false;
-      readyPendingRef.current = false;
-      readyPlayerIdRef.current = null;
-      setPending(false);
-      setReadyPending(false);
-      if (!staleNameError) {
-        errorCodeRef.current = serverError.code;
-        setError(serverError.message);
-      }
-      logClientEvent('error', 'received', { code: serverError.code });
-    }
-
     socket.on('connect', onConnect);
     socket.on('connect_error', onConnectError);
     socket.on('disconnect', onDisconnect);
-    socket.on('playerJoined', onPlayerJoined);
-    socket.on('playerDisconnected', onPlayerDisconnected);
-    socket.on('playerReady', onPlayerReady);
-    socket.on('playerUnready', onPlayerUnready);
-    socket.on('error', onServerError);
-    if (!socket.connected) socket.connect();
-
+    socket.on('playerJoined', onPlayers);
+    socket.on('playerDisconnected', onPlayers);
+    socket.on('playerReady', onReady);
+    socket.on('playerUnready', onUnready);
+    socket.on('error', onError);
+    if (socket.connected) onConnect();
+    else if (!guard.lost && !requests.current.connecting) {
+      requests.current.connecting = true;
+      socket.connect();
+    }
     return () => {
+      guard.active = false;
+      ++guard.generation;
       socket.off('connect', onConnect);
       socket.off('connect_error', onConnectError);
       socket.off('disconnect', onDisconnect);
-      socket.off('playerJoined', onPlayerJoined);
-      socket.off('playerDisconnected', onPlayerDisconnected);
-      socket.off('playerReady', onPlayerReady);
-      socket.off('playerUnready', onPlayerUnready);
-      socket.off('error', onServerError);
+      socket.off('playerJoined', onPlayers);
+      socket.off('playerDisconnected', onPlayers);
+      socket.off('playerReady', onReady);
+      socket.off('playerUnready', onUnready);
+      socket.off('error', onError);
     };
   }, [socket]);
 
-  /** Clear a name-specific rejection as soon as the input changes. */
-  const nameChanged = useCallback(() => {
-    nameRevisionRef.current++;
-    if (errorCodeRef.current === 'INVALID_NAME') {
-      errorCodeRef.current = null;
-      setError(null);
-    }
-  }, []);
+  const nameChanged = useCallback(() => dispatch({ type: 'nameChanged' }), []);
 
-  /** Send one trimmed join request and store the acknowledged seat. */
-  const join = useCallback(displayName => {
-    const trimmedName = displayName.trim();
-    if (connectionLostRef.current || !socket.connected || pendingRef.current || identity || !trimmedName) return;
+  /** Retry initial failures on the same socket, without automatic reconnection. */
+  function retry() {
+    if (!eligibility.canRetry || requests.current.connecting || lifetime.current.lost) return;
+    requests.current.connecting = true;
+    dispatch({ type: 'retry' });
+    logClientEvent('connect', 'retry');
+    socket.connect();
+  }
 
-    pendingRef.current = true;
-    submittedNameRevisionRef.current = nameRevisionRef.current;
-    setPending(true);
-    errorCodeRef.current = null;
-    setError(null);
+  /** @param {string} displayName */
+  function join(displayName) {
+    const checked = checkDisplayName(displayName);
+    if (!eligibility.canJoin || !socket.connected || requests.current.join || lifetime.current.lost
+      || checked.name === null) return;
+    requests.current.join = true;
+    const generation = lifetime.current.generation;
+    dispatch({ type: 'joinStarted' });
     logClientEvent('joinRoom', 'sent');
-    socket.emit('joinRoom', { displayName: trimmedName }, ack => {
-      if (connectionLostRef.current || !socket.connected) return;
-      pendingRef.current = false;
-      setPending(false);
-      setIdentity({ playerId: ack.playerId, seatId: ack.seatId });
-      logClientEvent('joinRoom', 'acknowledged', { seatId: ack.seatId });
+    socket.emit('joinRoom', { displayName: checked.name }, identity => {
+      if (!lifetime.current.active || lifetime.current.lost || !socket.connected
+        || lifetime.current.generation !== generation || !requests.current.join) return;
+      dispatch({ type: 'joined', identity });
+      logClientEvent('joinRoom', 'acknowledged', { seatId: identity.seatId });
     });
-  }, [socket, identity]);
+  }
 
-  /** Request the opposite lobby mark without changing it before the server event. */
-  const toggleReady = useCallback(() => {
-    if (connectionLostRef.current || !socket.connected || !identity || readyPendingRef.current) return;
-    const localPlayer = players.find(player => player.playerId === identity.playerId);
-    if (!localPlayer || (localPlayer.isReady && players.filter(player => player.isReady).length === 4)) return;
+  function toggleReady() {
+    if (!eligibility.canReady || !socket.connected || requests.current.ready || lifetime.current.lost) return;
+    const localPlayer = eligibility.localPlayer;
+    if (!localPlayer) return;
     const event = localPlayer.isReady ? 'unready' : 'ready';
-    readyPendingRef.current = true;
-    readyPlayerIdRef.current = identity.playerId;
-    setReadyPending(true);
-    errorCodeRef.current = null;
-    setError(null);
+    requests.current.ready = localPlayer.playerId;
+    dispatch({ type: 'readyStarted' });
     socket.emit(event, {});
     logClientEvent(event, 'sent');
-  }, [socket, identity, players]);
+  }
 
-  return { connected, connectionLost, pending, readyPending, identity, players, error, join, nameChanged, toggleReady };
+  return { ...state, ...eligibility, join, nameChanged, toggleReady, retry };
 }

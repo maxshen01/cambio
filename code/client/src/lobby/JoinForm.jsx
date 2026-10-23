@@ -2,16 +2,21 @@
 import { useState } from 'react';
 import { checkDisplayName } from '../../../shared/displayName.js';
 
-/** Render the name entry controls and enforce basic submission eligibility. */
+/** Render the name entry controls and enforce basic submission eligibility.
+ * @param {{ connected: boolean, connectionLost?: boolean, pending?: boolean,
+ * onJoin: (name: string) => void, onNameChange?: () => void }} props
+ */
 export function JoinForm({ connected, connectionLost = false, pending = false, onJoin, onNameChange }) {
   const [name, setName] = useState('');
   const checkedName = checkDisplayName(name);
   const canJoin = connected && !pending && !checkedName.error;
 
-  /** Prevent page navigation and pass the trimmed name to the join handler. */
+  /** Prevent page navigation and pass the trimmed name to the join handler.
+   * @param {import('react').SubmitEvent<HTMLFormElement>} event
+   */
   function submit(event) {
     event.preventDefault();
-    if (canJoin) onJoin(checkedName.name);
+    if (canJoin && checkedName.name !== null) onJoin(checkedName.name);
   }
 
   return (

@@ -1,15 +1,83 @@
-// Tests joinRoom and playerJoined through a real Socket.IO server and clients.
+// Tests undealt-lobby membership, readiness, and recovery through real sockets.
 
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import { once } from 'node:events';
+import { io as connectClient } from 'socket.io-client';
+import { nextEvent } from './helpers/socket.js';
 import test from 'node:test';
 import { createServer } from '../src/server.js';
 import { createGameState } from '../src/game/state.js';
 
-// Socket.IO ships this real client bundle; no separate test dependency is needed.
-const require = createRequire(import.meta.url);
-const { io: connectClient } = require('../node_modules/socket.io/client-dist/socket.io.js');
+test('two contenders for the last seat produce one acknowledgement and one ROOM_FULL', async t => {
+  const { connect, gameState } = await harness(t);
+  const seated = [];
+  for (let seat = 1; seat <= 3; seat++) {
+    const client = await connect();
+    await join(client, `Player ${seat}`, seated);
+    seated.push(client);
+  }
+  const contenders = await Promise.all([connect(), connect()]);
+  const outcomes = contenders.map((client, index) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Join outcome timed out')); }, 1500);
+    function cleanup() { clearTimeout(timer); client.off('error', onError); }
+    function onError(error) { cleanup(); resolve(error); }
+    client.once('error', onError);
+    client.timeout(1000).emit('joinRoom', { displayName: `Contender ${index}` }, (error, ack) => {
+      if (!error) { cleanup(); resolve(ack); }
+    });
+  }));
+  const result = await Promise.all(outcomes);
+  assert.equal(result.filter(outcome => outcome.seatId === 4).length, 1);
+  assert.equal(result.filter(outcome => outcome.code === 'ROOM_FULL').length, 1);
+  assert.equal(gameState.players.length, 4);
+  assert.equal(new Set(gameState.players.map(player => player.seatId)).size, 4);
+  assert.ok(contenders.every(client => client.connected));
+});
+
+for (const action of ['joinRoom', 'ready', 'unready', 'disconnect']) {
+  test(`unexpected ${action} fault resets the room, disconnects observers, and accepts a fresh join`, async t => {
+    const { connect, gameState, io } = await harness(t);
+    const first = await connect();
+    const second = await connect();
+    const outsider = await connect();
+    await join(first, 'One');
+    await join(second, 'Two', [first]);
+    let departures = 0;
+    let aborted = 0;
+    for (const client of [first, second, outsider]) {
+      client.on('playerDisconnected', () => departures++);
+      client.on('gameAborted', () => aborted++);
+    }
+    const logs = t.mock.method(console, 'error', () => {});
+    if (action === 'joinRoom') {
+      // Mutation has already inserted the third player when the room join fails.
+      io.sockets.sockets.get(outsider.id).join = () => { throw new Error('injected room fault'); };
+    } else if (action === 'disconnect') {
+      gameState.players.splice = function (...args) {
+        Array.prototype.splice.apply(this, args);
+        throw new Error('injected departure fault after removal');
+      };
+    } else {
+      Object.defineProperty(gameState.players[0], 'isReady', {
+        get: () => action === 'unready',
+        set: () => { throw new Error('injected readiness fault'); },
+      });
+    }
+    const disconnected = [first, second, outsider].map(client => nextEvent(client, 'disconnect'));
+    if (action === 'disconnect') first.disconnect();
+    else if (action === 'joinRoom') outsider.emit(action, { displayName: 'Three' });
+    else first.emit(action, {});
+    await Promise.all(disconnected);
+    assert.deepEqual(gameState, createGameState());
+    assert.equal(departures, 0);
+    assert.equal(aborted, 0);
+    assert.equal(logs.mock.callCount(), 1);
+    const fresh = await connect();
+    const { ack } = await join(fresh, 'Fresh');
+    assert.equal(ack.seatId, 1);
+    assert.equal(gameState.players.length, 1);
+  });
+}
+
 
 async function harness(t, gameState = createGameState()) {
   const { httpServer, io } = createServer({ gameState });
@@ -31,29 +99,19 @@ async function harness(t, gameState = createGameState()) {
 
   async function connect() {
     const client = connectClient(url, {
+      autoConnect: false,
       transports: ['websocket'],
       forceNew: true,
       reconnection: false,
     });
     clients.push(client);
-    await once(client, 'connect');
+    const connected = nextEvent(client, 'connect', 'connect_error');
+    client.connect();
+    await connected;
     return client;
   }
 
-  return { connect, gameState };
-}
-
-function nextEvent(client, event) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`Timed out waiting for ${event}`));
-    }, 1000);
-
-    client.once(event, payload => {
-      clearTimeout(timeout);
-      resolve(payload);
-    });
-  });
+  return { connect, gameState, io };
 }
 
 async function join(client, name, seatedClients = []) {
@@ -63,17 +121,24 @@ async function join(client, name, seatedClients = []) {
   });
   const order = [];
 
-  client.once('playerJoined', () => {
-    order.push('joined');
-  });
-  const ack = await new Promise(resolve => {
-    client.emit('joinRoom', { displayName: name }, value => {
-      order.push('ack');
-      resolve(value);
-    });
-  });
-
-  const payloads = await Promise.all(views);
+  const onJoined = () => order.push('joined');
+  client.once('playerJoined', onJoined);
+  let ack;
+  let payloads;
+  try {
+    [ack, payloads] = await Promise.all([
+      new Promise((resolve, reject) => {
+        client.timeout(1000).emit('joinRoom', { displayName: name }, (error, value) => {
+          if (error) return reject(error);
+          order.push('ack');
+          resolve(value);
+        });
+      }),
+      Promise.all(views),
+    ]);
+  } finally {
+    client.off('playerJoined', onJoined);
+  }
   assert.deepEqual(order, ['ack', 'joined']);
   for (const payload of payloads) {
     assert.deepEqual(payload, payloads[0]);
@@ -143,8 +208,8 @@ test('invalid, repeated, full, and started or dealt joins only send requester er
     }
 
     const error = nextEvent(requester, 'error');
-    requester.emit('joinRoom', payload, () => {
-      acked = true;
+    requester.timeout(1000).emit('joinRoom', payload, error => {
+      if (!error) acked = true;
     });
     assert.equal((await error).code, code);
     await new Promise(resolve => {
@@ -376,7 +441,7 @@ test('duplicate and invalid names only reach the requester, then a departed name
     const before = structuredClone(gameState);
     let acked = false;
     const error = nextEvent(outsider, 'error');
-    outsider.emit('joinRoom', { displayName }, () => { acked = true; });
+    outsider.timeout(1000).emit('joinRoom', { displayName }, error => { if (!error) acked = true; });
     assert.deepEqual(await error, {
       code: 'INVALID_NAME',
       message: displayName === 'Alice😀'

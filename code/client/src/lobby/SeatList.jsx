@@ -1,7 +1,10 @@
 // Renders the server-assigned players in four stable lobby seats.
 const positions = ['bottom', 'left', 'top', 'right'];
 
-/** Rotate the four stable seats around the local player's position. */
+/** Rotate the four stable seats around the local player's position.
+ * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[], localPlayerId?: string,
+ * localSeatId?: import('../../../shared/lobbyTypes.js').SeatId }} props
+ */
 export function SeatList({ players, localPlayerId, localSeatId = 1 }) {
   return (
     <ol className="seats" aria-label="Lobby seats">

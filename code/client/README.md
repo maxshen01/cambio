@@ -12,4 +12,10 @@ $env:VITE_SOCKET_DEBUG='1'; npm.cmd run dev
 
 Logs include event names, outcomes, seat IDs, and player counts. They omit display names and full event payloads.
 
-Run component and real-socket integration tests with `npm.cmd test`. Build the client with `npm.cmd run build`.
+Connection status distinguishes connecting, connected, failed, and lost. If the backend is unavailable on opening the page, **Retry connection** reuses the socket and preserves your entered name. Retry clears the connection error and remains disabled while connecting. Automatic reconnection is disabled. After an established connection is lost, membership and pending requests are cleared and **Reload to rejoin** is required; late responses cannot restore the previous session. Unexpected server lobby faults reset the entire room and disconnect everyone, using this same reload flow.
+
+Install dependencies with `npm.cmd install`. Run component and real-socket integration tests with `npm.cmd test`, strict JavaScript/JSX checks with `npm.cmd run typecheck`, and the production build with `npm.cmd run build`. The browser type-check configuration includes shared public lobby payload definitions, separate from the server's authoritative state types.
+
+The implemented scope is the undealt lobby. Dealing, memorization, gameplay, active-game aborts, results, and reconnection/resume remain deferred; the full event contract is not yet implemented.
+
+For manual validation, start the frontend while the backend is stopped and verify failure/retry. Start the backend and retry, then use four tabs to check joining, readiness, the four-ready lock, departure, and replacement of the vacant seat. Stop the backend while joined and confirm that rejoining requires reload. Automated tests inject unexpected handler faults; there is no production debug control.

@@ -2,8 +2,23 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGameState, joinPlayer, removeLobbyPlayer, readyPlayer, unreadyPlayer } from '../src/game/state.js';
+import { createGameState } from '../src/game/state.js';
+import { joinPlayer, removeLobbyPlayer, readyPlayer, unreadyPlayer } from '../src/game/lobby.js';
 import { toLobbyView } from '../src/game/lobbyView.js';
+
+test('join rejection precedence is membership, name, stage, then capacity', () => {
+  const state = createGameState();
+  for (let id = 1; id <= 4; id++) joinPlayer(state, { id: String(id), displayName: String(id) });
+  state.phase = 'active';
+  const before = structuredClone(state);
+  assert.throws(() => joinPlayer(state, { id: '1', displayName: '' }), { code: 'ALREADY_IN_ROOM' });
+  assert.throws(() => joinPlayer(state, { id: '5', displayName: '' }), { code: 'INVALID_NAME' });
+  assert.throws(() => joinPlayer(state, { id: '5', displayName: '1' }), { code: 'INVALID_NAME' });
+  assert.throws(() => joinPlayer(state, { id: '5', displayName: 'Five' }), { code: 'GAME_ALREADY_STARTED' });
+  assert.deepEqual(state, before);
+  state.phase = 'deal';
+  assert.throws(() => joinPlayer(state, { id: '5', displayName: 'Five' }), { code: 'ROOM_FULL' });
+});
 
 test('joins take the lowest vacant seat and keep players in seat order', () => {
   const state = createGameState();

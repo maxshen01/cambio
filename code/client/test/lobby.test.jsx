@@ -22,21 +22,21 @@ describe('lobby join flow', () => {
 
     await user.type(screen.getByRole('textbox', { name: /name/i }), '  Alice  ');
     await user.tab();
-    expect(screen.getByRole('button', { name: /join/i })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('textbox', { name: /name/i })).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     expect(socket.emissions).toHaveLength(1);
     expect(socket.emissions[0]).toMatchObject({ event: 'joinRoom', payload: { displayName: 'Alice' } });
-    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
 
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /join/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument();
     expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText(/Alice.*you/i)).toBeVisible();
     expect(screen.getAllByText(/empty/i)).toHaveLength(3);
 
@@ -51,16 +51,16 @@ describe('lobby join flow', () => {
     render(<App socket={socket} />);
     const name = screen.getByRole('textbox', { name: /name/i });
     await user.type(name, 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
 
     act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'Enter a different name.' }));
     expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('Enter a different name.');
-    expect(screen.getByRole('button', { name: /join/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeEnabled();
     await user.type(name, 'x');
     expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
     await user.clear(name);
     await user.type(name, 'Bob');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     expect(socket.emissions[1]).toMatchObject({ event: 'joinRoom', payload: { displayName: 'Bob' } });
   });
 
@@ -70,7 +70,7 @@ describe('lobby join flow', () => {
     render(<App socket={socket} />);
     const name = screen.getByRole('textbox', { name: /name/i });
     await user.type(name, 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     await user.type(name, '2');
     act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'That name is already taken.' }));
     expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
@@ -86,7 +86,7 @@ describe('lobby join flow', () => {
     render(<App socket={socket} />);
 
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Cara');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p3', seatId: 3 }));
     act(() => socket.receive('playerJoined', {
       players: [player(1, 'p1', 'Alice', true), player(3, 'p3', 'Cara')],
@@ -108,7 +108,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
 
@@ -139,7 +139,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [
       player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob', true),
@@ -157,7 +157,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     const view = render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice', true)] }));
     await user.click(screen.getByRole('button', { name: 'Unready' }));
@@ -174,7 +174,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [
       player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob', true),
@@ -192,7 +192,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     const view = render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice'), player(2, 'p2', 'Bob')] }));
 
@@ -231,7 +231,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     const view = render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Cara');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p3', seatId: 3 }));
     act(() => socket.receive('playerJoined', { players: [
       player(1, 'p1', 'Alice', true), player(2, 'p2', 'Bob'), player(3, 'p3', 'Cara'),
@@ -253,7 +253,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     const view = render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
     act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
 
@@ -265,12 +265,12 @@ describe('lobby join flow', () => {
     expect(within(screen.getByRole('dialog')).getByRole('alert'))
       .toHaveTextContent('Connection lost. Reload to rejoin.');
     expect(screen.getByRole('textbox', { name: /name/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ready Up', hidden: true })).toBeDisabled();
     expect(screen.getAllByText('Empty')).toHaveLength(4);
 
     act(() => socket.connect());
-    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
     expect(within(screen.getByRole('dialog')).getByRole('alert'))
       .toHaveTextContent('Connection lost. Reload to rejoin.');
 
@@ -283,7 +283,7 @@ describe('lobby join flow', () => {
     const socket = new FakeSocket();
     render(<App socket={socket} />);
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
-    await user.click(screen.getByRole('button', { name: /join/i }));
+    await user.click(screen.getByRole('button', { name: 'Join lobby' }));
 
     act(() => socket.disconnect());
     act(() => socket.emissions[0].ack({ playerId: 'old', seatId: 1 }));
@@ -294,6 +294,6 @@ describe('lobby join flow', () => {
     expect(within(screen.getByRole('dialog')).getByRole('alert'))
       .toHaveTextContent('Connection lost. Reload to rejoin.');
     expect(screen.getAllByText('Empty')).toHaveLength(4);
-    expect(screen.getByRole('button', { name: /join/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
   });
 });

@@ -6,7 +6,9 @@ import { createClientSocket } from './socket/client.js';
 import './styles/main.css';
 
 const socket = createClientSocket();
-createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root');
+if (!root) throw new Error('Missing app root');
+createRoot(root).render(
   <React.StrictMode>
     <App socket={socket} />
   </React.StrictMode>,

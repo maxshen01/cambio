@@ -2,6 +2,8 @@
 
 const debugEnabled = process.env.SOCKET_DEBUG === '1';
 
+/** Safe routine metadata only. @param {'info' | 'warn'} level @param {string} socketId
+ * @param {string} event @param {string} outcome @param {Record<string, string | number | boolean>} details */
 export function logSocket(level, socketId, event, outcome, details = {}) {
   if (!debugEnabled) {
     return;
@@ -19,6 +21,7 @@ export function logSocket(level, socketId, event, outcome, details = {}) {
   write(JSON.stringify(entry));
 }
 
+/** Always report unexpected faults. @param {string} socketId @param {string} event @param {unknown} error */
 export function logUnexpectedSocketError(socketId, event, error) {
   console.error(JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -26,6 +29,6 @@ export function logUnexpectedSocketError(socketId, event, error) {
     socketId,
     event,
     outcome: 'failed',
-    error: error?.stack ?? String(error),
+    error: error instanceof Error ? error.stack : String(error),
   }));
 }

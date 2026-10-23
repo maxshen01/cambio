@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env src/index.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "jest": "^30.5.2",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "socket.io-client": "^4.8.4",
+    "typescript": "^7.0.2"
   }
 }
