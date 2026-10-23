@@ -2,6 +2,8 @@
 
 ## Conventions
 
+- **Unexpected undealt-lobby faults**: an unexpected exception in a lobby action or disconnect handler is logged, resets the shared room to a fresh empty state, and disconnects all current clients. The server stays listening for fresh connections. Recovery preserves the shared state object's identity, prevents recursive cleanup, and emits no partial departure broadcasts. Clients clear membership and pending actions and require reload to rejoin. Expected domain validation failures remain requester-only `error` events with unchanged payloads and no room reset. This lobby recovery does not emit `gameAborted` or add a `SERVER_ERROR` client-action code; active-game abort handling remains deferred.
+
 - **Naming**: all event names are `camelCase` (e.g. `joinRoom`, `playerJoined`).
 - **Event list format**: `eventName` `(Direction)`: payload; behavior.
 - **Payloads**: always a JSON object, never a bare value — even events with no data send `{}`, not nothing.
@@ -18,7 +20,7 @@
     The complete set of client-action error codes is:
 
     ```text
-    CAMBIO_ALREADY_CALLED, CAMBIO_NOT_AVAILABLE, DECK_EMPTY, DISCARD_EMPTY,
+    ALREADY_IN_ROOM, CAMBIO_ALREADY_CALLED, CAMBIO_NOT_AVAILABLE, DECK_EMPTY, DISCARD_EMPTY,
     DRAW_NOT_AVAILABLE, GAME_ALREADY_STARTED, GIFT_NOT_AVAILABLE,
     INVALID_DRAW_SOURCE, INVALID_GIFT_TARGET, INVALID_MATCH_TARGET,
     INVALID_NAME, INVALID_POWER_ACTION, INVALID_POWER_TARGET, INVALID_TARGET,
@@ -97,16 +99,17 @@ Hand slot IDs are per player and range from `1` to `8`. Render them in column or
 { playerId: string, displayName: string, seatId: int, connected: bool, isReady: bool }
 ```
 
-**LobbyView** — public state needed to draw the seats and lobby controls:
+Derive each summary from a server `Player`: `playerId` comes from `Player.id`, and the other fields come from the same-named `Player` fields. Never send a `Player` directly: it also contains the hand, drawn card, score, and other server state.
+
+**LobbyView** — public player list needed to draw seats and readiness:
 
 ```js
 {
-  players: PlayerSummary[], // ordered by seatId
-  phase: "deal" | "active" | "finalRound" | "roundOver" | "gameAborted"
+  players: PlayerSummary[] // ordered by seatId
 }
 ```
 
-This contains no cards or pile data. In the undealt lobby, `phase` is `"deal"`; each summary's `isReady` shows whether that player is ready for a deal. After `roundOver`, a lobby update changes connection indicators without clearing the final result.
+This is an object because all event payloads are JSON objects. It contains no cards, piles, or game phase. The array order is seat order, but `seatId` remains the seat's stable identity in the range `1`–`4`: a vacant middle seat does not renumber the remaining players. A new player takes the first vacant `seatId`, and the server sends the whole list again in seat order. In the undealt lobby, each summary's `isReady` shows whether that player is ready for a deal. The event carrying this view determines how clients use it: `playerJoined` updates the lobby, `playerDisconnected` updates seats or connection indicators, and `gameAborted` resets the display to the lobby.
 
 **GameStateView** — the recipient-specific display snapshot derived from server `GameState`:
 
@@ -139,11 +142,13 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 ### Connection and lobby
 
 - `joinRoom` (Client to Server): `{ displayName: string }`; joins a vacant lobby seat. Ack: `{ playerId: string, seatId: int }`.
-- `playerJoined` (Server to All): `LobbyView` after an accepted join; clients rebuild the seat layout from its ordered players.
+- `playerJoined` (Server to All): `LobbyView` after an accepted join, including to the joining player; clients rebuild the seat layout from its ordered players.
 - `playerDisconnected` (Server to All): `LobbyView` after a seated player leaves; before play, their seat opens, while an active match aborts.
 - `gameAborted` (Server to All): `{ reason: "PLAYER_DISCONNECTED" | "SERVER_ERROR", playerId?: string, lobby: LobbyView }`; ends a match and supplies the reset lobby view.
 - `ready` (Client to Server): `{}`; marks a seated player ready for a deal or, after dealing, ready to begin play.
 - `playerReady` (Server to All): `{ playerId: string }`; announces a newly ready player in either stage.
+- `unready` (Client to Server): `{}`; clears a seated player's ready mark in the undealt lobby before all four are ready.
+- `playerUnready` (Server to All): `{ playerId: string }`; announces a newly cleared lobby ready mark.
 
 ### Setup and deal
 
@@ -206,10 +211,10 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Trigger | Player opens the shared link and their client connects |
 | Payload | `{ displayName: string }` |
 | Preconditions | A seat is vacant, `phase === "deal"`, and no cards are dealt. No mid-game join or resume. This includes the lobby after a prestart disconnect or aborted match. |
-| Server effects | Creates a new `Player` with `connected: true` and `isReady: false`, assigns the first vacant `seatId`, and inserts them into `GameState.players` in seat order. Existing players keep their seats and ready marks. A disconnected player who returns joins as a new player. |
-| Resulting events | After the ack: `playerJoined` (Server to All) with the updated `LobbyView`. Filling the fourth seat does not deal cards; all four seated players must be ready. |
+| Server effects | Validate and store the normalized display name. Trim surrounding whitespace, collapse repeated ordinary spaces, and normalize to Unicode NFC. Accept 1–20 Unicode code points: the first must be a letter or number; the rest may be letters, combining marks, numbers, ordinary spaces, apostrophes (`'` and `’`), hyphens, or periods. Reject control characters, emoji, and other symbols. Names must be unique among seated players after normalization and case-insensitive comparison; a departed player's name is available again. Create a new `Player` with `connected: true` and `isReady: false`, assign the first vacant `seatId` from `1`–`4`, and insert them into `GameState.players` in seat order. Existing players keep their seats and ready marks. A disconnected player who returns joins as a new player. |
+| Resulting events | After the ack: `playerJoined` (Server to All), including to the joining socket, with the updated `LobbyView` derived from `GameState.players`. This gives the new player the existing seats and ready marks without sending `GameState` or `GameStateView`. Filling the fourth seat does not deal cards; all four seated players must be ready. |
 | Ack | **Exception to the no-ack convention** — send `{ playerId, seatId }` before resulting events so the joining client knows its identity. |
-| Errors | `ROOM_FULL`, `GAME_ALREADY_STARTED`, `INVALID_NAME` |
+| Errors | `ALREADY_IN_ROOM` if this socket already has a seat; `INVALID_NAME` for a non-string, invalid, overlong, or already occupied name; `GAME_ALREADY_STARTED` if the phase is not `"deal"` or any hand is dealt; `ROOM_FULL` if no seat is vacant. Check in that order. A rejected join receives no acknowledgment or lobby broadcast. |
 
 ### `playerJoined`
 
@@ -217,7 +222,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | --- | --- |
 | Direction | (Server to All) |
 | Trigger | A `joinRoom` request succeeds and its acknowledgment has been sent. |
-| Payload | `LobbyView` with the joining player in their assigned seat, `connected: true`, and `isReady: false`; existing players' ready marks are preserved. |
+| Payload | `{ players: PlayerSummary[] }`, the complete current `LobbyView` in `seatId` order, with the joining player `connected: true` and `isReady: false`; existing players' ready marks are preserved. |
 | Preconditions | The player has an assigned lobby seat. |
 | Server effects | None; `joinRoom` already added the player. |
 | Resulting events | None. Players use `ready` to trigger a deal; no separate `gameState` event is sent. |
@@ -230,10 +235,10 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | --- | --- |
 | Direction | (Server to All) |
 | Trigger | A seated player's socket disconnects, including a server-forced disconnect when a card addition would exceed eight cards. |
-| Payload | `LobbyView` after the disconnect. Before play, the departed player is absent; during play or after `roundOver`, their summary has `connected: false` until the match is reset. |
+| Payload | `{ players: PlayerSummary[] }`, the complete `LobbyView` after the disconnect, in `seatId` order. Before play, the departed player is absent; during play or after `roundOver`, their summary has `connected: false` until the match is reset. |
 | Preconditions | The socket belongs to a seated player. |
 | Server effects | In an undealt lobby, free the seat and preserve the remaining players' `isReady` flags. During memorization, free the seat, discard the deal, and reset the remaining players' `isReady` flags. During `active` or `finalRound`, mark the player disconnected so `gameAborted` can reset the match. After `roundOver`, mark them disconnected but preserve the final result. |
-| Resulting events | During play: `gameAborted` (Server to All) follows. Before play, this `LobbyView` has `phase: "deal"`; clients clear any dealt cards and use its ready marks. After `roundOver`, clients update connection indicators and preserve the final result. No separate `gameState` event is sent. |
+| Resulting events | During play: `gameAborted` (Server to All) follows and supplies the reset lobby. Before play, clients clear any dealt cards, return to the undealt lobby, and use the supplied seats and ready marks. After `roundOver`, clients update connection indicators and preserve the final result. No separate `gameState` event is sent. |
 | Ack | None. |
 | Errors | None. |
 
@@ -273,6 +278,32 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Preconditions | The named player was not already ready in the current stage. |
 | Server effects | None; `ready` already updated `isReady`. |
 | Resulting events | In the lobby, clients mark that seat ready. During memorization, clients mark that seat ready and the named player's client hides their two card faces. On the fourth ready mark, `dealComplete` or `turnChanged` follows according to the stage. |
+| Ack | None. |
+| Errors | None. |
+
+### `unready`
+
+| Field | Value |
+| --- | --- |
+| Direction | (Client to Server) |
+| Trigger | A ready player presses Unready in the undealt lobby before all four players are ready. |
+| Payload | `{}` |
+| Preconditions | The sender is seated, `phase === "deal"`, no cards have been dealt, and fewer than four players are ready. |
+| Server effects | Set the sender's `isReady` to `false` once. A duplicate request changes nothing. If a player leaves after all four were ready, the remaining ready players may unready again while fewer than four are ready. |
+| Resulting events | For a newly cleared mark, send `playerUnready` (Server to All). A duplicate request emits nothing. |
+| Ack | None. |
+| Errors | `NOT_IN_ROOM` for an unseated sender; `READY_NOT_AVAILABLE` outside the undealt lobby or while all four players are ready, via `error` (Server to Player). |
+
+### `playerUnready`
+
+| Field | Value |
+| --- | --- |
+| Direction | (Server to All) |
+| Trigger | A valid `unready` request newly clears a lobby ready mark. |
+| Payload | `{ playerId: string }` for the newly unready player. |
+| Preconditions | The named player was ready in the undealt lobby. |
+| Server effects | None; `unready` already updated `isReady`. |
+| Resulting events | Clients mark that seat not ready. |
 | Ack | None. |
 | Errors | None. |
 
