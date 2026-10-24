@@ -2,10 +2,10 @@
 const positions = ['bottom', 'left', 'top', 'right'];
 
 /** Rotate the four stable seats around the local player's position.
- * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[], localPlayerId?: string,
+ * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
  * localSeatId?: import('../../../shared/lobbyTypes.js').SeatId }} props
  */
-export function SeatList({ players, localPlayerId, localSeatId = 1 }) {
+export function SeatList({ players, localSeatId = 1 }) {
   return (
     <ol className="seats" aria-label="Lobby seats">
       {[1, 2, 3, 4].map(seatId => {
@@ -17,7 +17,7 @@ export function SeatList({ players, localPlayerId, localSeatId = 1 }) {
             <span className="seat__details">
               {player ? (
                 <>
-                  <span className="seat__name">{player.displayName}{player.playerId === localPlayerId ? ' (you)' : ''}</span>
+                  <span className="seat__name">{player.displayName}</span>
                   <span className={`seat__readiness seat__readiness--${player.isReady ? 'ready' : 'waiting'}`}>
                     <span className="visually-hidden">{player.isReady ? 'Ready' : 'Not ready'}</span>
                   </span>

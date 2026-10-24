@@ -76,7 +76,7 @@ it('shows the lobby filling on four separate socket connections', async () => {
         });
       }
       expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
-        .toHaveTextContent(`Player ${seat} (you)`);
+        .toHaveTextContent(`Player ${seat}`);
       expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
         .toHaveClass('seat--bottom');
       expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();

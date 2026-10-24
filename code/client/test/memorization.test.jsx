@@ -73,7 +73,7 @@ it('renders all named hands with stable local rotation, image mappings, and invi
   expect(screen.getByRole('listitem', { name: 'Seat 1' })).toHaveClass('setup-player--top');
   expect(screen.getByRole('listitem', { name: 'Seat 2' })).toHaveClass('setup-player--right');
   const local = within(screen.getByRole('listitem', { name: 'Seat 3' }));
-  expect(local.getByText('Cara (you)')).toBeVisible();
+  expect(local.getByText('Cara')).toBeVisible();
   expect(local.getByRole('img', { name: 'Slot 2, face up' })).toHaveAttribute('src', CARD_IMAGES[53]);
   expect(local.getByRole('img', { name: 'Slot 4, face up' })).toHaveAttribute('src', CARD_IMAGES[54]);
   expect(screen.getAllByRole('img', { name: /face up/ })).toHaveLength(2);

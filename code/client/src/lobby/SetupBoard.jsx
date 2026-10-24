@@ -27,7 +27,7 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
             <li className={`setup-player setup-player--${position}`} key={player.playerId} aria-label={`Seat ${player.seatId}`}>
               <div className="setup-player__details">
                 <span className="seat__circle" aria-hidden="true" />
-                <span className="seat__name">{player.displayName}{player.playerId === identity.playerId ? ' (you)' : ''}</span>
+                <span className="seat__name">{player.displayName}</span>
                 <span className={`seat__readiness seat__readiness--${player.isReady ? 'ready' : 'waiting'}`}>
                   <span className="visually-hidden">{player.isReady ? 'Ready' : 'Not ready'}</span>
                 </span>

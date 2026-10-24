@@ -42,12 +42,11 @@ export function App({ socket }) {
     <main className="lobby">
       <div className={`lobby__content${stage === 'memorization' ? ' lobby__content--setup' : ''}`} inert={showJoinDialog ? true : undefined}>
         <h1 className="lobby__title">{stage === 'memorization' ? 'Cambio' : 'Cambio lobby'}</h1>
-        {!showJoinDialog && <p className="connection-status" role="status">{connectionStatus}</p>}
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
         {stage === 'memorization' && identity ? (
           <SetupBoard players={players} cards={cards} identity={identity} canReady={canReady} onReady={toggleReady} />
         ) : <div className="lobby__table">
-          <SeatList players={players} localPlayerId={identity?.playerId} localSeatId={identity?.seatId} />
+          <SeatList players={players} localSeatId={identity?.seatId} />
           <button className="ready-button" type="button" disabled={!canReady} onClick={toggleReady}>
             {localPlayer?.isReady ? 'Unready' : 'Ready Up'}
           </button>

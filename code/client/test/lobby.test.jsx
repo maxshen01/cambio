@@ -37,7 +37,7 @@ describe('lobby join flow', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Join lobby' })).not.toBeInTheDocument();
-    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText(/Alice.*you/i)).toBeVisible();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Alice')).toBeVisible();
     expect(screen.getAllByText(/empty/i)).toHaveLength(3);
 
     act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice'), player(2, 'p2', 'Bob')] }));
@@ -242,7 +242,7 @@ describe('lobby join flow', () => {
     ] }));
     expect(within(screen.getByRole('listitem', { name: 'Seat 2' })).getByText('Empty')).toBeVisible();
     expect(within(screen.getByRole('listitem', { name: 'Seat 1' })).getByText('Ready')).toBeInTheDocument();
-    expect(within(screen.getByRole('listitem', { name: 'Seat 3' })).getByText(/Cara.*you/)).toBeVisible();
+    expect(within(screen.getByRole('listitem', { name: 'Seat 3' })).getByText('Cara')).toBeVisible();
 
     view.unmount();
     expect(socket.listeners.get('playerDisconnected')?.size).toBe(0);
