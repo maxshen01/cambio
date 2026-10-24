@@ -1,6 +1,7 @@
-// Synchronous membership and readiness rules for the undealt lobby.
+// Synchronous membership, readiness, and departure rules for lobby and memorization setup.
 import { checkDisplayName, sameDisplayName } from '../../../shared/displayName.js';
 import { DomainError } from './domainError.js';
+import { resetSetup } from './state.js';
 /** @typedef {import('./types.js').GameState} GameState */
 /** @type {import('../../../shared/lobbyTypes.js').SeatId[]} */
 const SEATS = [1, 2, 3, 4];
@@ -8,6 +9,15 @@ const SEATS = [1, 2, 3, 4];
 /** Whether joining and lobby readiness are still available. @param {GameState} state */
 export function isUndealtLobby(state) {
   return state.phase === 'deal' && state.players.every(player => player.hand.length === 0);
+}
+
+/** Memorization is setup with four complete opening hands; ready marks do not end it.
+ * @param {GameState} state
+ */
+export function isMemorization(state) {
+  return state.phase === 'deal' && state.players.length === 4
+    && state.players.every(player => player.hand.length === 4
+      && [1, 2, 3, 4].every(id => player.hand.some(slot => slot.handSlotId === id && slot.card != null)));
 }
 
 /** Whether four players have ready marks, locking unready before the synchronous deal. @param {GameState} state */
@@ -61,21 +71,23 @@ export function joinPlayer(state, { id, displayName }) {
   return player;
 }
 
-/** Free a seated player's lobby seat only before any cards have been dealt.
+/** Free a setup seat; an existing opening deal is discarded and survivors become unready.
  * @param {GameState} state
  * @param {string} id */
 export function removeLobbyPlayer(state, id) {
-  if (!isUndealtLobby(state)) {
+  const memorizing = isMemorization(state);
+  if (!isUndealtLobby(state) && !memorizing) {
     return false;
   }
 
   const index = state.players.findIndex(player => player.id === id);
   if (index === -1) return false;
   state.players.splice(index, 1);
+  if (memorizing) resetSetup(state, state.players);
   return true;
 }
 
-/** Mark a seated player ready once in the undealt lobby. Memorization readiness is deferred.
+/** Mark a seated player ready once in either setup stage; memorization never starts a turn.
  * @param {GameState} state
  * @param {string} id */
 export function readyPlayer(state, id) {
@@ -83,7 +95,7 @@ export function readyPlayer(state, id) {
   if (!player) {
     throw new DomainError('NOT_IN_ROOM', 'You are not in this room.');
   }
-  if (!isUndealtLobby(state)) {
+  if (!isUndealtLobby(state) && !isMemorization(state)) {
     throw new DomainError('READY_NOT_AVAILABLE', 'Ready is not available right now.');
   }
   if (player.isReady) return false;

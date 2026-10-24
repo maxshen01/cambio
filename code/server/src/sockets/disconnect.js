@@ -1,10 +1,10 @@
-// Frees undealt-lobby seats and sends the public lobby view to survivors.
+// Frees setup seats, discards memorization deals, and sends the public lobby view to survivors.
 import { removeLobbyPlayer } from '../game/lobby.js';
 import { toLobbyView } from '../game/lobbyView.js';
 import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
-/** Register cleanup for a seated socket that leaves the undealt lobby.
+/** Register departure cleanup for both lobby and memorization setup stages.
  * @param {import('./types.js').LobbyServer} io
  * @param {import('./types.js').LobbySocket} socket
  * @param {import('../game/types.js').GameState} gameState

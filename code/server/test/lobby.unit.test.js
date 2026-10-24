@@ -64,7 +64,7 @@ test('disconnect cleanup frees only an undealt seated player and preserves survi
   assert.deepEqual(state.players.map(player => player.seatId), [1, 2, 3]);
 });
 
-test('disconnect cleanup defers dealt and later-phase players', () => {
+test('disconnect cleanup defers incomplete deals and later-phase players', () => {
   for (const change of [
     state => { state.phase = 'active'; },
     state => { state.players[0].hand.push({ handSlotId: 1 }); },

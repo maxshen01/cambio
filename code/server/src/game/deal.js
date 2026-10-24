@@ -1,7 +1,7 @@
 // Creates an opening deal and projects only the faces authorized for each recipient.
 import { createDeck, shuffleDeck } from './deck.js';
 import { isUndealtLobby } from './lobby.js';
-import { createGameState } from './state.js';
+import { resetSetup } from './state.js';
 /** @typedef {import('./types.js').GameState} GameState */
 
 /** Deal once all four seats are connected and ready; ineligible rooms stay unchanged.
@@ -19,14 +19,8 @@ export function dealIfReady(state, random = Math.random) {
 
   const cards = shuffleDeck(createDeck(), random);
   const players = [...state.players].sort((a, b) => a.seatId - b.seatId);
-  // A fresh room supplies the full reset, while identities and stable seats survive.
-  Object.assign(state, createGameState(), { players, deck: { cards } });
-  for (const player of players) {
-    Object.assign(player, {
-      hand: [], isReady: false, drawnCard: null, drawnFrom: null,
-      drawnCardRevealed: false, score: 0, calledCambio: false,
-    });
-  }
+  resetSetup(state, players);
+  state.deck.cards = cards;
   /** @type {(1 | 2 | 3 | 4)[]} */
   const slots = [1, 2, 3, 4];
   for (const handSlotId of slots) {

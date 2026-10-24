@@ -1,4 +1,4 @@
-// Confirms lobby readiness, then delivers private opening deals within the action boundary.
+// Confirms both setup Ready stages; only lobby readiness triggers a private opening deal.
 import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
 import { dealIfReady, toDealView } from '../game/deal.js';
 import { PLAYER_ROOM } from './rooms.js';
