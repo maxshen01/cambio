@@ -1,5 +1,6 @@
-// Adapts undealt-lobby readiness actions to public server-confirmed marks.
+// Confirms lobby readiness, then delivers private opening deals within the action boundary.
 import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
+import { dealIfReady, toDealView } from '../game/deal.js';
 import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
@@ -22,6 +23,12 @@ export function registerReady(io, socket, gameState, run) {
       logSocket('info', socket.id, event, 'accepted', {
         readyCount: gameState.players.filter(player => player.isReady).length,
       });
+      if (event === 'ready' && dealIfReady(gameState)) {
+        for (const player of gameState.players) {
+          io.sockets.sockets.get(player.id)?.emit('dealComplete', toDealView(gameState, player.id));
+        }
+        logSocket('info', socket.id, 'dealComplete', 'sent', { playerCount: gameState.players.length });
+      }
     });
   }
   socket.on('ready', () => changeReady('ready'));

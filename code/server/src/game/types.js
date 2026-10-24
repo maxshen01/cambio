@@ -2,9 +2,10 @@
 /**
  * @typedef {'selfPeek' | 'opponentPeek' | 'blindSwap' | 'onePeekSwap' | 'twoPeekSwap'} Power
  * @typedef {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13} Rank
+ * @typedef {'clubs' | 'diamonds' | 'hearts' | 'spades' | 'joker'} Suit
  * @typedef {Object} Card
  * @property {number} cardId Image ID, shared by duplicate physical cards.
- * @property {string} suit Suit enum values are not yet specified by the data model.
+ * @property {Suit} suit Jokers share a suit; their black/red faces have distinct cardIds.
  * @property {Rank} rank
  * @property {Power | null} power
  * @typedef {{ handSlotId: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, card: Card }} HandSlot

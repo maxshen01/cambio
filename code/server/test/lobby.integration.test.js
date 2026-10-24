@@ -1,4 +1,4 @@
-// Tests undealt-lobby membership, readiness, and recovery through real sockets.
+// Tests lobby membership, readiness, private dealing, and recovery through real sockets.
 
 import assert from 'node:assert/strict';
 import { io as connectClient } from 'socket.io-client';
@@ -292,18 +292,26 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
   assert.equal(JSON.stringify(firstView).includes('drawnCard'), false);
 });
 
-test('ready broadcasts only new lobby marks and retains four ready players without dealing', async t => {
+test('fourth lobby Ready sends one recipient-private deal after the ready notice', async t => {
   const { connect, gameState } = await harness(t);
   const outsider = await connect();
   let outsiderUpdates = 0;
-  outsider.on('playerReady', () => { outsiderUpdates++; });
+  for (const event of ['playerReady', 'dealComplete', 'gameState', 'turnChanged']) {
+    outsider.on(event, () => { outsiderUpdates++; });
+  }
   const clients = [];
   const readyEvents = [];
+  const sequences = [];
+  const deals = [];
   let setupEvents = 0;
   for (let seat = 1; seat <= 4; seat++) {
     const client = await connect();
+    const sequence = [];
+    sequences.push(sequence);
     client.on('playerReady', payload => readyEvents.push([seat, payload]));
-    for (const event of ['dealComplete', 'turnChanged', 'gameState']) {
+    client.on('playerReady', payload => sequence.push(['playerReady', payload]));
+    client.on('dealComplete', payload => { sequence.push(['dealComplete', payload]); deals.push([seat, payload]); });
+    for (const event of ['turnChanged', 'gameState']) {
       client.on(event, () => { setupEvents++; });
     }
     await join(client, `Player ${seat}`, clients);
@@ -317,32 +325,71 @@ test('ready broadcasts only new lobby marks and retains four ready players witho
   }
 
   assert.deepEqual(gameState.players.map(player => player.isReady), [true, false, false, false]);
+  // Seed stale round fields to verify the real event path applies the full deal reset.
+  Object.assign(gameState, {
+    deck: { cards: [{ cardId: 999 }] },
+    discardPile: { cards: [{ cardId: 998 }], topMatchStatus: 'matched' },
+    turn: 'stale', turnStep: 'resolvingPower', pendingPower: 'selfPeek',
+    pendingPowerStage: 'awaitingPeekDone',
+    pendingMatch: { matcherPlayerId: 'stale', recipientPlayerId: 'stale', stage: 'awaitingGift' },
+    cambioCalledBy: 'stale', finalMatchGraceDeadline: 123, winners: ['stale'],
+  });
+  for (const player of gameState.players) {
+    Object.assign(player, { drawnCard: { cardId: 997 }, drawnFrom: 'deck', drawnCardRevealed: true, score: 5, calledCambio: true });
+  }
+  clients[0].emit('ready', {});
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(readyEvents.length, 1);
   for (const client of clients.slice(1)) {
     const events = clients.map(recipient => nextEvent(recipient, 'playerReady'));
+    const complete = client === clients[3] ? clients.map(recipient => nextEvent(recipient, 'dealComplete')) : [];
     client.emit('ready', {});
     assert.deepEqual(await Promise.all(events), clients.map(() => ({ playerId: client.id })));
+    await Promise.all(complete);
+    if (client !== clients[3]) assert.equal(deals.length, 0);
   }
   const count = readyEvents.length;
+  const dealtState = structuredClone(gameState);
+  const rejected = nextEvent(clients[0], 'error');
   clients[0].emit('ready', {});
+  assert.equal((await rejected).code, 'READY_NOT_AVAILABLE');
+  const unreadyRejected = nextEvent(clients[0], 'error');
+  clients[0].emit('unready', {});
+  assert.equal((await unreadyRejected).code, 'READY_NOT_AVAILABLE');
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.equal(readyEvents.length, count);
   assert.equal(outsiderUpdates, 0);
   assert.equal(setupEvents, 0);
   assert.equal(gameState.phase, 'deal');
-  assert.deepEqual(gameState.players.map(player => player.isReady), [true, true, true, true]);
-
-  const survivors = [clients[0], clients[2], clients[3]];
-  const departure = survivors.map(client => nextEvent(client, 'playerDisconnected'));
-  clients[1].disconnect();
-  await Promise.all(departure);
-  const replacement = await connect();
-  const { view } = await join(replacement, 'Replacement', survivors);
-  assert.deepEqual(view.players.map(player => [player.seatId, player.isReady]), [
-    [1, true], [2, false], [3, true], [4, true],
-  ]);
-  const replacementReady = survivors.map(client => nextEvent(client, 'playerReady'));
-  replacement.emit('ready', {});
-  assert.deepEqual(await Promise.all(replacementReady), survivors.map(() => ({ playerId: replacement.id })));
+  assert.equal(gameState.turn, null);
+  assert.equal(gameState.turnStep, null);
+  assert.equal(gameState.deck.cards.length, 92);
+  assert.deepEqual(gameState.players.map(player => player.isReady), [false, false, false, false]);
+  assert.deepEqual({ ...gameState, players: [], deck: { cards: [] } }, createGameState());
+  for (const player of gameState.players) {
+    assert.deepEqual({
+      drawnCard: player.drawnCard, drawnFrom: player.drawnFrom, drawnCardRevealed: player.drawnCardRevealed,
+      score: player.score, calledCambio: player.calledCambio,
+    }, { drawnCard: null, drawnFrom: null, drawnCardRevealed: false, score: 0, calledCambio: false });
+  }
+  assert.deepEqual(gameState, dealtState);
+  assert.equal(deals.length, 4);
+  for (const sequence of sequences) {
+    assert.deepEqual(sequence.slice(-2).map(([event]) => event), ['playerReady', 'dealComplete']);
+    assert.deepEqual(sequence.at(-2)[1], { playerId: clients[3].id });
+  }
+  for (const [seat, payload] of deals) {
+    assert.deepEqual(Object.keys(payload), ['cards']);
+    assert.equal(payload.cards.length, 16);
+    assert.equal(payload.cards.filter(card => card.faceUp).length, 2);
+    const expected = gameState.players.flatMap(player => player.hand.map(slot => {
+      const ref = { playerId: player.id, handSlotId: slot.handSlotId };
+      return player.seatId === seat && [2, 4].includes(slot.handSlotId)
+        ? { ...ref, faceUp: true, cardId: slot.card.cardId }
+        : { ...ref, faceUp: false };
+    }));
+    assert.deepEqual(payload.cards, expected);
+  }
 });
 
 test('ready rejects unseated and dealt senders only at the requesting socket', async t => {
@@ -375,7 +422,7 @@ test('ready rejects unseated and dealt senders only at the requesting socket', a
   assert.deepEqual(gameState, before);
 });
 
-test('unready reaches seated clients, locks at four ready, and unlocks after departure', async t => {
+test('unready reaches seated clients and remains available after an undealt departure', async t => {
   const { connect, gameState } = await harness(t);
   const outsider = await connect();
   const clients = [];
@@ -406,18 +453,11 @@ test('unready reaches seated clients, locks at four ready, and unlocks after dep
   assert.equal(extraUpdates, broadcastCount);
   assert.equal(outsiderUpdates, 0);
 
-  for (const client of clients) {
+  for (const client of clients.slice(0, 3)) {
     const event = nextEvent(clients[0], 'playerReady');
     client.emit('ready', {});
     assert.deepEqual(await event, { playerId: client.id });
   }
-  const lockedState = structuredClone(gameState);
-  const lockedError = nextEvent(clients[0], 'error');
-  clients[0].emit('unready', {});
-  assert.equal((await lockedError).code, 'READY_NOT_AVAILABLE');
-  assert.deepEqual(gameState, lockedState);
-  assert.equal(extraUpdates, broadcastCount);
-
   const departure = nextEvent(clients[0], 'playerDisconnected');
   clients[1].disconnect();
   await departure;

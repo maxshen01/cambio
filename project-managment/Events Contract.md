@@ -208,12 +208,12 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | Player opens the shared link and their client connects |
+| Trigger | Player submits the name form while connected to the server. |
 | Payload | `{ displayName: string }` |
 | Preconditions | A seat is vacant, `phase === "deal"`, and no cards are dealt. No mid-game join or resume. This includes the lobby after a prestart disconnect or aborted match. |
 | Server effects | Validate and store the normalized display name. Trim surrounding whitespace, collapse repeated ordinary spaces, and normalize to Unicode NFC. Accept 1–20 Unicode code points: the first must be a letter or number; the rest may be letters, combining marks, numbers, ordinary spaces, apostrophes (`'` and `’`), hyphens, or periods. Reject control characters, emoji, and other symbols. Names must be unique among seated players after normalization and case-insensitive comparison; a departed player's name is available again. Create a new `Player` with `connected: true` and `isReady: false`, assign the first vacant `seatId` from `1`–`4`, and insert them into `GameState.players` in seat order. Existing players keep their seats and ready marks. A disconnected player who returns joins as a new player. |
-| Resulting events | After the ack: `playerJoined` (Server to All), including to the joining socket, with the updated `LobbyView` derived from `GameState.players`. This gives the new player the existing seats and ready marks without sending `GameState` or `GameStateView`. Filling the fourth seat does not deal cards; all four seated players must be ready. |
-| Ack | **Exception to the no-ack convention** — send `{ playerId, seatId }` before resulting events so the joining client knows its identity. |
+| Resulting events | After the ack, if supplied: `playerJoined` (Server to All), including to the joining socket, with the updated `LobbyView` derived from `GameState.players`. This gives the new player the existing seats and ready marks without sending `GameState` or `GameStateView`. Filling the fourth seat does not deal cards; all four seated players must be ready. |
+| Ack | **Exception to the no-ack convention** — when a callback is supplied, send `{ playerId, seatId }` before the lobby broadcast. The browser client supplies this callback to learn its identity; joining without a callback is also accepted. |
 | Errors | `ALREADY_IN_ROOM` if this socket already has a seat; `INVALID_NAME` for a non-string, invalid, overlong, or already occupied name; `GAME_ALREADY_STARTED` if the phase is not `"deal"` or any hand is dealt; `ROOM_FULL` if no seat is vacant. Check in that order. A rejected join receives no acknowledgment or lobby broadcast. |
 
 ### `playerJoined`
@@ -221,7 +221,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Field | Value |
 | --- | --- |
 | Direction | (Server to All) |
-| Trigger | A `joinRoom` request succeeds and its acknowledgment has been sent. |
+| Trigger | A `joinRoom` request succeeds, after its acknowledgment when a callback was supplied. |
 | Payload | `{ players: PlayerSummary[] }`, the complete current `LobbyView` in `seatId` order, with the joining player `connected: true` and `isReady: false`; existing players' ready marks are preserved. |
 | Preconditions | The player has an assigned lobby seat. |
 | Server effects | None; `joinRoom` already added the player. |

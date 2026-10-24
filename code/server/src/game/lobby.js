@@ -10,7 +10,7 @@ export function isUndealtLobby(state) {
   return state.phase === 'deal' && state.players.every(player => player.hand.length === 0);
 }
 
-/** The temporary four-ready lock, until dealing is implemented. @param {GameState} state */
+/** Whether four players have ready marks, locking unready before the synchronous deal. @param {GameState} state */
 export function isAllReady(state) {
   return state.players.filter(player => player.isReady).length === 4;
 }

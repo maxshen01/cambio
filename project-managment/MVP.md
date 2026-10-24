@@ -19,8 +19,8 @@
 
 ## Tech Stack:
 
-- Node and js for backend
-- Html/css/console for testing backend works, once works use react to build mvp frontend.
+- Node.js and JavaScript with Socket.IO for the backend.
+- React with Vite and CSS for the frontend, using the Socket.IO client for real-time updates.
 - No database (no player account storing, no stats etc. cards state should just be an array or something like that)
 - Host on something like render or fly.io (devops not important bit, no need to waste time)
 
