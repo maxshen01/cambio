@@ -1,4 +1,4 @@
-// Bridges socket effects to pure lobby transitions; refs only guard immediate requests and lifetimes.
+// Bridges setup events to display state; refs guard immediate requests and socket lifetimes.
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { checkDisplayName } from '../../../shared/displayName.js';
 import { logClientEvent } from '../socket/log.js';
@@ -46,6 +46,23 @@ export function useLobby(socket) {
       dispatch({ type: 'players', players: lobby.players });
       logClientEvent('lobby', 'received', { playerCount: lobby.players.length });
     }
+    /** A prestart departure cancels the deal and any outstanding setup request.
+     * @param {import('../../../shared/lobbyTypes.js').LobbyView} lobby */
+    function onDeparture(lobby) {
+      if (!valid()) return;
+      requests.current.join = false;
+      requests.current.ready = null;
+      dispatch({ type: 'departure', players: lobby.players });
+      logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
+    }
+    /** @param {import('../../../shared/lobbyTypes.js').DealComplete} deal */
+    function onDeal(deal) {
+      if (!valid()) return;
+      requests.current.join = false;
+      requests.current.ready = null;
+      dispatch({ type: 'deal', cards: deal.cards });
+      logClientEvent('dealComplete', 'received', { cardCount: deal.cards.length });
+    }
     /** @param {string} playerId @param {boolean} isReady */
     function onMark(playerId, isReady) {
       if (!valid()) return;
@@ -69,7 +86,8 @@ export function useLobby(socket) {
     socket.on('connect_error', onConnectError);
     socket.on('disconnect', onDisconnect);
     socket.on('playerJoined', onPlayers);
-    socket.on('playerDisconnected', onPlayers);
+    socket.on('playerDisconnected', onDeparture);
+    socket.on('dealComplete', onDeal);
     socket.on('playerReady', onReady);
     socket.on('playerUnready', onUnready);
     socket.on('error', onError);
@@ -85,7 +103,8 @@ export function useLobby(socket) {
       socket.off('connect_error', onConnectError);
       socket.off('disconnect', onDisconnect);
       socket.off('playerJoined', onPlayers);
-      socket.off('playerDisconnected', onPlayers);
+      socket.off('playerDisconnected', onDeparture);
+      socket.off('dealComplete', onDeal);
       socket.off('playerReady', onReady);
       socket.off('playerUnready', onUnready);
       socket.off('error', onError);
@@ -124,7 +143,7 @@ export function useLobby(socket) {
     if (!eligibility.canReady || !socket.connected || requests.current.ready || lifetime.current.lost) return;
     const localPlayer = eligibility.localPlayer;
     if (!localPlayer) return;
-    const event = localPlayer.isReady ? 'unready' : 'ready';
+    const event = state.stage === 'lobby' && localPlayer.isReady ? 'unready' : 'ready';
     requests.current.ready = localPlayer.playerId;
     dispatch({ type: 'readyStarted' });
     socket.emit(event, {});

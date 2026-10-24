@@ -103,10 +103,11 @@ it('shows the lobby filling on four separate socket connections', async () => {
       await waitFor(() => {
         for (let seat = 1; seat <= 4; seat++) {
           expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
-            .toHaveTextContent('Ready');
+            .toHaveTextContent('Not ready');
         }
       });
-      expect(within(view.container).getByRole('button', { name: 'Unready' })).toBeDisabled();
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+      expect(within(view.container).getAllByRole('img', { name: /face up/ })).toHaveLength(2);
     }
   } finally {
     for (const socket of sockets) socket.disconnect();

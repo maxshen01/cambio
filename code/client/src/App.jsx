@@ -1,6 +1,7 @@
-// Composes the name prompt and the four-seat lobby.
+// Composes joining, the lobby, and the dealt memorization board.
 import { JoinForm } from './lobby/JoinForm.jsx';
 import { SeatList } from './lobby/SeatList.jsx';
+import { SetupBoard } from './lobby/SetupBoard.jsx';
 import { useLobby } from './lobby/useLobby.js';
 
 /** Show the lobby using state from this browser's socket connection.
@@ -8,7 +9,7 @@ import { useLobby } from './lobby/useLobby.js';
  */
 export function App({ socket }) {
   const { connection, connectionLost, pending, identity, players, error, join, nameChanged,
-    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry } = useLobby(socket);
+    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards } = useLobby(socket);
   const showJoinDialog = !joined;
   const connectionStatus = connection === 'lost' ? 'Connection lost'
     : connection === 'failed' ? 'Connection failed'
@@ -36,16 +37,18 @@ export function App({ socket }) {
 
   return (
     <main className="lobby">
-      <div className="lobby__content" inert={showJoinDialog ? true : undefined}>
-        <h1 className="lobby__title">Cambio lobby</h1>
+      <div className={`lobby__content${stage === 'memorization' ? ' lobby__content--setup' : ''}`} inert={showJoinDialog ? true : undefined}>
+        <h1 className="lobby__title">{stage === 'memorization' ? 'Cambio' : 'Cambio lobby'}</h1>
         {!showJoinDialog && <p className="connection-status" role="status">{connectionStatus}</p>}
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
-        <div className="lobby__table">
+        {stage === 'memorization' && identity ? (
+          <SetupBoard players={players} cards={cards} identity={identity} canReady={canReady} onReady={toggleReady} />
+        ) : <div className="lobby__table">
           <SeatList players={players} localPlayerId={identity?.playerId} localSeatId={identity?.seatId} />
           <button className="ready-button" type="button" disabled={!canReady} onClick={toggleReady}>
             {localPlayer?.isReady ? 'Unready' : 'Ready Up'}
           </button>
-        </div>
+        </div>}
       </div>
       {showJoinDialog && (
         <div className="join-overlay">
