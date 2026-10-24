@@ -3,11 +3,14 @@ import { JoinForm } from './lobby/JoinForm.jsx';
 import { SeatList } from './lobby/SeatList.jsx';
 import { SetupBoard } from './lobby/SetupBoard.jsx';
 import { useLobby } from './lobby/useLobby.js';
+import { useEffect } from 'react';
+import { preloadCardArtwork } from './cards/cardArtwork.js';
 
 /** Show the lobby using state from this browser's socket connection.
  * @param {{ socket: import('./lobby/useLobby.js').LobbySocket }} props
  */
 export function App({ socket }) {
+  useEffect(() => { void preloadCardArtwork(); }, []);
   const { connection, connectionLost, pending, identity, players, error, join, nameChanged,
     toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards } = useLobby(socket);
   const showJoinDialog = !joined;
@@ -57,7 +60,7 @@ export function App({ socket }) {
             <p className="connection-status" role="status">{connectionStatus}</p>
             <JoinForm connected={canJoin} connectionLost={connectionLost} onJoin={join} onNameChange={nameChanged} />
             {error && <p className="join-dialog__error" role="alert">{error.message}</p>}
-            {(canRetry || connection === 'connecting') && <button type="button" disabled={!canRetry} onClick={retry}>Retry connection</button>}
+            {canRetry && <button type="button" onClick={retry}>Retry connection</button>}
             {connectionLost && <button type="button" autoFocus onClick={() => window.location.reload()}>Reload to rejoin</button>}
           </section>
         </div>

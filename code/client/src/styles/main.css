@@ -337,9 +337,19 @@ input {
 .setup-hand__slot,
 .setup-drawn,
 .setup-discard,
+.setup-deck,
 .setup-card {
   width: var(--card-width);
   height: var(--card-height);
+}
+
+.setup-artwork-status {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 18rem;
+  text-align: center;
+  transform: translate(-50%, -50%);
 }
 
 .setup-card {

@@ -36,6 +36,7 @@ async function board() {
     socket.receive('playerJoined', { players });
     socket.receive('dealComplete', deal());
   });
+  await screen.findByRole('img', { name: 'Deck' });
   return { socket, view, user };
 }
 

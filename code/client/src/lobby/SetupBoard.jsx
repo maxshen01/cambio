@@ -1,5 +1,6 @@
 // Noninteractive setup board: stable seats, recipient-authorized faces, and reserved empty space.
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
+import { useCardArtwork } from '../cards/useCardArtwork.js';
 
 const positions = ['bottom', 'left', 'top', 'right'];
 
@@ -10,8 +11,15 @@ const positions = ['bottom', 'left', 'top', 'right'];
  * canReady: boolean, onReady: () => void }} props
  */
 export function SetupBoard({ players, cards, identity, canReady, onReady }) {
+  const artwork = useCardArtwork(cards);
   return (
-    <section className="setup-board" aria-label="Memorization board">
+    <section className="setup-board" aria-label="Memorization board" aria-busy={!artwork.ready}>
+      {!artwork.ready && <div className="setup-artwork-status">
+        {artwork.failed ? <>
+          <p role="alert">Card images could not be loaded. Please try again.</p>
+          <button type="button" onClick={artwork.retry}>Retry card images</button>
+        </> : <p role="status">Loading cards…</p>}
+      </div>}
       <ol className="setup-players" aria-label="Players and hands">
         {players.map(player => {
           const position = positions[(player.seatId - identity.seatId + 4) % 4];
@@ -32,7 +40,7 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
                     return (
                       <div className="setup-hand__slot" key={slot} aria-hidden={card ? undefined : true}
                         style={{ gridColumn: Math.ceil(slot / 2), gridRow: slot % 2 === 1 ? 1 : 2 }}>
-                        {card && <img className="setup-card" draggable={false}
+                        {card && artwork.ready && <img className="setup-card" draggable={false}
                           src={card.faceUp ? CARD_IMAGES[card.cardId] : CARD_BACK_IMAGE}
                           alt={`Slot ${slot}, face ${card.faceUp ? 'up' : 'down'}`} />}
                       </div>
@@ -46,12 +54,12 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
         })}
       </ol>
       <div className="setup-piles">
-        <img className="setup-card" src={CARD_BACK_IMAGE} alt="Deck" draggable={false} />
+        <div className="setup-deck">{artwork.ready && <img className="setup-card" src={CARD_BACK_IMAGE} alt="Deck" draggable={false} />}</div>
         <div className="setup-discard" aria-hidden="true" />
       </div>
       <div className="setup-controls">
         <button type="button" disabled>Call Cambio</button>
-        <button type="button" disabled={!canReady} onClick={onReady}>Ready Up</button>
+        <button type="button" disabled={!canReady || !artwork.ready} onClick={onReady}>Ready Up</button>
       </div>
     </section>
   );

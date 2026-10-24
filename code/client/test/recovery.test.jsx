@@ -41,6 +41,7 @@ it('shows initial failure and retries once with the same name and socket', async
   socket.connect = vi.fn();
   const user = userEvent.setup();
   render(<App socket={socket} />);
+  expect(screen.queryByRole('button', { name: 'Retry connection' })).not.toBeInTheDocument();
   await user.type(screen.getByRole('textbox'), 'Alice');
   act(() => socket.receive('connect_error', new Error('offline')));
   expect(screen.getByRole('status')).toHaveTextContent('Connection failed');
@@ -56,6 +57,7 @@ it('shows initial failure and retries once with the same name and socket', async
   expect(socket.connect).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('Connecting');
+  expect(screen.queryByRole('button', { name: 'Retry connection' })).not.toBeInTheDocument();
   expect(screen.getByRole('textbox')).toHaveValue('Alice');
   act(() => { socket.connected = true; socket.receive('connect'); });
   await user.click(screen.getByRole('button', { name: 'Join lobby' }));
