@@ -5,6 +5,10 @@ description: Create a staged repository plan intended for GitHub persistence, th
 
 # Plan work and persist it as a GitHub issue
 
+Never launch, attach to, inspect, or control a browser, or check browser availability, during this workflow. This includes browser automation, headless browser tests, screenshots, and visual verification. Do not invoke browser or computer-use tools to perform these actions, including for GitHub access or authentication.
+
+Use repository inspection, non-browser tests (including DOM tests using jsdom), typechecks, builds, and authenticated connectors, CLI, or APIs as appropriate. Assign browser-dependent checks to the user and report them as unrun; do not claim automated checks establish visual correctness.
+
 This skill plans product work and publishes its agreed plan. Executing this workflow creates or updates the agreed planning issues and their parent-child relationships only; it does not implement the product steps. Later implementation requests are separate work, supported by the repository's `implement-plan` skill when available.
 
 ## Plan mode: explore and agree
@@ -39,6 +43,8 @@ Include these future-chat instructions in the issue:
 
 > Read the issue, relevant repository instructions, and current code. Implement the requested step, run its required checks, and report changes, verification results, unresolved defects, and unverified acceptance criteria in chat. Stop at the specified user checkpoint; if no manual checkpoint applies, report automated results and stop after the requested step. Commits and GitHub status updates require a separate user request; this issue does not authorize them.
 
+> Never launch, attach to, inspect, or control a browser, or check browser availability. This includes browser automation, headless browser tests, screenshots, and visual verification. Use non-browser checks, including jsdom, and leave manual browser testing to the user. Report browser-dependent checks as unrun and visual acceptance criteria as unverified until the user validates them.
+
 Implementation results belong in chat. Do not instruct implementing agents to commit changes, update checkboxes, or maintain GitHub progress. Completing a step must not trigger requests to commit or update GitHub; leave those actions to a separate user request. User confirmation that manual validation passed is not itself a request to edit GitHub.
 
 ## Practical manual checkpoints
@@ -49,17 +55,19 @@ A completed UI is not required to validate observable backend behavior. Consider
 
 Give each practical check minimal setup, exact actions or payloads, expected results, and an approximate duration. Share setup between related steps and explain when restarting requires repeating it. Keep checks to a few minutes where feasible; leave exhaustive coverage automated.
 
+Clearly label manual browser checkpoints as user-performed. Plans must not require implementing agents to launch a browser or run browser-dependent tests; list such checks separately for the user. Non-browser automated checks do not replace visual user validation.
+
 State what the check proves and what remains deferred. For example, inspecting events can check recipient-specific payloads but cannot prove that the UI visually hides a card. Do not substitute an artificial manual check for automated infrastructure verification or imply that an event check completes later visual validation.
 
 ## Execution mode: publish only
 
 Publish once execution is actually enabled and the user requests execution of the agreed publication plan. Existing authorization to publish is sufficient; do not ask again solely because publishing changes GitHub. Follow any tool-enforced approval requirements.
 
-1. Determine the target repository from Git remotes and session context. Resolve competing plausible destinations with the user instead of guessing. Prefer an existing authenticated GitHub connector or CLI, then an authenticated API or browser fallback. Do not hard-code the repository, account, or authentication method; install no tools automatically and never expose credentials.
+1. Determine the target repository from Git remotes and session context. Resolve competing plausible destinations with the user instead of guessing. Use an existing authenticated GitHub connector or CLI, or an authenticated API only. Do not use a browser fallback or browser-based authentication recovery. Do not hard-code the repository, account, or authentication method; install no tools automatically and never expose credentials.
 2. Read every referenced existing issue and its parent-child relationships before updating it. Before creating each planned issue, check for an existing issue from this workflow to avoid duplicates. A similar title alone is not sufficient evidence to overwrite an unrelated issue.
 3. Publish the agreed titles and bodies as one issue or the agreed parent and children. Create or identify the parent, create or identify each child, then establish GitHub's parent-child relationships and include the actual issue links in the planned dependency references. For revisions, update the identified issues rather than creating replacements. Preserve completed work, progress evidence, unrelated issue content, and existing metadata. Summarize material revisions in the body. If changed scope invalidates prior completion, preserve the historical evidence and explicitly identify the affected status and necessary revalidation; do not silently retain or reset completion.
 4. Use structured text arguments or a correctly encoded body file to preserve Markdown, newlines, and checkboxes. Do not interpolate issue prose into executable shell text. Change no product code or unrelated repository files. Do not add assignees, labels, close issues, or create issues beyond the agreed publication structure unless requested.
 5. Read every published issue back and verify its repository, title, body, and resulting URL; verify each agreed parent-child relationship and dependency reference. If a submission times out or its result is uncertain, inspect GitHub for that issue, revision, or relationship before retrying. Do not blindly repeat a create or linking operation. If the result remains ambiguous or linking is unavailable, stop and report the verified URLs, incomplete relationships, and remaining publication work; do not claim the hierarchy is complete or recreate successfully published issues.
 6. Return the verified parent and child URLs (or the single issue URL), whether each was created or updated, and an example follow-up targeting the first executable issue and step. When that step has a manual checkpoint, use **Read ISSUE_URL and implement step 1 only, then stop for my manual testing.** Otherwise use **Read ISSUE_URL and implement step 1 only, report automated check results, then stop.** Substitute the actual next step number as needed. Confirm that product code was not changed by publication.
 
-If authentication or write access is unavailable after reasonable supported recovery, preserve the issue-ready text in the conversation and report the concrete blocker. Do not claim the plan was persisted or ask the user to paste credentials into chat.
+If authenticated connectors, CLI, or APIs cannot complete publication after reasonable non-browser recovery, preserve the issue-ready text in the conversation and report the concrete blocker and any verified partial results. Do not attempt browser access, claim the plan was persisted, or ask the user to paste credentials into chat.
