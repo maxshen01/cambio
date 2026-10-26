@@ -1,4 +1,4 @@
-// Noninteractive setup board: private opening hands and one shared drawn-card area below the piles.
+// Displays opening hands and the first active turn, reserving the shared drawn-card area.
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 import { useCardArtwork } from '../cards/useCardArtwork.js';
 
@@ -8,12 +8,13 @@ const positions = ['bottom', 'left', 'top', 'right'];
  * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
  * cards: import('../../../shared/lobbyTypes.js').CardView[],
  * identity: import('../../../shared/lobbyTypes.js').JoinAck,
+ * turnPlayerId: string | null,
  * canReady: boolean, onReady: () => void }} props
  */
-export function SetupBoard({ players, cards, identity, canReady, onReady }) {
+export function SetupBoard({ players, cards, identity, turnPlayerId, canReady, onReady }) {
   const artwork = useCardArtwork(cards);
   return (
-    <section className="setup-board" aria-label="Memorization board" aria-busy={!artwork.ready}>
+    <section className="setup-board" aria-label={turnPlayerId ? 'Playing board' : 'Memorization board'} aria-busy={!artwork.ready}>
       {!artwork.ready && <div className="setup-artwork-status">
         {artwork.failed ? <>
           <p role="alert">Card images could not be loaded. Please try again.</p>
@@ -24,13 +25,15 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
         {players.map(player => {
           const position = positions[(player.seatId - identity.seatId + 4) % 4];
           return (
-            <li className={`setup-player setup-player--${position}`} key={player.playerId} aria-label={`Seat ${player.seatId}`}>
+            <li className={`setup-player setup-player--${position}${player.playerId === turnPlayerId ? ' setup-player--current' : ''}`}
+              key={player.playerId} aria-label={`Seat ${player.seatId}`} aria-current={player.playerId === turnPlayerId ? 'true' : undefined}>
               <div className="setup-player__details">
                 <span className="seat__circle" aria-hidden="true" />
                 <span className="seat__name">{player.displayName}</span>
-                <span className={`seat__readiness seat__readiness--${player.isReady ? 'ready' : 'waiting'}`}>
+                {!turnPlayerId && <span className={`seat__readiness seat__readiness--${player.isReady ? 'ready' : 'waiting'}`}>
                   <span className="visually-hidden">{player.isReady ? 'Ready' : 'Not ready'}</span>
-                </span>
+                </span>}
+                {player.playerId === turnPlayerId && <span className="visually-hidden">Current turn</span>}
               </div>
               <div className="setup-hand-frame">
                 <div className="setup-hand">

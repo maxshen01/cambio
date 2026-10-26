@@ -1,6 +1,6 @@
 # Cambio — Events Contract
 
-This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. Exact implemented lobby/setup payload declarations and card views are in [shared public types](../code/shared/lobbyTypes.js). Other payloads below remain planned where no public source type exists. Source and [server socket/setup tests](../code/server/test/setup/setup.integration.test.js) establish implemented behavior, not the presence of an event in this specification. In particular, current memorization confirmations do not start turns; `gameState` remains reserved and is not emitted.
+This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. Exact implemented setup/first-turn payload declarations and card views are in [shared public types](../code/shared/lobbyTypes.js). Other payloads below remain planned where no public source type exists. Source and [server socket/setup tests](../code/server/test/setup/setup.integration.test.js) establish implemented behavior, not the presence of an event in this specification. The fourth memorization `playerReady` is followed by exactly one `turnChanged` for a uniformly selected connected player. Drawing and active-game recovery remain deferred; `gameState` remains reserved and is not emitted.
 
 ## Conventions
 

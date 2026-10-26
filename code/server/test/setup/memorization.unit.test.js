@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
 import { dealIfReady } from '../../src/game/deal.js';
+import { startPlayIfReady } from '../../src/game/turns.js';
 import { isMemorization, joinPlayer, readyPlayer, unreadyPlayer, removeLobbyPlayer } from '../../src/game/lobby.js';
 
 function dealtRoom() {
@@ -15,7 +16,7 @@ function dealtRoom() {
   return state;
 }
 
-test('memorization accepts one ready per player then stops with the same deal', () => {
+test('memorization accepts each confirmation once without changing the deal', () => {
   const state = dealtRoom();
   assert.equal(isMemorization(state), true);
   const expected = structuredClone(state);
@@ -30,6 +31,29 @@ test('memorization accepts one ready per player then stops with the same deal', 
   expected.players.forEach(player => { player.isReady = true; });
   assert.deepEqual(state, expected);
   assert.equal(dealIfReady(state), false);
+});
+
+test('each seat can start uniformly and only after four connected confirmations', () => {
+  for (const [sample, seat] of [[0, 1], [0.2499, 1], [0.25, 2], [0.4999, 2], [0.5, 3], [0.7499, 3], [0.75, 4], [0.9999, 4]]) {
+    const state = dealtRoom();
+    let calls = 0;
+    const random = () => { calls++; return sample; };
+    assert.equal(startPlayIfReady(state, random), false);
+    for (const player of state.players) {
+      readyPlayer(state, player.id);
+      if (player.id !== '4') assert.equal(startPlayIfReady(state, random), false);
+    }
+    const before = structuredClone(state);
+    state.players[0].connected = false;
+    assert.equal(startPlayIfReady(state, random), false);
+    state.players[0].connected = true;
+    assert.equal(calls, 0);
+    assert.equal(startPlayIfReady(state, random), true);
+    assert.deepEqual(state, { ...before, phase: 'active', turn: String(seat), turnStep: 'awaitingDraw' });
+    assert.equal(startPlayIfReady(state, random), false);
+    assert.equal(calls, 1);
+    assert.throws(() => readyPlayer(state, '1'), { code: 'READY_NOT_AVAILABLE' });
+  }
 });
 
 test('unsupported phases and incomplete opening hands reject readiness without mutation', () => {

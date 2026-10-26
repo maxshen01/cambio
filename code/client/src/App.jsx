@@ -1,4 +1,4 @@
-// Composes joining, the lobby, and the dealt memorization board.
+// Composes joining, the lobby, memorization, and the first active turn.
 import { JoinForm } from './lobby/JoinForm.jsx';
 import { SeatList } from './lobby/SeatList.jsx';
 import { SetupBoard } from './lobby/SetupBoard.jsx';
@@ -12,7 +12,7 @@ import { preloadCardArtwork } from './cards/cardArtwork.js';
 export function App({ socket }) {
   useEffect(() => { void preloadCardArtwork(); }, []);
   const { connection, connectionLost, pending, identity, players, error, join, nameChanged,
-    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards } = useLobby(socket);
+    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards, turnPlayerId } = useLobby(socket);
   const showJoinDialog = !joined;
   const connectionStatus = connection === 'lost' ? 'Connection lost'
     : connection === 'failed' ? 'Connection failed'
@@ -40,11 +40,11 @@ export function App({ socket }) {
 
   return (
     <main className="lobby">
-      <div className={`lobby__content${stage === 'memorization' ? ' lobby__content--setup' : ''}`} inert={showJoinDialog ? true : undefined}>
-        <h1 className="lobby__title">{stage === 'memorization' ? 'Cambio' : 'Cambio lobby'}</h1>
+      <div className={`lobby__content${stage !== 'lobby' ? ' lobby__content--setup' : ''}`} inert={showJoinDialog ? true : undefined}>
+        <h1 className="lobby__title">{stage !== 'lobby' ? 'Cambio' : 'Cambio lobby'}</h1>
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
-        {stage === 'memorization' && identity ? (
-          <SetupBoard players={players} cards={cards} identity={identity} canReady={canReady} onReady={toggleReady} />
+        {stage !== 'lobby' && identity ? (
+          <SetupBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId} canReady={canReady} onReady={toggleReady} />
         ) : <div className="lobby__table">
           <SeatList players={players} localSeatId={identity?.seatId} />
           <button className="ready-button" type="button" disabled={!canReady} onClick={toggleReady}>

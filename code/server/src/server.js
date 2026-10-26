@@ -10,9 +10,9 @@ import { logSocket } from "./sockets/log.js";
 import { createLobbyBoundary } from "./sockets/boundary.js";
 
 /** Build one shared room; injecting state keeps socket tests isolated.
- * @param {{ gameState?: import('./game/types.js').GameState }} options
+ * @param {{ gameState?: import('./game/types.js').GameState, random?: () => number }} options
  */
-export function createServer({ gameState = createGameState() } = {}) {
+export function createServer({ gameState = createGameState(), random = Math.random } = {}) {
     const httpServer = createHttpServer();
     /** @type {import('./sockets/types.js').LobbyServer} */
     const io = new Server(httpServer);
@@ -20,7 +20,7 @@ export function createServer({ gameState = createGameState() } = {}) {
     io.on("connection", (socket) => {
         logSocket("info", socket.id, "connection", "connected");
         registerJoinRoom(io, socket, gameState, run);
-        registerReady(io, socket, gameState, run);
+        registerReady(io, socket, gameState, run, random);
         registerLobbyDisconnect(io, socket, gameState, run);
 
         socket.onAny((eventName, ...args) => {

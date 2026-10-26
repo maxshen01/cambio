@@ -2,7 +2,7 @@
 
 This document owns the intended gameplay rules for the four-player, one-round game. [MVP](MVP.md) defines product scope; [Game Data Model](Game%20Data%20Model.md) defines state representation; [Events Contract](Events%20Contract.md) defines wire payloads, errors, recipient redaction, and event ordering. Layout and interaction details remain in the [UI Rules](designs/UI%20Rules.md).
 
-These rules describe the complete intended game, not implementation coverage. Source and tests establish implemented behavior; the current setup flow deals and confirms memorization without starting turns.
+These rules describe the complete intended game, not implementation coverage. Source and tests establish implemented behavior; setup starts a randomly selected first turn after all four memorization confirmations. Drawing and active-game recovery remain deferred.
 
 ## Setup and memorization
 

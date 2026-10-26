@@ -1,6 +1,7 @@
-// Confirms both setup Ready stages; only lobby readiness triggers a private opening deal.
+// Confirms setup readiness, privately deals, and broadcasts the first active turn.
 import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
 import { dealIfReady, toDealView } from '../game/deal.js';
+import { startPlayIfReady } from '../game/turns.js';
 import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
@@ -9,8 +10,9 @@ import { logSocket } from './log.js';
  * @param {import('./types.js').LobbySocket} socket
  * @param {import('../game/types.js').GameState} gameState
  * @param {import('./types.js').LobbyBoundary} run
+ * @param {() => number} [random]
  */
-export function registerReady(io, socket, gameState, run) {
+export function registerReady(io, socket, gameState, run, random = Math.random) {
   /** @param {'ready' | 'unready'} event */
   function changeReady(event) {
     run(socket, event, () => {
@@ -28,6 +30,9 @@ export function registerReady(io, socket, gameState, run) {
           io.sockets.sockets.get(player.id)?.emit('dealComplete', toDealView(gameState, player.id));
         }
         logSocket('info', socket.id, 'dealComplete', 'sent', { playerCount: gameState.players.length });
+      } else if (event === 'ready' && startPlayIfReady(gameState, random)) {
+        io.to(PLAYER_ROOM).emit('turnChanged', { playerId: /** @type {string} */ (gameState.turn) });
+        logSocket('info', socket.id, 'turnChanged', 'sent');
       }
     });
   }

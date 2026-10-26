@@ -2,7 +2,7 @@
 
 This document owns server-state meaning, ownership, relationships, and invariants. [Game Rules](Game%20Rules.md) owns gameplay policy; [Events Contract](Events%20Contract.md) owns wire shapes, recipient redaction, errors, and ordering. Never send authoritative state objects directly to clients.
 
-Exact source declarations are in [server game types](../code/server/src/game/types.js); implemented public lobby/setup and card-view types are in [shared types](../code/shared/lobbyTypes.js). The source model includes fields reserved for planned gameplay. Their presence in JSDoc does not mean turns, powers, matching, or scoring run today: source and tests establish implementation, and the full state semantics below describe the target game.
+Exact source declarations are in [server game types](../code/server/src/game/types.js); implemented public setup/first-turn and card-view types are in [shared types](../code/shared/lobbyTypes.js). The source model includes fields reserved for planned gameplay. Setup activates the first turn with `turnStep: "awaitingDraw"`; subsequent turn actions, powers, matching, scoring, and active-game recovery remain deferred. Source and tests establish implementation, and the full state semantics below describe the target game.
 
 ## Card
 

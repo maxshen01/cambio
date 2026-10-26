@@ -11,7 +11,7 @@ export function isUndealtLobby(state) {
   return state.phase === 'deal' && state.players.every(player => player.hand.length === 0);
 }
 
-/** Memorization is setup with four complete opening hands; ready marks do not end it.
+/** Memorization is setup with four complete opening hands, before activation.
  * @param {GameState} state
  */
 export function isMemorization(state) {
@@ -87,7 +87,7 @@ export function removeLobbyPlayer(state, id) {
   return true;
 }
 
-/** Mark a seated player ready once in either setup stage; memorization never starts a turn.
+/** Mark a seated player ready once in either setup stage; active readiness is unavailable.
  * @param {GameState} state
  * @param {string} id */
 export function readyPlayer(state, id) {

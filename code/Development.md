@@ -66,7 +66,7 @@ Server diagnostic lines include a timestamp, socket ID, event name, outcome, and
 
 Create a **Socket.IO** request to `ws://localhost:3000` (or your configured port). Set the event name to `joinRoom`, send `{"displayName":"Alice"}` as its JSON argument, enable **Ack**, and listen for `playerJoined` and `error`. A blank event name sends `message`, which diagnostics report as `unhandled`.
 
-After joining, send `ready` with `{}` and no Ack; a lobby player can also send `unready` with `{}` and no Ack when eligible. Use four clients to inspect the deal and separate memorization confirmations. Eligibility, exact responses, recipient privacy, and error mappings belong to [Events Contract](../project-managment/Events%20Contract.md#connection--lobby-events) and [setup events](../project-managment/Events%20Contract.md#setup--deal-events). The source currently retains the deal after four memorization confirmations without starting turns; do not infer complete gameplay support from the target contract.
+After joining, send `ready` with `{}` and no Ack; a lobby player can also send `unready` with `{}` and no Ack when eligible. Use four clients to inspect the deal and separate memorization confirmations. Eligibility, exact responses, recipient privacy, and error mappings belong to [Events Contract](../project-managment/Events%20Contract.md#connection--lobby-events) and [setup events](../project-managment/Events%20Contract.md#setup--deal-events). The fourth memorization confirmation starts one randomly selected player's turn and emits `turnChanged` after `playerReady`. Drawing and active-game recovery remain deferred; restart the server and reload clients for a new session after reaching active play.
 
 ### Connection and fault diagnosis
 

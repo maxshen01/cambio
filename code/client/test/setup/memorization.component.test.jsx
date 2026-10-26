@@ -175,9 +175,11 @@ it('clears private display state on loss, ignores late setup events, and cleans 
   act(() => socket.receive('dealComplete', deal()));
   act(() => result.current.toggleReady());
   const lateDeal = [...socket.listeners.get('dealComplete')][0];
+  const lateTurn = [...socket.listeners.get('turnChanged')][0];
   act(() => socket.disconnect());
   act(() => {
     lateDeal(deal());
+    lateTurn({ playerId: 'p1' });
     socket.receive('playerReady', { playerId: 'p3' });
     socket.receive('playerDisconnected', { players });
   });
@@ -185,4 +187,37 @@ it('clears private display state on loss, ignores late setup events, and cleans 
   unmount();
   for (const listeners of socket.listeners.values()) expect(listeners.size).toBe(0);
   act(() => lateDeal(deal()));
+  act(() => lateTurn({ playerId: 'p1' }));
+});
+
+it('enters active play from turnChanged, removes all face IDs, and blocks setup requests', () => {
+  const socket = new FakeSocket();
+  const { result } = renderHook(() => useLobby(socket));
+  joinHook(socket, result);
+  act(() => socket.receive('dealComplete', deal()));
+  act(() => result.current.toggleReady());
+  act(() => socket.receive('turnChanged', { playerId: 'p2' }));
+  expect(result.current).toMatchObject({ stage: 'active', turnPlayerId: 'p2', readyPending: false, canReady: false });
+  expect(result.current.cards).toHaveLength(16);
+  expect(result.current.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+  const count = socket.emissions.length;
+  act(() => { result.current.toggleReady(); result.current.toggleReady(); });
+  expect(socket.emissions).toHaveLength(count);
+  act(() => socket.disconnect());
+  expect(result.current.turnPlayerId).toBeNull();
+});
+
+it('marks only the current player and keeps gameplay controls disabled', async () => {
+  const { socket, user } = await board();
+  act(() => socket.receive('turnChanged', { playerId: 'p2' }));
+  expect(screen.getByRole('region', { name: 'Playing board' })).toBeInTheDocument();
+  expect(screen.getByRole('listitem', { name: 'Seat 2' })).toHaveAttribute('aria-current', 'true');
+  expect(document.querySelectorAll('.setup-player--current')).toHaveLength(1);
+  expect(screen.getAllByRole('img', { name: /face down/ })).toHaveLength(16);
+  expect(screen.queryByText('Not ready')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Call Cambio' })).toBeDisabled();
+  const count = socket.emissions.length;
+  await user.click(screen.getByRole('img', { name: 'Deck' }));
+  expect(socket.emissions).toHaveLength(count);
 });

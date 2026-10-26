@@ -277,6 +277,12 @@ input {
   max-width: 250px;
 }
 
+.setup-player--current .setup-player__details {
+  outline: 3px solid #f4d35e;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
 .setup-player .seat__circle {
   width: 36px;
 }

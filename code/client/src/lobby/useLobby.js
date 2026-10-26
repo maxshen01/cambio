@@ -1,4 +1,4 @@
-// Bridges setup events to display state; refs guard immediate requests and socket lifetimes.
+// Bridges setup/turn events to display state; refs guard requests and socket lifetimes.
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { checkDisplayName } from '../../../shared/displayName.js';
 import { logClientEvent } from '../socket/log.js';
@@ -74,6 +74,13 @@ export function useLobby(socket) {
     const onReady = ({ playerId }) => onMark(playerId, true);
     /** @param {import('../../../shared/lobbyTypes.js').ReadyNotice} notice */
     const onUnready = ({ playerId }) => onMark(playerId, false);
+    /** @param {import('../../../shared/lobbyTypes.js').TurnChanged} notice */
+    function onTurn({ playerId }) {
+      if (!valid()) return;
+      requests.current.ready = null;
+      dispatch({ type: 'turn', playerId });
+      logClientEvent('turnChanged', 'received');
+    }
     /** @param {import('../../../shared/lobbyTypes.js').LobbyError} error */
     function onError(error) {
       if (!valid()) return;
@@ -88,6 +95,7 @@ export function useLobby(socket) {
     socket.on('playerJoined', onPlayers);
     socket.on('playerDisconnected', onDeparture);
     socket.on('dealComplete', onDeal);
+    socket.on('turnChanged', onTurn);
     socket.on('playerReady', onReady);
     socket.on('playerUnready', onUnready);
     socket.on('error', onError);
@@ -105,6 +113,7 @@ export function useLobby(socket) {
       socket.off('playerJoined', onPlayers);
       socket.off('playerDisconnected', onDeparture);
       socket.off('dealComplete', onDeal);
+      socket.off('turnChanged', onTurn);
       socket.off('playerReady', onReady);
       socket.off('playerUnready', onUnready);
       socket.off('error', onError);

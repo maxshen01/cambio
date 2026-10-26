@@ -1,4 +1,4 @@
-// Pure lobby and memorization transitions, including removal of confirmed private faces.
+// Pure setup-to-play transitions, including removal of private opening faces.
 /**
  * @typedef {import('../../../shared/lobbyTypes.js').JoinAck} Identity
  * @typedef {import('../../../shared/lobbyTypes.js').PlayerSummary} PlayerSummary
@@ -9,7 +9,8 @@
  * @property {Connection} connection
  * @property {Identity | null} identity
  * @property {PlayerSummary[]} players
- * @property {'lobby' | 'memorization'} stage
+ * @property {'lobby' | 'memorization' | 'active'} stage
+ * @property {string | null} turnPlayerId
  * @property {import('../../../shared/lobbyTypes.js').CardView[]} cards
  * @property {boolean} pending
  * @property {boolean} readyPending
@@ -22,13 +23,14 @@
  * | { type: 'departure', players: PlayerSummary[] }
  * | { type: 'deal', cards: import('../../../shared/lobbyTypes.js').CardView[] }
  * | { type: 'readyMark', playerId: string, isReady: boolean }
+ * | { type: 'turn', playerId: string }
  * | { type: 'error', error: LobbyError }} LobbyAction
  */
 
 /** @param {boolean} connected @returns {LobbyState} */
 export function initialLobbyState(connected) {
   return {
-    connection: connected ? 'connected' : 'connecting', identity: null, players: [], stage: 'lobby', cards: [],
+    connection: connected ? 'connected' : 'connecting', identity: null, players: [], stage: 'lobby', cards: [], turnPlayerId: null,
     pending: false, readyPending: false, nameRevision: 0, submittedNameRevision: null, error: null,
   };
 }
@@ -46,7 +48,7 @@ export function lobbyReducer(state, action) {
         error: { code: 'CONNECTION_FAILED', message: 'Unable to connect to the server.' } };
     case 'lost':
       return { ...state, connection: 'lost', identity: null, players: [], pending: false,
-        readyPending: false, submittedNameRevision: null, stage: 'lobby', cards: [],
+        readyPending: false, submittedNameRevision: null, stage: 'lobby', cards: [], turnPlayerId: null,
         error: { code: 'CONNECTION_LOST', message: 'Connection lost. Reload to rejoin.' } };
     case 'retry':
       return state.connection === 'failed' ? { ...state, connection: 'connecting', error: null } : state;
@@ -62,17 +64,22 @@ export function lobbyReducer(state, action) {
       return state.connection === 'connected' ? { ...state, players: action.players } : state;
     case 'departure':
       return state.connection === 'connected'
-        ? { ...state, players: action.players, stage: 'lobby', cards: [], pending: false, readyPending: false, error: null } : state;
+        ? { ...state, players: action.players, stage: 'lobby', cards: [], turnPlayerId: null, pending: false, readyPending: false, error: null } : state;
     case 'deal':
       if (state.connection !== 'connected' || !state.identity || state.players.length !== 4
         || !state.players.some(player => player.playerId === state.identity?.playerId)) return state;
-      return { ...state, stage: 'memorization', pending: false, readyPending: false, error: null,
+      return { ...state, stage: 'memorization', turnPlayerId: null, pending: false, readyPending: false, error: null,
         players: state.players.map(player => ({ ...player, isReady: false })),
         cards: action.cards.map(card => {
           const ref = { playerId: card.playerId, handSlotId: card.handSlotId };
           return card.faceUp && card.playerId === state.identity?.playerId && [2, 4].includes(card.handSlotId)
             ? { ...ref, faceUp: true, cardId: card.cardId } : { ...ref, faceUp: false };
         }) };
+    case 'turn':
+      if (state.connection !== 'connected' || !state.identity || state.stage === 'lobby'
+        || !state.players.some(player => player.playerId === action.playerId)) return state;
+      return { ...state, stage: 'active', turnPlayerId: action.playerId, readyPending: false, error: null,
+        cards: state.cards.map(card => ({ playerId: card.playerId, handSlotId: card.handSlotId, faceUp: false })) };
     case 'readyStarted':
       return { ...state, readyPending: true, error: null };
     case 'readyMark':
@@ -105,7 +112,7 @@ export function selectLobby(state) {
   return {
     connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
     canJoin: connected && !state.pending && !state.identity,
-    canReady: connected && joined && !state.readyPending
+    canReady: connected && joined && !state.readyPending && state.stage !== 'active'
       && (state.stage === 'memorization' ? !localPlayer?.isReady : (!localPlayer?.isReady || !allReady)),
     canRetry: state.connection === 'failed',
   };

@@ -6,8 +6,8 @@ import { createGameState } from '../../src/game/state.js';
 import { nextEvent } from './socket.js';
 
 // Creates a fresh server per test; callers may inject a game state for their feature.
-export async function harness(t, gameState = createGameState()) {
-  const { httpServer, io } = createServer({ gameState });
+export async function harness(t, gameState = createGameState(), options = {}) {
+  const { httpServer, io } = createServer({ gameState, ...options });
   await new Promise(resolve => {
     httpServer.listen(0, '127.0.0.1', resolve);
   });
@@ -76,8 +76,8 @@ export async function join(client, name, seatedClients = []) {
 }
 
 // Exercises the real lobby-to-deal transition for setup and recovery scenarios.
-export async function dealtHarness(t) {
-  const room = await harness(t);
+export async function dealtHarness(t, options = {}) {
+  const room = await harness(t, createGameState(), options);
   const clients = [];
   for (let seat = 1; seat <= 4; seat++) {
     const client = await room.connect();

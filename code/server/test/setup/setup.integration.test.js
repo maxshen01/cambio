@@ -5,8 +5,9 @@ import { createGameState } from '../../src/game/state.js';
 import { nextEvent } from '../helpers/socket.js';
 import { harness, join, dealtHarness, confirmReady } from '../helpers/room.js';
 
-test('memorization readiness is idempotent, errors are targeted, and four confirmations retain the deal', async t => {
-  const { clients, connect, gameState } = await dealtHarness(t);
+test('fourth memorization notice precedes exactly one first turn, with targeted readiness errors', async t => {
+  let randomCalls = 0;
+  const { clients, connect, gameState } = await dealtHarness(t, { random: () => { randomCalls++; return 0.5; } });
   const outsider = await connect();
   const events = [];
   const errors = [];
@@ -23,34 +24,43 @@ test('memorization readiness is idempotent, errors are targeted, and four confir
     assert.equal((await error).code, 'NOT_IN_ROOM');
     assert.deepEqual(gameState, original);
   }
-  for (const client of clients) {
+  for (const [index, client] of clients.entries()) {
+    const turns = index === 3 ? clients.map(recipient => nextEvent(recipient, 'turnChanged')) : [];
     await confirmReady(client, clients);
+    await Promise.all(turns);
+    assert.equal(gameState.phase, index === 3 ? 'active' : 'deal');
+    assert.equal(randomCalls, index === 3 ? 1 : 0);
     const before = structuredClone(gameState);
     client.emit('ready', {});
+    if (index === 3) await nextEvent(client, 'error');
     const error = nextEvent(client, 'error');
     client.emit('unready', {});
     assert.equal((await error).code, 'READY_NOT_AVAILABLE');
     assert.deepEqual(gameState, before);
   }
   const completed = structuredClone(gameState);
+  const rejected = nextEvent(clients[0], 'error');
   clients[0].emit('ready', {});
+  assert.equal((await rejected).code, 'READY_NOT_AVAILABLE');
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.deepEqual(gameState, completed);
   original.players.forEach(player => { player.isReady = true; });
-  assert.deepEqual(gameState, original);
-  assert.equal(events.length, 16);
+  assert.deepEqual(gameState, { ...original, phase: 'active', turn: clients[2].id, turnStep: 'awaitingDraw' });
+  assert.equal(events.length, 20);
   for (const client of clients) {
-    assert.deepEqual(events.filter(entry => entry.recipient === client.id), clients.map(sender => ({
+    assert.deepEqual(events.filter(entry => entry.recipient === client.id), [...clients.map(sender => ({
       recipient: client.id, event: 'playerReady', payload: { playerId: sender.id },
-    })));
+    })), { recipient: client.id, event: 'turnChanged', payload: { playerId: clients[2].id } }]);
   }
   assert.deepEqual(errors.map(({ recipient, payload }) => [recipient, payload.code]), [
     [outsider.id, 'NOT_IN_ROOM'], [outsider.id, 'NOT_IN_ROOM'],
-    ...clients.map(client => [client.id, 'READY_NOT_AVAILABLE']),
+    ...clients.slice(0, 3).map(client => [client.id, 'READY_NOT_AVAILABLE']),
+    [clients[3].id, 'READY_NOT_AVAILABLE'], [clients[3].id, 'READY_NOT_AVAILABLE'],
+    [clients[0].id, 'READY_NOT_AVAILABLE'],
   ]);
 });
 
-for (const readyCount of [0, 2, 4]) {
+for (const readyCount of [0, 2, 3]) {
   test(`departure after ${readyCount} memorization confirmations clears the deal and permits replacement-seat redealing`, async t => {
     const { clients, connect, gameState } = await dealtHarness(t);
     const outsider = await connect();

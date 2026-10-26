@@ -1,4 +1,4 @@
-// Checks lobby filling through the transition to a private deal on real sockets.
+// Checks IT-01 from lobby readiness through private dealing and the first active turn.
 import { render, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { io as connectClient } from 'socket.io-client';
@@ -6,8 +6,8 @@ import { expect, it } from 'vitest';
 import { createServer } from '../../../server/src/server.js';
 import { App } from '../../src/App.jsx';
 
-it('shows the lobby filling on four separate socket connections', async () => {
-  const { httpServer, io } = createServer();
+it('joins, deals, and starts the same first turn on four separate socket connections', async () => {
+  const { httpServer, io, gameState } = createServer({ random: () => 0.75 });
   await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${httpServer.address().port}`;
   const sockets = [];
@@ -75,6 +75,23 @@ it('shows the lobby filling on four separate socket connections', async () => {
       expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();
       expect(within(view.container).getAllByRole('img', { name: /face up/ })).toHaveLength(2);
     }
+    for (let index = 0; index < 4; index++) {
+      const user = userEvent.setup();
+      await user.click(within(views[index].container).getByRole('button', { name: 'Ready Up' }));
+      await waitFor(() => expect(gameState.players[index].isReady).toBe(true));
+      if (index < 3) {
+        expect(gameState.phase).toBe('deal');
+        for (const view of views) expect(within(view.container).queryByText('Current turn')).not.toBeInTheDocument();
+      }
+    }
+    for (const view of views) {
+      await waitFor(() => expect(within(view.container).getByRole('region', { name: 'Playing board' })).toBeInTheDocument());
+      expect(within(view.container).getByRole('listitem', { name: 'Seat 4' })).toHaveAttribute('aria-current', 'true');
+      expect(within(view.container).getAllByRole('img', { name: /face down/ })).toHaveLength(16);
+      expect(within(view.container).queryAllByRole('img', { name: /face up/ })).toHaveLength(0);
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+    }
+    expect(gameState).toMatchObject({ phase: 'active', turn: sockets[3].id, turnStep: 'awaitingDraw' });
   } finally {
     for (const socket of sockets) socket.disconnect();
     await new Promise(resolve => io.close(resolve));
