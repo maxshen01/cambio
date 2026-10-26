@@ -1,24 +1,13 @@
-# Client directory structure
+# Client instructions
 
-```text
-client/
-|-- src/                React application code
-|   |-- lobby/          Join flow and lobby components
-|   |-- socket/         Socket.IO client connection
-|   `-- styles/         Minimal application styles
-|-- test/               Feature folders: lobby, setup, cards, recovery; shared helpers
-|-- index.html          Vite HTML entry point
-|-- vite.config.js      Development server, proxy, and test configuration
-|-- package.json        Package configuration and scripts
-`-- package-lock.json   Locked dependencies
-```
+Place implementation in `src/`: lobby/join components in `src/lobby/`, socket setup in `src/socket/`. Use React Testing Library/Vitest in `test/<feature>/`; helpers belong in `test/helpers/`.
 
-Place client implementation code in `src/`. Keep the join flow and lobby display in `src/lobby/`, and Socket.IO connection setup in `src/socket/`. Put React tests in `test/` using Vitest and React Testing Library.
+Follow [test organization and fixtures](../Development.md#test-organization-and-fixtures) when adding tests/features; preserve empty-selection guards and representative transitions. Use [client checks](../Development.md#client-commands) during development and the [pre-merge gate](../Development.md#pre-merge-gate) for implementation changes. Documentation-only changes need reference/requirement checks. Leave browser and visual validation to the user.
 
-Run client tests with `npm.cmd test` and verify production builds with `npm.cmd run build` from this directory.
+Use `src/socket/log.js` for diagnostics; log only event names, outcomes, and small metadata, never display names or full payloads. See [diagnostic switches](../Development.md#environment-and-diagnostics) when needed.
 
-Keep tests in `test/<feature>/`: `.unit.test.js` for isolated logic, `.component.test.jsx` for fake-socket React checks, and `.integration.test.js(x)` for real-socket behavior. Put shared setup and fake sockets in `test/helpers/`, outside test discovery. Group cross-feature scenarios by their primary behavior and keep representative transitions intact.
+For each change, consult relevant entries in the [documentation ownership guide](../Development.md#documentation-ownership-and-updates), including cross-package effects. Inspect affected specifications; update only changed facts and link canonical definitions. Specifications describe intent; source/tests establish implementation. Keep affected JSDoc/shared types accurate.
 
-During development use `npm.cmd run test:lobby`, `test:setup`, `test:cards`, or `test:recovery`; use `test:fast` for units/components and `test:integration` for real sockets. These scripts must fail on empty selections. Add a matching script when a new feature folder is introduced, with fixtures independent of lobby tests. See README.md for file/name selection and watch commands. Before merging, run both packages' complete suites and type checks and the client production build.
+Report checks, defects, and unverified criteria in chat. Do not add repository status tracking, commit, or update GitHub without a separate request.
 
-For useful Socket.IO diagnostics, use the existing `src/socket/log.js` helper and the `VITE_SOCKET_DEBUG=1` switch. Log event names, outcomes, and small metadata such as seat IDs or player counts; omit display names and full event payloads.
+For UI changes, inspect UI Rules; for socket changes, Events Contract and shared public types; for eligibility/privacy, Game Rules. Find specification paths in the ownership guide.

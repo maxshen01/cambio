@@ -1,23 +1,13 @@
-# Server directory structure
+# Server instructions
 
-```text
-server/
-|-- src/                Server application code
-|   |-- game/           Game rules and data models
-|   `-- sockets/        Connection code
-|-- test/               Feature folders: lobby, setup, cards, recovery; shared helpers
-|-- package.json        Package configuration and scripts
-`-- package-lock.json   Locked dependencies
-```
+Place implementation in `src/`: rules/models in `src/game/`, connection code in `src/sockets/`. Use Node's test runner in `test/<feature>/`; helpers belong in `test/helpers/`.
 
-Place server implementation code in `src/`. Keep game rules and data models in `src/game/`, and all connection code in `src/sockets/`. Put unit and integration tests in `test/`.
+Follow [test organization and fixtures](../Development.md#test-organization-and-fixtures) when adding tests/features; use independent injected-state fixtures, preserve recursive discovery, empty-selection guards, and representative transitions. Use [server checks](../Development.md#server-commands) during development and the [pre-merge gate](../Development.md#pre-merge-gate) for implementation changes. Documentation-only changes need reference/requirement checks.
 
-Run server tests with `npm.cmd test` from this directory; the package script uses Node's test runner.
+Use `src/sockets/log.js` for diagnostics; log only event names, outcomes, and small metadata, never incoming payload contents. Unexpected errors must be logged even with diagnostics off. See [diagnostic switches](../Development.md#environment-and-diagnostics) when needed.
 
-Keep tests in `test/<feature>/` with `.unit.test.js`, `.integration.test.js`, or `.asset.test.js` suffixes. Keep helpers in `test/helpers/`, outside test discovery. Group scenarios by their primary behavior; preserve representative cross-feature transitions. The shared room harness accepts injected state so new features can start from independent fixtures without replaying lobby scenarios.
+For each change, consult relevant entries in the [documentation ownership guide](../Development.md#documentation-ownership-and-updates), including cross-package effects. Inspect affected specifications; update only changed facts and link canonical definitions. Specifications describe intent; source/tests establish implementation. Keep affected JSDoc/shared types accurate.
 
-During development use `npm.cmd run test:lobby`, `test:setup`, `test:cards`, or `test:recovery`; use `test:fast` for units, `test:integration` for composed server/socket checks, and `test:assets` for artwork integrity. New feature folders need matching scripts. Preserve recursive discovery and the empty-selection TAP guard. See README.md for single-file/name commands. Before merging, run both packages' complete suites and type checks and the client production build.
+Report checks, defects, and unverified criteria in chat. Do not add repository status tracking, commit, or update GitHub without a separate request.
 
-For useful Socket.IO diagnostics, use the existing `src/sockets/log.js` helper and the `SOCKET_DEBUG=1` switch. Log event names, outcomes, and small metadata without incoming payload contents. Unexpected server errors are logged even when diagnostics are off.
-
-All command line inputs will be returned back in bash.
+For rule/state changes, inspect Game Rules and Game Data Model; for socket/error/projection changes, Events Contract and shared public types. Also inspect UI Rules if client interactions/presentation change. Find specification paths in the ownership guide.
