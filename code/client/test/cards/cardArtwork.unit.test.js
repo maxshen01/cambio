@@ -12,7 +12,7 @@ beforeEach(async () => {
     decode = vi.fn().mockResolvedValue(undefined);
     constructor() { images.push(this); }
   });
-  artwork = await import('../src/cards/cardArtwork.js');
+  artwork = await import('../../src/cards/cardArtwork.js');
 });
 
 it('deduplicates requests and waits for decoding before caching artwork as ready', async () => {

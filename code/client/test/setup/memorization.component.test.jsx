@@ -3,10 +3,10 @@ import { StrictMode } from 'react';
 import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
-import { App } from '../src/App.jsx';
-import { useLobby } from '../src/lobby/useLobby.js';
-import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../shared/cardCatalog.js';
-import { FakeSocket } from './fakeSocket.js';
+import { App } from '../../src/App.jsx';
+import { useLobby } from '../../src/lobby/useLobby.js';
+import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
+import { FakeSocket } from '../helpers/fakeSocket.js';
 
 const players = ['Alice', 'Bob', 'Cara', 'Dan'].map((displayName, index) => ({
   playerId: `p${index + 1}`, seatId: index + 1, displayName, connected: true, isReady: true,

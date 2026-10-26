@@ -1,3 +1,4 @@
+// Fake socket for component tests without opening network connections.
 export class FakeSocket {
   connected = false;
   listeners = new Map();

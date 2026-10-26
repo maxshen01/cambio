@@ -13,6 +13,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./test/setup.js'],
+    setupFiles: ['./test/helpers/setup.js'],
+    include: ['test/**/*.unit.test.js', 'test/**/*.component.test.jsx', 'test/**/*.integration.test.{js,jsx}'],
+    passWithNoTests: false,
+    reporters: ['default', './test/helpers/selectionReporter.js'],
   },
 });

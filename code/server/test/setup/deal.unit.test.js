@@ -1,10 +1,10 @@
 // Checks setup eligibility, complete resets, and deterministic seat-order dealing.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGameState } from '../src/game/state.js';
-import { joinPlayer } from '../src/game/lobby.js';
-import { createDeck } from '../src/game/deck.js';
-import { dealIfReady, toDealView } from '../src/game/deal.js';
+import { createGameState } from '../../src/game/state.js';
+import { joinPlayer } from '../../src/game/lobby.js';
+import { createDeck } from '../../src/game/deck.js';
+import { dealIfReady, toDealView } from '../../src/game/deal.js';
 
 function readyRoom() {
   const state = createGameState();

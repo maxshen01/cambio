@@ -5,8 +5,15 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env src/index.js",
-    "test": "node --test test/*.test.js",
-    "typecheck": "tsc -p tsconfig.json"
+    "test": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.test.js\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:lobby": "node --test --test-reporter ./test/helpers/reporter.js \"test/lobby/**/*.test.js\"",
+    "test:setup": "node --test --test-reporter ./test/helpers/reporter.js \"test/setup/**/*.test.js\"",
+    "test:cards": "node --test --test-reporter ./test/helpers/reporter.js \"test/cards/**/*.test.js\"",
+    "test:recovery": "node --test --test-reporter ./test/helpers/reporter.js \"test/recovery/**/*.test.js\"",
+    "test:fast": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.unit.test.js\"",
+    "test:integration": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.integration.test.js\"",
+    "test:assets": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.asset.test.js\""
   },
   "dependencies": {
     "socket.io": "^4.8.1"

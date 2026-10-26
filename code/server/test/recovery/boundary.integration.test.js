@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { createServer } from '../src/server.js';
-import { createGameState } from '../src/game/state.js';
+import { createServer } from '../../src/server.js';
+import { createGameState } from '../../src/game/state.js';
 
 test('unexpected join failure after mutation resets the injected room and suppresses cleanup broadcasts', t => {
   const gameState = createGameState();

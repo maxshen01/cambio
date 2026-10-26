@@ -1,11 +1,15 @@
 // Covers explicit connection recovery and callback lifetime across StrictMode effects.
 import { StrictMode } from 'react';
-import { act, render, renderHook, screen } from '@testing-library/react';
+import { act, render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { App } from '../src/App.jsx';
-import { FakeSocket } from './fakeSocket.js';
-import { useLobby } from '../src/lobby/useLobby.js';
+import { App } from '../../src/App.jsx';
+import { FakeSocket } from '../helpers/fakeSocket.js';
+import { useLobby } from '../../src/lobby/useLobby.js';
+
+function player(seatId, playerId, displayName, isReady = false) {
+  return { seatId, playerId, displayName, connected: true, isReady };
+}
 
 it('guards retry, join, and ready twice in the same render cycle and clears pending actions on loss', () => {
   const socket = new FakeSocket();
@@ -101,4 +105,53 @@ it('cleans StrictMode listeners and invalidates an acknowledgement after unmount
   act(() => ack({ playerId: 'old', seatId: 1 }));
   expect(screen.getByRole('status')).toHaveTextContent('Connected');
   expect(screen.getByRole('dialog')).toBeInTheDocument();
+});
+
+it('clears a departed browser’s identity and seats and requires a reload', async () => {
+  const user = userEvent.setup();
+  const socket = new FakeSocket();
+  const view = render(<App socket={socket} />);
+  await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+  await user.click(screen.getByRole('button', { name: 'Join lobby' }));
+  act(() => socket.emissions[0].ack({ playerId: 'p1', seatId: 1 }));
+  act(() => socket.receive('playerJoined', { players: [player(1, 'p1', 'Alice')] }));
+
+  await user.click(screen.getByRole('button', { name: 'Ready Up' }));
+  expect(screen.getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+  act(() => socket.disconnect());
+  act(() => socket.receive('playerReady', { playerId: 'p1' }));
+  expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByRole('alert'))
+    .toHaveTextContent('Connection lost. Reload to rejoin.');
+  expect(screen.getByRole('textbox', { name: /name/i })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Ready Up', hidden: true })).toBeDisabled();
+  expect(screen.getAllByText('Empty')).toHaveLength(4);
+
+  act(() => socket.connect());
+  expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
+  expect(within(screen.getByRole('dialog')).getByRole('alert'))
+    .toHaveTextContent('Connection lost. Reload to rejoin.');
+
+  view.unmount();
+  expect(socket.listeners.get('disconnect')?.size).toBe(0);
+});
+
+it('ignores an old join acknowledgement and events after disconnect', async () => {
+  const user = userEvent.setup();
+  const socket = new FakeSocket();
+  render(<App socket={socket} />);
+  await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice');
+  await user.click(screen.getByRole('button', { name: 'Join lobby' }));
+
+  act(() => socket.disconnect());
+  act(() => socket.emissions[0].ack({ playerId: 'old', seatId: 1 }));
+  act(() => socket.receive('playerJoined', { players: [player(1, 'old', 'Alice')] }));
+  act(() => socket.receive('error', { code: 'INVALID_NAME', message: 'Old error' }));
+
+  expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByRole('alert'))
+    .toHaveTextContent('Connection lost. Reload to rejoin.');
+  expect(screen.getAllByText('Empty')).toHaveLength(4);
+  expect(screen.getByRole('button', { name: 'Join lobby' })).toBeDisabled();
 });

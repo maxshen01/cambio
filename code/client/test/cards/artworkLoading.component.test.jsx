@@ -3,13 +3,13 @@ import { StrictMode } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { SetupBoard } from '../src/lobby/SetupBoard.jsx';
-import { App } from '../src/App.jsx';
-import { FakeSocket } from './fakeSocket.js';
-import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../shared/cardCatalog.js';
-import { loadCardArtwork, isCardArtworkReady, preloadCardArtwork } from '../src/cards/cardArtwork.js';
+import { SetupBoard } from '../../src/lobby/SetupBoard.jsx';
+import { App } from '../../src/App.jsx';
+import { FakeSocket } from '../helpers/fakeSocket.js';
+import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../../shared/cardCatalog.js';
+import { loadCardArtwork, isCardArtworkReady, preloadCardArtwork } from '../../src/cards/cardArtwork.js';
 
-vi.mock('../src/cards/cardArtwork.js', () => ({
+vi.mock('../../src/cards/cardArtwork.js', () => ({
   loadCardArtwork: vi.fn(), isCardArtworkReady: vi.fn(), preloadCardArtwork: vi.fn(),
 }));
 

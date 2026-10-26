@@ -6,7 +6,13 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test:lobby": "vitest run test/lobby/",
+    "test:setup": "vitest run test/setup/",
+    "test:cards": "vitest run test/cards/",
+    "test:recovery": "vitest run test/recovery/",
+    "test:fast": "vitest run --exclude \"**/*.integration.test.*\" --exclude \"**/*.asset.test.*\"",
+    "test:integration": "vitest run --exclude \"**/*.unit.test.*\" --exclude \"**/*.component.test.*\" --exclude \"**/*.asset.test.*\""
   },
   "keywords": [],
   "author": "",
