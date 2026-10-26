@@ -92,8 +92,14 @@ it('renders all named hands with stable local rotation, image mappings, and invi
       expect(slot).toBeEmptyDOMElement();
       expect(slot).toHaveAttribute('aria-hidden', 'true');
     }
-    expect(seat.querySelector('.setup-drawn')).toBeEmptyDOMElement();
+    expect(seat.querySelector('.setup-drawn')).toBeNull();
   }
+  const drawnAreas = document.querySelectorAll('.setup-drawn');
+  expect(drawnAreas).toHaveLength(1);
+  expect(drawnAreas[0].parentElement).toHaveClass('setup-piles');
+  expect(drawnAreas[0].previousElementSibling).toHaveClass('setup-discard');
+  expect(drawnAreas[0]).toBeEmptyDOMElement();
+  expect(drawnAreas[0]).toHaveAttribute('aria-hidden', 'true');
   expect(document.querySelector('.setup-discard')).toBeEmptyDOMElement();
   const emissions = socket.emissions.length;
   screen.getAllByRole('img').forEach(image => fireEvent.click(image));

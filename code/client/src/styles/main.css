@@ -358,18 +358,20 @@ input {
   user-select: none;
 }
 
-.setup-drawn { position: absolute; }
-.setup-player--top .setup-drawn { top: calc(100% + 20px); }
-.setup-player--bottom .setup-drawn { bottom: calc(100% + 20px); }
-.setup-player--left .setup-drawn { left: calc(100% + 20px); top: 50%; }
-.setup-player--right .setup-drawn { right: calc(100% + 20px); top: 50%; }
+.setup-drawn {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: center;
+}
 
 .setup-piles {
   position: absolute;
   top: 50%;
   left: 50%;
-  display: flex;
-  gap: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, var(--card-width));
+  column-gap: 28px;
+  row-gap: 12px;
   transform: translate(-50%, -50%);
 }
 

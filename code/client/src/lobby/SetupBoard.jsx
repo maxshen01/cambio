@@ -1,4 +1,4 @@
-// Noninteractive setup board: stable seats, recipient-authorized faces, and reserved empty space.
+// Noninteractive setup board: private opening hands and one shared drawn-card area below the piles.
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 import { useCardArtwork } from '../cards/useCardArtwork.js';
 
@@ -48,7 +48,6 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
                   })}
                 </div>
               </div>
-              <div className="setup-drawn" aria-hidden="true" />
             </li>
           );
         })}
@@ -56,6 +55,7 @@ export function SetupBoard({ players, cards, identity, canReady, onReady }) {
       <div className="setup-piles">
         <div className="setup-deck">{artwork.ready && <img className="setup-card" src={CARD_BACK_IMAGE} alt="Deck" draggable={false} />}</div>
         <div className="setup-discard" aria-hidden="true" />
+        <div className="setup-drawn" aria-hidden="true" />
       </div>
       <div className="setup-controls">
         <button type="button" disabled>Call Cambio</button>

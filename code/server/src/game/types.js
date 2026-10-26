@@ -14,7 +14,7 @@
  * @property {string} displayName
  * @property {import('../../../shared/lobbyTypes.js').SeatId} seatId
  * @property {HandSlot[]} hand
- * @property {Card | null} drawnCard
+ * @property {Card | null} drawnCard Owned pending card, outside the hand; displayed in the shared area below the piles.
  * @property {'deck' | 'discard' | null} drawnFrom
  * @property {boolean} drawnCardRevealed
  * @property {number} score

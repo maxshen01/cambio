@@ -38,6 +38,7 @@
 ### What can happen each turn
 
 - The player who’s turn it is must draw 1 card from the deck or the discard pile (not possible on first turn as nothing has been discarded)
+- Display the pending drawn card in one shared area centered below the deck and discard piles, outside every player's hand. It belongs to the drawer and does not count toward the eight-card hand limit. Deck draws are private to the drawer until revealed by a power or discarded; discard draws are public.
 - The player has unlimited time to look and decide what to do with the card.
 - If the player took from the deck, the player must either discard this card or replace one of their facedown cards, and discard that card.
 - The player can choose to swap their drawn card with one of their facedown cards. This facedown card is then moved to the discard pile, face up.
@@ -70,7 +71,7 @@
 - If the opponent wrongly tries to match their own or opponents cards, the card is not matched and returned. The player picks up one penalty card.
 - In the event that 2 people try and match the same card, the person who matches first gets to match.
 - After a successful opponent match, turn actions pause while the matcher chooses a card to give and the gift and automatic penalty are completed. Other players may continue attempting matches during that choice. A successful self-match needs no settlement pause. A pending turn resumes after the gift; the turn cannot advance until then. Every accepted flip is decided by the server immediately, while clients animate the reveal locally.
-- Each player may hold at most eight cards. If an added penalty or given card would exceed this limit, that player is disconnected and the match is aborted. If a required deck penalty cannot be drawn or supplied by the usual refill, the match aborts as a server error.
+- Each player's hand may contain at most eight cards, excluding their pending drawn card in the shared area. If an added penalty or given card would exceed this limit, that player is disconnected and the match is aborted. If a required deck penalty cannot be drawn or supplied by the usual refill, the match aborts as a server error.
 
 ### Calling Cambio
 

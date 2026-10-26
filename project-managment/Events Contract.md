@@ -50,13 +50,23 @@ Hand slot IDs are per player and range from `1` to `8`. Render them in column or
 
 ### Server to frontend
 
-**CardView** — one card as seen by a particular recipient:
+**CardView** — one hand card as seen by a particular recipient:
 
 ```js
 { playerId: string, handSlotId: int, faceUp: bool, cardId?: int }
 ```
 
-`cardId` selects the card-face image and is present only when `faceUp` is true **for that recipient**. Omit it entirely for a facedown view. `faceUp` describes what this event or snapshot tells that recipient to display; it is not stored on the server's `HandSlot`. For the drawn-card display, `handSlotId` is `0`; ordinary hand slots use their actual IDs. Build a separate payload for each recipient when visibility differs. `powerCardRevealed` uses a single face-up drawn-card `CardView` for every recipient.
+`handSlotId` is a real hand position from `1` through `8`. `cardId` selects the card-face image and is present only when `faceUp` is true **for that recipient**. Omit it entirely for a facedown view. `faceUp` describes what this event or snapshot tells that recipient to display; it is not stored on the server's `HandSlot`. Build a separate payload for each recipient when visibility differs.
+
+**DrawnCardView** — the pending card in the one shared drawn-card area:
+
+```js
+{ playerId: string, faceUp: bool, cardId?: int }
+```
+
+`playerId` identifies the drawer, not a display position. There is no `handSlotId`: this card is outside every hand. The same visibility rule applies: a face-up view requires `cardId`, and a facedown view omits it entirely. `cardDrawn` uses recipient-specific views; `powerCardRevealed` sends the same face-up view to everyone.
+
+All clients display this card upright in one shared area centered below the deck and discard piles. Only the drawer may perform the permitted drawn-card action. Reserve this area without visible content during setup or when no draw is pending. Keep the pending card there throughout power resolution; clear it when swapped into a hand, discarded, or replaced by a reset/empty snapshot, and clear local display state on connection loss. Moving the display does not change server ownership or card privacy.
 
 **PlayerSwap** — two hand positions exchanged after server validation:
 
@@ -117,7 +127,7 @@ This is an object because all event payloads are JSON objects. It contains no ca
 {
   players: Array<{ summary: PlayerSummary, hand: CardView[] }>,
   discardTop: DiscardView | null,
-  drawnCard: CardView | null,
+  drawnCard: DrawnCardView | null,
   drawnFrom: "deck" | "discard" | null,
   turnPlayerId: string | null,
   turnStep: "awaitingDraw" | "awaitingDrawnCardResolution" | "resolvingPower" | null,
@@ -132,6 +142,8 @@ This is an object because all event payloads are JSON objects. It contains no ca
   scores: Array<{ playerId: string, score: int, cardCount: int }> | null
 }
 ```
+
+The snapshot's single `drawnCard` populates the shared area below the piles; `null` empties it. Its `playerId` identifies the turn holder who owns the card.
 
 This is a **baseline snapshot** for resynchronization, including during setup, not a record of temporary animations. Before the deal, hands are empty and `summary.isReady` represents lobby readiness. During the deal, show each recipient their own bottom two card faces only while their `summary.isReady` is false. During play, hand cards are facedown, even if a client is currently animating a match flip or power peek. `turnStep` reports the underlying turn stage. `powerPrompt` is non-null only for the current power user while `turnStep` is `"resolvingPower"`; it restores their use/skip, Done, or swap/skip choice according to its stage without repeating a temporary peek reveal. All other recipients receive `powerPrompt: null`. Its `power` uses the `Card.power` enum in the data model. `matchingAllowed` is true only when a discard top exists and matching is allowed by the live phase or final grace deadline; it is false throughout `"resolvingPower"` and after the final grace deadline, but may be true while `matchStage` is `"awaitingGift"`. `matchStage` is non-null only while an opponent gift blocks turn actions; `giftPrompt` is non-null only for that matcher and identifies the recipient. Neither prompt repeats a card-face reveal. `finalMatchGraceActive` is true only during the one-second matching grace after the last final turn; during that grace `turnPlayerId` and `turnStep` are null while `phase` remains `"finalRound"`. The caller's ID can be present while `phase` is still `"active"` during their unfinished turn. The pending `drawnCard` remains present through power resolution and has `cardId` for the drawer, for everyone if `drawnFrom` is `"discard"`, and for everyone after `usePower` has revealed a held deck card. A black queen/king card stays face up to all through the Done and later swap or skip choice. `drawnCard` and `drawnFrom` become null when the server discards the held power card. At `roundOver`, all hands are face up and `scores` and `winners` are populated; before then, `scores` is `null` and `winners` is empty. The deck remains a clickable facedown graphic; its order and count stay on the server. Never include buried discard cards, hidden card IDs, or the server-only discard-top match status.
 
@@ -158,7 +170,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 ### Turn and draw
 
 - `drawCard` (Client to Server): `{ source: "deck" | "discard" }`; the current turn holder takes one card from an available source while awaiting a draw.
-- `cardDrawn` (Server to All): per-player `CardView` with `handSlotId: 0`. The face is visible only to the drawer for a deck draw and to everyone for a discard draw; after a discard draw, `discardPileUpdated` follows with the newly exposed top.
+- `cardDrawn` (Server to All): per-recipient `DrawnCardView` identifying the drawer, without a hand-slot ID. The face is visible only to the drawer for a deck draw and to everyone for a discard draw; after a discard draw, `discardPileUpdated` follows with the newly exposed top.
 
 ### Resolve drawn card
 
@@ -172,7 +184,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 - `powerResolutionStarted` (Server to All): `{ playerId: string }`; announces that the turn holder's drawn card is entering power resolution and matching is disabled without revealing its face.
 - `powerAvailable` (Server to Player): `{ power: Card.power }`; the held drawn card's optional power, using the data model's enum.
 - `usePower` (Client to Server): for 7–10, `{ peekTarget: HandSlotRef }`; for jack, `{ first: HandSlotRef, second: HandSlotRef }`; for black queen/king, `{ peekTargets: HandSlotRef[] }` with exactly one/two distinct targets. The server validates the pending power and all targets.
-- `powerCardRevealed` (Server to All): face-up `CardView` with `handSlotId: 0` for the power user's held card; sent after a valid `usePower` and before its peek or swap result.
+- `powerCardRevealed` (Server to All): face-up `DrawnCardView` for the power user's held card in the shared area; sent after a valid `usePower` and before its peek or swap result.
 - `skipPower` (Client to Server): `{}`; declines a pending power before use or declines the swap after `finishPowerPeek` for a black queen/king.
 - `powerPeekResult` (Server to All): per-player `{ targets: CardView[] }`; everyone sees which slots were peeked at, but only the power user receives their `cardId` values. The user keeps the faces visible until Done.
 - `finishPowerPeek` (Client to Server): `{}`; the power user finishes viewing a 7–10 or black queen/king peek. A 7–10 then finishes its turn; a black queen/king proceeds to swap or skip.
@@ -356,10 +368,10 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | --- | --- |
 | Direction | (Server to All) |
 | Trigger | A `drawCard` request succeeds. |
-| Payload | A `CardView` with `playerId` equal to the drawer and `handSlotId: 0`. For a deck draw, the drawer receives `faceUp: true` and `cardId`; all other players receive `faceUp: false` without `cardId`. For a discard draw, every player receives `faceUp: true` and `cardId`. |
+| Payload | A `DrawnCardView` with `playerId` equal to the drawer and no `handSlotId`. For a deck draw, the drawer receives `faceUp: true` and `cardId`; all other players receive `faceUp: false` without `cardId`. For a discard draw, every player receives `faceUp: true` and `cardId`. |
 | Preconditions | The server has removed one card from the chosen source and stored it as the drawer's pending card. |
 | Server effects | None; `drawCard` already changed the piles and pending draw. |
-| Resulting events | Clients show the card in the drawer's pending-card position until it is resolved. After a discard draw, `discardPileUpdated` follows to show the new top or `null`; after a deck draw, no pile update follows. |
+| Resulting events | Clients show the card in the shared drawn-card area centered below the deck and discard piles until it is resolved. After a discard draw, `discardPileUpdated` follows to show the new top or `null` while retaining the pending card in the shared area; after a deck draw, no pile update follows. |
 | Ack | None. |
 | Errors | None. |
 
@@ -400,7 +412,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Payload | `{ top: DiscardView \| null }`; `null` when the pile becomes empty. No buried cards or pile count are included. |
 | Preconditions | The server has already changed the discard pile. |
 | Server effects | None; the action that changed the pile sets its server-only `topMatchStatus`. An exposed older top cannot win a match; a new discard is eligible until its first correct match. |
-| Resulting events | Clients replace the displayed discard top. After a discard draw, this follows `cardDrawn`; after a drawn-card swap, it follows `cardSwapped`. After a power is completed or skipped, this update follows any power result: clients clear the held drawn-card display and end the public matching block before turn advancement. |
+| Resulting events | Clients replace the displayed discard top. After a discard draw, this follows `cardDrawn` and retains the shared drawn-card display; after a drawn-card swap, it follows `cardSwapped`, which has cleared that display. A completed non-power discard clears the shared drawn-card display. After a power is completed or skipped, this update follows any power result: clients clear the held drawn-card display and end the public matching block before turn advancement. |
 | Ack | None. |
 | Errors | None. |
 
@@ -413,7 +425,7 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Payload | `{ kind: "drawn", target: HandSlotRef }` (`SelfSwap`) or `{ kind: "power", first: HandSlotRef, second: HandSlotRef }` (`PlayerSwap`). Slot references identify the affected positions; no hidden `cardId` is included. |
 | Preconditions | The server has completed the corresponding drawn-card or power swap. A power swap uses slots owned by different players, never two slots owned by the same player; during `"finalRound"`, neither slot belongs to the Cambio caller. |
 | Server effects | None; the action that caused the swap already updated the hands. |
-| Resulting events | Clients update the referenced hand slots as facedown cards and clear temporary reveals on those slots. A drawn swap is followed by `discardPileUpdated` for its displaced card. A power swap is followed by `discardPileUpdated` for the held power card; the new discard top becomes eligible before the turn advances. |
+| Resulting events | Clients update the referenced hand slots as facedown cards and clear temporary reveals on those slots. A drawn swap clears the shared drawn-card area and is followed by `discardPileUpdated` for its displaced card. A power swap is followed by `discardPileUpdated` for the held power card; the new discard top becomes eligible before the turn advances. |
 | Ack | None. |
 | Errors | None. |
 
@@ -464,10 +476,10 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | --- | --- |
 | Direction | (Server to All) |
 | Trigger | A `usePower` request succeeds after the server validates its targets. |
-| Payload | The same face-up `CardView` for every recipient: `{ playerId: string, handSlotId: 0, faceUp: true, cardId: int }`, identifying the held power card. |
+| Payload | The same face-up `DrawnCardView` for every recipient: `{ playerId: string, faceUp: true, cardId: int }`, identifying the held power card without a hand-slot ID. |
 | Preconditions | `usePower` validated and captured the held drawn card before any automatic discard. For a black queen/king, `drawnCardRevealed` remains true while the swap or skip choice is pending. A rejected `usePower` does not reveal the card. |
 | Server effects | None; `usePower` authorized the public reveal before the power result. |
-| Resulting events | Clients display the card face in the user's drawn-card position. The power's `powerPeekResult` or `cardSwapped` follows; for a black queen/king, the card remains publicly face up through the later swap or skip choice. `discardPileUpdated` eventually moves the card face to the discard top and clears the drawn-card display. This event does not represent a match attempt and is not followed by `matchResult`. |
+| Resulting events | Clients display the card face in the shared drawn-card area below the piles. The power's `powerPeekResult` or `cardSwapped` follows; for a black queen/king, the card remains publicly face up through the later swap or skip choice. `discardPileUpdated` eventually moves the card face to the discard top and clears the drawn-card display. This event does not represent a match attempt and is not followed by `matchResult`. |
 | Ack | None. |
 | Errors | None. |
 
@@ -504,8 +516,8 @@ The server handles received actions sequentially. During `"resolvingPower"`, `at
 | Direction | (Client to Server) |
 | Trigger | The power user clicks Done after viewing the targets from `powerPeekResult`. |
 | Payload | `{}` |
-| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is `selfPeek`, `opponentPeek`, `onePeekSwap`, or `twoPeekSwap`, and `pendingPowerStage === "awaitingPeekDone"`. The held drawn card remains in slot `0`. |
-| Server effects | For a 7–10, move the held power card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, then complete the turn. For a black queen/king, change `pendingPowerStage` to `"awaitingSwap"` while keeping the publicly revealed held card in slot `0`; do not discard or advance the turn. A rejected or duplicate request changes no state. |
+| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is `selfPeek`, `opponentPeek`, `onePeekSwap`, or `twoPeekSwap`, and `pendingPowerStage === "awaitingPeekDone"`. The held drawn card remains in the shared area below the piles. |
+| Server effects | For a 7–10, move the held power card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, then complete the turn. For a black queen/king, change `pendingPowerStage` to `"awaitingSwap"` while keeping the publicly revealed held card in the shared drawn-card area; do not discard or advance the turn. A rejected or duplicate request changes no state. |
 | Resulting events | For a 7–10, send `discardPileUpdated`, then `turnChanged` or `finalMatchGraceStarted` after the last final turn. For a black queen/king, send no separate event: the power user's client closes the peek display when it sends Done and offers `choosePowerSwap` or `skipPower`; matching remains blocked. If the server rejects Done, the client keeps or restores the Done prompt after `error`. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM` for an unseated sender; `NOT_YOUR_TURN` for another seated player; `POWER_NOT_AVAILABLE` outside the pending peek stage, including a duplicate request, via `error` (Server to Player). |
