@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { App } from '../../src/App.jsx';
 import { FakeSocket } from '../helpers/fakeSocket.js';
-import { useLobby } from '../../src/lobby/useLobby.js';
+import { useGameClient } from '../../src/game/useGameClient.js';
 
 function player(seatId, playerId, displayName, isReady = false) {
   return { seatId, playerId, displayName, connected: true, isReady };
@@ -14,12 +14,12 @@ function player(seatId, playerId, displayName, isReady = false) {
 it('guards retry, join, and ready twice in the same render cycle and clears pending actions on loss', () => {
   const socket = new FakeSocket();
   socket.connect = vi.fn();
-  const { result } = renderHook(() => useLobby(socket));
+  const { result } = renderHook(() => useGameClient(socket));
   act(() => socket.receive('connect_error', new Error('offline')));
-  act(() => { result.current.retry(); result.current.retry(); });
+  act(() => { result.current.actions.retryConnection(); result.current.actions.retryConnection(); });
   expect(socket.connect).toHaveBeenCalledTimes(2);
   act(() => { socket.connected = true; socket.receive('connect'); });
-  act(() => { result.current.join('Alice'); result.current.join('Alice'); });
+  act(() => { result.current.actions.joinLobby('Alice'); result.current.actions.joinLobby('Alice'); });
   expect(socket.emissions).toHaveLength(1);
   act(() => {
     socket.emissions[0].ack({ playerId: 'p1', seatId: 1 });
@@ -27,17 +27,17 @@ it('guards retry, join, and ready twice in the same render cycle and clears pend
       { playerId: 'p1', seatId: 1, displayName: 'Alice', connected: true, isReady: false },
     ] });
   });
-  act(() => { result.current.toggleReady(); result.current.toggleReady(); });
+  act(() => { result.current.actions.toggleReady(); result.current.actions.toggleReady(); });
   expect(socket.emissions).toHaveLength(2);
-  expect(result.current.readyPending).toBe(true);
+  expect(result.current.state.readyPending).toBe(true);
   act(() => socket.disconnect());
-  expect(result.current).toMatchObject({ connection: 'lost', identity: null, players: [], pending: false, readyPending: false });
+  expect(result.current).toMatchObject({ state: { connection: 'lost', identity: null, players: [], joinPending: false, readyPending: false } });
   act(() => {
     socket.emissions[0].ack({ playerId: 'p1', seatId: 1 });
     socket.receive('playerUnready', { playerId: 'p1' });
     socket.receive('playerDisconnected', { players: [{ playerId: 'p1', seatId: 1 }] });
   });
-  expect(result.current).toMatchObject({ connection: 'lost', identity: null, players: [] });
+  expect(result.current).toMatchObject({ state: { connection: 'lost', identity: null, players: [] } });
 });
 
 it('shows initial failure and retries once with the same name and socket', async () => {

@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { SetupBoard } from '../../src/lobby/SetupBoard.jsx';
+import { GameBoard } from '../../src/board/GameBoard.jsx';
 import { App } from '../../src/App.jsx';
 import { FakeSocket } from '../helpers/fakeSocket.js';
 import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../../shared/cardCatalog.js';
@@ -57,7 +57,7 @@ it('begins preloading the public artwork while the join dialog is displayed', ()
 it('shows a loading status without partial card images and disables Ready until every required image is decoded', async () => {
   const boardProps = props();
   const user = userEvent.setup();
-  render(<StrictMode><SetupBoard {...boardProps} /></StrictMode>);
+  render(<StrictMode><GameBoard {...boardProps} /></StrictMode>);
   expect(screen.getByRole('status')).toHaveTextContent('Loading cards');
   expect(screen.queryByRole('img')).not.toBeInTheDocument();
   const ready = screen.getByRole('button', { name: 'Ready Up' });
@@ -79,7 +79,7 @@ it('shows a loading status without partial card images and disables Ready until 
 it('keeps faces hidden after failure and allows a fresh image request without a socket action', async () => {
   const boardProps = props();
   const user = userEvent.setup();
-  render(<SetupBoard {...boardProps} />);
+  render(<GameBoard {...boardProps} />);
   await finish(CARD_BACK_IMAGE, CARD_IMAGES[1]);
   await act(async () => { requests.get(CARD_IMAGES[14]).reject(new Error('offline')); });
   expect(screen.getByRole('alert')).toHaveTextContent('Card images could not be loaded');
@@ -95,8 +95,8 @@ it('keeps faces hidden after failure and allows a fresh image request without a 
 });
 
 it('does not let an older deal completion reveal a new deal before its own artwork is ready', async () => {
-  const view = render(<SetupBoard {...props()} />);
-  view.rerender(<SetupBoard {...props(53)} />);
+  const view = render(<GameBoard {...props()} />);
+  view.rerender(<GameBoard {...props(53)} />);
   await finish(CARD_BACK_IMAGE, CARD_IMAGES[1], CARD_IMAGES[14]);
   expect(screen.queryByRole('img')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Ready Up' })).toBeDisabled();
@@ -107,7 +107,7 @@ it('does not let an older deal completion reveal a new deal before its own artwo
 
 it('shows cached artwork immediately and never waits for unrelated faces', () => {
   [CARD_BACK_IMAGE, CARD_IMAGES[1], CARD_IMAGES[14]].forEach(url => loaded.add(url));
-  render(<SetupBoard {...props()} />);
+  render(<GameBoard {...props()} />);
   expect(screen.queryByText(/Loading cards/)).not.toBeInTheDocument();
   expect(screen.getAllByRole('img')).toHaveLength(17);
   expect(screen.getByRole('button', { name: 'Ready Up' })).toBeEnabled();

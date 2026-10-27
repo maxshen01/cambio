@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 /** Animate the current card images between measured board locations, without retaining faces.
  * @param {import('react').RefObject<HTMLElement | null>} board
- * @param {import('../lobby/lobbyReducer.js').LobbyState['movement']} movement
+ * @param {import('../game/gameClientState.js').GameClientState['movement']} movement
  * @param {boolean} artworkReady
  */
 export function useCardMovements(board, movement, artworkReady) {

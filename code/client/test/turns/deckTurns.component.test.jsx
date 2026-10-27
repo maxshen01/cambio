@@ -4,7 +4,7 @@ import { act, fireEvent, render, renderHook, screen, within } from '@testing-lib
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { App } from '../../src/App.jsx';
-import { useLobby } from '../../src/lobby/useLobby.js';
+import { useGameClient } from '../../src/game/useGameClient.js';
 import { FakeSocket } from '../helpers/fakeSocket.js';
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 
@@ -18,50 +18,50 @@ function activate(socket) {
 }
 function hook() {
   const socket = new FakeSocket();
-  const view = renderHook(() => useLobby(socket), { wrapper: StrictMode });
-  act(() => view.result.current.join('Player 1'));
+  const view = renderHook(() => useGameClient(socket), { wrapper: StrictMode });
+  act(() => view.result.current.actions.joinLobby('Player 1'));
   act(() => activate(socket));
   return { socket, ...view };
 }
 
 it('guards same-render requests, retains a rejected board, and resolves only from events', () => {
   const { socket, result } = hook();
-  act(() => { result.current.draw(); result.current.draw(); });
+  act(() => { result.current.actions.drawFromDeck(); result.current.actions.drawFromDeck(); });
   expect(socket.emissions.filter(entry => entry.event === 'drawCard')).toHaveLength(1);
-  expect(result.current).toMatchObject({ turnPending: true, drawnCard: null, canDraw: false });
+  expect(result.current).toMatchObject({ state: { turnPending: true, drawnCard: null }, permissions: { canDraw: false } });
   act(() => socket.receive('error', { code: 'DECK_EMPTY', message: 'Empty' }));
-  expect(result.current).toMatchObject({ turnPending: false, canDraw: true, drawnCard: null });
-  act(() => result.current.draw());
+  expect(result.current).toMatchObject({ state: { turnPending: false, drawnCard: null }, permissions: { canDraw: true } });
+  act(() => result.current.actions.drawFromDeck());
   act(() => socket.receive('cardDrawn', { playerId: 'p1', faceUp: true, cardId: 7 }));
-  expect(result.current).toMatchObject({ canDraw: false, canResolve: true, drawnCard: { cardId: 7 } });
-  act(() => { result.current.swap(1); result.current.discard(); result.current.swap(2); });
+  expect(result.current).toMatchObject({ state: { drawnCard: { cardId: 7 } }, permissions: { canDraw: false, canResolve: true } });
+  act(() => { result.current.actions.replaceHandCard(1); result.current.actions.discardDrawnCard(); result.current.actions.replaceHandCard(2); });
   expect(socket.emissions.filter(entry => entry.event === 'swapDrawnCard')).toEqual([
     { event: 'swapDrawnCard', payload: { target: { playerId: 'p1', handSlotId: 1 } }, ack: undefined },
   ]);
   act(() => socket.receive('error', { code: 'INVALID_TARGET', message: 'Try again' }));
-  expect(result.current.drawnCard.cardId).toBe(7);
-  expect(result.current.canResolve).toBe(true);
-  act(() => result.current.discard());
+  expect(result.current.state.drawnCard.cardId).toBe(7);
+  expect(result.current.permissions.canResolve).toBe(true);
+  act(() => result.current.actions.discardDrawnCard());
   act(() => socket.receive('discardPileUpdated', { top: { cardId: 7 } }));
-  expect(result.current).toMatchObject({ drawnCard: null, discardTop: { cardId: 7 }, canDraw: false, canResolve: false });
+  expect(result.current).toMatchObject({ state: { drawnCard: null, discardTop: { cardId: 7 } }, permissions: { canDraw: false, canResolve: false } });
   act(() => socket.receive('turnChanged', { playerId: 'p2' }));
-  expect(result.current).toMatchObject({ turnPending: false, turnPlayerId: 'p2', canDraw: false });
-  expect(result.current.cards.every(card => !('cardId' in card))).toBe(true);
+  expect(result.current).toMatchObject({ state: { turnPending: false, turnPlayerId: 'p2' }, permissions: { canDraw: false } });
+  expect(result.current.state.cards.every(card => !('cardId' in card))).toBe(true);
 });
 
 it('sanitizes hidden/opponent faces, keeps discard updates separate, and cleans late listeners', () => {
   const { socket, result, unmount } = hook();
   act(() => socket.receive('turnChanged', { playerId: 'p2' }));
   act(() => socket.receive('cardDrawn', { playerId: 'p2', faceUp: true, cardId: 7 }));
-  expect(result.current.drawnCard).toEqual({ playerId: 'p2', faceUp: false });
-  expect(result.current.canResolve).toBe(false);
+  expect(result.current.state.drawnCard).toEqual({ playerId: 'p2', faceUp: false });
+  expect(result.current.permissions.canResolve).toBe(false);
   act(() => socket.receive('cardSwapped', { kind: 'drawn', target: { playerId: 'p2', handSlotId: 2 } }));
-  expect(result.current.drawnCard).toBeNull();
-  expect(result.current.cards.find(card => card.playerId === 'p2' && card.handSlotId === 2)).toEqual({ playerId: 'p2', handSlotId: 2, faceUp: false });
+  expect(result.current.state.drawnCard).toBeNull();
+  expect(result.current.state.cards.find(card => card.playerId === 'p2' && card.handSlotId === 2)).toEqual({ playerId: 'p2', handSlotId: 2, faceUp: false });
   const late = ['cardDrawn', 'discardPileUpdated', 'cardSwapped'].map(event => [...socket.listeners.get(event)][0]);
   act(() => socket.disconnect());
   act(() => { late[0]({ playerId: 'p1', faceUp: true, cardId: 7 }); late[1]({ top: { cardId: 7 } }); });
-  expect(result.current).toMatchObject({ drawnCard: null, discardTop: null, turnPending: false, movement: null });
+  expect(result.current).toMatchObject({ state: { drawnCard: null, discardTop: null, turnPending: false, movement: null } });
   unmount();
   for (const listeners of socket.listeners.values()) expect(listeners.size).toBe(0);
   act(() => late[2]({ kind: 'drawn', target: { playerId: 'p1', handSlotId: 1 } }));

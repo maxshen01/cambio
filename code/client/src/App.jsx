@@ -1,43 +1,23 @@
 // Composes joining, the lobby, memorization, and ordinary deck-draw turns.
-import { JoinForm } from './lobby/JoinForm.jsx';
-import { SeatList } from './lobby/SeatList.jsx';
-import { SetupBoard } from './lobby/SetupBoard.jsx';
-import { useLobby } from './lobby/useLobby.js';
+import { JoinDialog } from './lobby/JoinDialog.jsx';
+import { LobbyScreen } from './lobby/LobbyScreen.jsx';
+import { GameBoard } from './board/GameBoard.jsx';
+import { useGameClient } from './game/useGameClient.js';
 import { useEffect } from 'react';
 import { preloadCardArtwork } from './cards/cardArtwork.js';
 
-/** Show the lobby using state from this browser's socket connection.
- * @param {{ socket: import('./lobby/useLobby.js').LobbySocket }} props
+/** Compose the current screen using state from this browser's socket connection.
+ * @param {{ socket: import('./game/sessionControl.js').GameSocket }} props
  */
 export function App({ socket }) {
   useEffect(() => { void preloadCardArtwork(); }, []);
-  const { connection, connectionLost, pending, identity, players, error, join, nameChanged,
-    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards, turnPlayerId,
-    drawnCard, discardTop, movement, canDraw, canResolve, draw, discard, swap } = useLobby(socket);
+  const { state, view, permissions, actions } = useGameClient(socket);
+  const { identity, players, error, stage, cards, turnPlayerId, drawnCard, discardTop, movement } = state;
+  const { connectionLost, localPlayer, joined, connectionStatus } = view;
+  const { canJoin, canReady, canRetry, canDraw, canResolve } = permissions;
+  const { joinLobby, notifyNameChanged, toggleReady, retryConnection,
+    drawFromDeck, discardDrawnCard, replaceHandCard } = actions;
   const showJoinDialog = !joined;
-  const connectionStatus = connection === 'lost' ? 'Connection lost'
-    : connection === 'failed' ? 'Connection failed'
-    : connection === 'connecting' ? 'Connecting to server…'
-    : showJoinDialog && (pending || identity) ? 'Joining lobby…' : 'Connected';
-
-  /** Keep keyboard navigation inside the non-dismissible name dialog.
-   * @param {import('react').KeyboardEvent<HTMLElement>} event
-   */
-  function keepDialogFocus(event) {
-    if (event.key !== 'Tab') return;
-    const controls = [...event.currentTarget.querySelectorAll('input:not(:disabled), button:not(:disabled)')]
-      .filter(element => element instanceof HTMLElement);
-    const first = controls[0];
-    const last = controls.at(-1);
-    if (!first) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
 
   return (
     <main className="lobby">
@@ -45,28 +25,15 @@ export function App({ socket }) {
         <h1 className="lobby__title">{stage !== 'lobby' ? 'Cambio' : 'Cambio lobby'}</h1>
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
         {stage !== 'lobby' && identity ? (
-          <SetupBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
+          <GameBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
             drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw} canResolve={canResolve}
-            onDraw={draw} onDiscard={discard} onSwap={swap} canReady={canReady} onReady={toggleReady} />
-        ) : <div className="lobby__table">
-          <SeatList players={players} localSeatId={identity?.seatId} />
-          <button className="ready-button" type="button" disabled={!canReady} onClick={toggleReady}>
-            {localPlayer?.isReady ? 'Unready' : 'Ready Up'}
-          </button>
-        </div>}
+            onDraw={drawFromDeck} onDiscard={discardDrawnCard} onSwap={replaceHandCard} canReady={canReady} onReady={toggleReady} />
+        ) : <LobbyScreen players={players} localSeatId={identity?.seatId}
+          isReady={localPlayer?.isReady ?? false} canReady={canReady} onReady={toggleReady} />}
       </div>
-      {showJoinDialog && (
-        <div className="join-overlay">
-          <section className="join-dialog" role="dialog" aria-modal="true" aria-labelledby="join-title" onKeyDown={keepDialogFocus}>
-            <h2 id="join-title">Join the lobby</h2>
-            <p className="connection-status" role="status">{connectionStatus}</p>
-            <JoinForm connected={canJoin} connectionLost={connectionLost} onJoin={join} onNameChange={nameChanged} />
-            {error && <p className="join-dialog__error" role="alert">{error.message}</p>}
-            {canRetry && <button type="button" onClick={retry}>Retry connection</button>}
-            {connectionLost && <button type="button" autoFocus onClick={() => window.location.reload()}>Reload to rejoin</button>}
-          </section>
-        </div>
-      )}
+      {showJoinDialog && <JoinDialog connectionStatus={connectionStatus} connectionLost={connectionLost}
+        error={error} canJoin={canJoin} canRetry={canRetry} onJoin={joinLobby}
+        onNameChange={notifyNameChanged} onRetry={retryConnection} />}
     </main>
   );
 }

@@ -1,5 +1,5 @@
 // Renders the server-assigned players in four stable lobby seats.
-const positions = ['bottom', 'left', 'top', 'right'];
+import { getSeatPosition } from '../board/seatPosition.js';
 
 /** Rotate the four stable seats around the local player's position.
  * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
@@ -10,7 +10,7 @@ export function SeatList({ players, localSeatId = 1 }) {
     <ol className="seats" aria-label="Lobby seats">
       {[1, 2, 3, 4].map(seatId => {
         const player = players.find(candidate => candidate.seatId === seatId);
-        const position = positions[(seatId - localSeatId + 4) % 4];
+        const position = getSeatPosition(seatId, localSeatId);
         return (
           <li className={`seat seat--${position}`} key={seatId} aria-label={`Seat ${seatId}`}>
             <span className="seat__circle" aria-hidden="true" />

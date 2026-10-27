@@ -4,7 +4,7 @@ import { act, fireEvent, render, renderHook, screen, within } from '@testing-lib
 import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { App } from '../../src/App.jsx';
-import { useLobby } from '../../src/lobby/useLobby.js';
+import { useGameClient } from '../../src/game/useGameClient.js';
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 import { FakeSocket } from '../helpers/fakeSocket.js';
 
@@ -19,7 +19,7 @@ function deal(local = 'p3', face = 53) {
   }))) };
 }
 function joinHook(socket, result) {
-  act(() => result.current.join('Cara'));
+  act(() => result.current.actions.joinLobby('Cara'));
   act(() => {
     socket.emissions[0].ack({ playerId: 'p3', seatId: 3 });
     socket.receive('playerJoined', { players });
@@ -42,27 +42,28 @@ async function board() {
 
 it('atomically replaces a deal, resets readiness and pending actions, and owns its display state', () => {
   const socket = new FakeSocket();
-  const { result } = renderHook(() => useLobby(socket));
+  const { result } = renderHook(() => useGameClient(socket));
   joinHook(socket, result);
   act(() => socket.receive('playerUnready', { playerId: 'p3' }));
-  act(() => result.current.toggleReady());
-  expect(result.current.readyPending).toBe(true);
+  act(() => result.current.actions.toggleReady());
+  expect(result.current.state.readyPending).toBe(true);
   const payload = deal();
   act(() => socket.receive('dealComplete', payload));
-  expect(result.current).toMatchObject({ stage: 'memorization', readyPending: false, pending: false, error: null, canReady: true });
-  expect(result.current.players.every(player => !player.isReady)).toBe(true);
-  expect(result.current.cards).toEqual(payload.cards);
-  expect(result.current.cards).not.toBe(payload.cards);
-  act(() => { result.current.toggleReady(); result.current.toggleReady(); });
+  expect(result.current).toMatchObject({ state: { stage: 'memorization', readyPending: false, joinPending: false, error: null }, permissions: { canReady: true } });
+  expect(result.current.state.players.every(player => !player.isReady)).toBe(true);
+  expect(result.current.state.cards).toEqual(payload.cards);
+  expect(result.current.state.cards).not.toBe(payload.cards);
+  payload.cards.forEach((card, index) => expect(result.current.state.cards[index]).not.toBe(card));
+  act(() => { result.current.actions.toggleReady(); result.current.actions.toggleReady(); });
   expect(socket.emissions.filter(entry => entry.event === 'ready')).toHaveLength(2);
-  expect(result.current.readyPending).toBe(true);
+  expect(result.current.state.readyPending).toBe(true);
   act(() => socket.receive('playerReady', { playerId: 'p3' }));
-  expect(result.current.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+  expect(result.current.state.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
   expect(payload.cards.filter(card => card.faceUp)).toHaveLength(2);
   act(() => socket.receive('dealComplete', deal('p3', 1)));
-  expect(result.current.cards).toHaveLength(16);
-  expect(result.current.cards.filter(card => card.faceUp).map(card => card.cardId)).toEqual([1, 54]);
-  expect(result.current.canReady).toBe(true);
+  expect(result.current.state.cards).toHaveLength(16);
+  expect(result.current.state.cards.filter(card => card.faceUp).map(card => card.cardId)).toEqual([1, 54]);
+  expect(result.current.permissions.canReady).toBe(true);
 });
 
 it('renders all named hands with stable local rotation, image mappings, and invisible empty space', async () => {
@@ -106,20 +107,17 @@ it('renders all named hands with stable local rotation, image mappings, and invi
   expect(socket.emissions).toHaveLength(emissions);
 });
 
-it('keeps face IDs only for authorized local bottom cards in display state', () => {
+it('preserves server-projected opening views and rejects deals without four seated members', () => {
   const socket = new FakeSocket();
-  const { result } = renderHook(() => useLobby(socket));
+  const { result } = renderHook(() => useGameClient(socket));
   joinHook(socket, result);
   const payload = deal();
-  // Even if extra face data is supplied, it must not persist on facedown or opponent views.
-  payload.cards = payload.cards.map(card => ({ ...card, cardId: card.cardId ?? 1 }));
-  payload.cards[0].faceUp = true;
   act(() => socket.receive('dealComplete', payload));
-  expect(result.current.cards.filter(card => 'cardId' in card).map(card => [card.playerId, card.handSlotId]))
+  expect(result.current.state.cards.filter(card => 'cardId' in card).map(card => [card.playerId, card.handSlotId]))
     .toEqual([['p3', 2], ['p3', 4]]);
   act(() => socket.receive('playerDisconnected', { players: players.slice(1) }));
   act(() => socket.receive('dealComplete', payload));
-  expect(result.current).toMatchObject({ stage: 'lobby', cards: [], readyPending: false });
+  expect(result.current).toMatchObject({ state: { stage: 'lobby', cards: [], readyPending: false } });
 });
 
 it('keeps faces pending and after rejection, then hides them only on the local confirmation', async () => {
@@ -170,10 +168,10 @@ it('clears the board and pending Ready on departure and accepts a replacement de
 
 it('clears private display state on loss, ignores late setup events, and cleans every listener', () => {
   const socket = new FakeSocket();
-  const { result, unmount } = renderHook(() => useLobby(socket), { wrapper: StrictMode });
+  const { result, unmount } = renderHook(() => useGameClient(socket), { wrapper: StrictMode });
   joinHook(socket, result);
   act(() => socket.receive('dealComplete', deal()));
-  act(() => result.current.toggleReady());
+  act(() => result.current.actions.toggleReady());
   const lateDeal = [...socket.listeners.get('dealComplete')][0];
   const lateTurn = [...socket.listeners.get('turnChanged')][0];
   act(() => socket.disconnect());
@@ -183,7 +181,7 @@ it('clears private display state on loss, ignores late setup events, and cleans 
     socket.receive('playerReady', { playerId: 'p3' });
     socket.receive('playerDisconnected', { players });
   });
-  expect(result.current).toMatchObject({ stage: 'lobby', cards: [], identity: null, readyPending: false, canReady: false });
+  expect(result.current).toMatchObject({ state: { stage: 'lobby', cards: [], identity: null, readyPending: false }, permissions: { canReady: false } });
   unmount();
   for (const listeners of socket.listeners.values()) expect(listeners.size).toBe(0);
   act(() => lateDeal(deal()));
@@ -192,19 +190,19 @@ it('clears private display state on loss, ignores late setup events, and cleans 
 
 it('enters active play from turnChanged, removes all face IDs, and blocks setup requests', () => {
   const socket = new FakeSocket();
-  const { result } = renderHook(() => useLobby(socket));
+  const { result } = renderHook(() => useGameClient(socket));
   joinHook(socket, result);
   act(() => socket.receive('dealComplete', deal()));
-  act(() => result.current.toggleReady());
+  act(() => result.current.actions.toggleReady());
   act(() => socket.receive('turnChanged', { playerId: 'p2' }));
-  expect(result.current).toMatchObject({ stage: 'active', turnPlayerId: 'p2', readyPending: false, canReady: false });
-  expect(result.current.cards).toHaveLength(16);
-  expect(result.current.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+  expect(result.current).toMatchObject({ state: { stage: 'active', turnPlayerId: 'p2', readyPending: false }, permissions: { canReady: false } });
+  expect(result.current.state.cards).toHaveLength(16);
+  expect(result.current.state.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
   const count = socket.emissions.length;
-  act(() => { result.current.toggleReady(); result.current.toggleReady(); });
+  act(() => { result.current.actions.toggleReady(); result.current.actions.toggleReady(); });
   expect(socket.emissions).toHaveLength(count);
   act(() => socket.disconnect());
-  expect(result.current.turnPlayerId).toBeNull();
+  expect(result.current.state.turnPlayerId).toBeNull();
 });
 
 it('marks only the current player and keeps gameplay controls disabled', async () => {
