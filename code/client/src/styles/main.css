@@ -364,6 +364,27 @@ input {
   user-select: none;
 }
 
+/* Card controls retain their artwork dimensions and stay legible when unavailable. */
+.card-action {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-action:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.card-action:enabled:hover,
+.card-action:focus-visible {
+  outline: 3px solid #f4d35e;
+  outline-offset: 2px;
+}
+
 .setup-drawn {
   grid-column: 1 / -1;
   grid-row: 2;

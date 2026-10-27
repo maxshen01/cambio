@@ -20,7 +20,7 @@ Provide a functional online Cambio game for four friends using desktop browsers,
 - Final hands, scores, and winners are shown and the completed round remains final.
 - Automated rules-engine checks and a complete manual playtest with friends validate the game. [Test Scenarios](Test%20Scenarios.md#mvp-acceptance) defines the release validation method, including representative integration scenarios and manual hosted play across UK connections.
 
-These are acceptance requirements for the intended MVP, not claims that all gameplay is implemented. Source and tests establish implemented behavior.
+These are acceptance requirements for the intended MVP. See the [root README](../README.md) for current implementation capabilities, limitations, and coverage.
 
 ## Specifications
 

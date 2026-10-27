@@ -66,13 +66,11 @@ Server diagnostic lines include a timestamp, socket ID, event name, outcome, and
 
 Create a **Socket.IO** request to `ws://localhost:3000` (or your configured port). Set the event name to `joinRoom`, send `{"displayName":"Alice"}` as its JSON argument, enable **Ack**, and listen for `playerJoined` and `error`. A blank event name sends `message`, which diagnostics report as `unhandled`.
 
-After joining, send `ready` with `{}` and no Ack; a lobby player can also send `unready` with `{}` and no Ack when eligible. Use four clients to inspect the deal and separate memorization confirmations. Eligibility, exact responses, recipient privacy, and error mappings belong to [Events Contract](../project-managment/Events%20Contract.md#connection--lobby-events) and [setup events](../project-managment/Events%20Contract.md#setup--deal-events). The fourth memorization confirmation starts one randomly selected player's turn and emits `turnChanged` after `playerReady`. Drawing and active-game recovery remain deferred; restart the server and reload clients for a new session after reaching active play.
+After joining, send `ready` with `{}` and no Ack; a lobby player can also send `unready` with `{}` and no Ack when eligible. Use four clients to inspect the deal and separate memorization confirmations. Eligibility, exact responses, recipient privacy, and error mappings belong to [Events Contract](../project-managment/Events%20Contract.md#connection--lobby-events) and [setup events](../project-managment/Events%20Contract.md#setup--deal-events). See the [root README](../README.md) for current implementation capabilities and limitations.
 
 ### Connection and fault diagnosis
 
-Connection feedback distinguishes connecting, connected, failed, and lost. An initial failure offers **Retry connection**, reusing the socket and entered name; retry clears the error and is disabled while connecting. Established connection loss clears membership, pending actions, and private display state, and requires **Reload to rejoin**. Automatic reconnection/session resume is unsupported, and late responses cannot restore the old session. See [UI Rules](../project-managment/designs/UI%20Rules.md#joining-the-lobby) for presentation and [manual validation](../project-managment/Test%20Scenarios.md#manual-scenarios) for checks.
-
-Unexpected lobby/setup handler faults are logged and reset the shared room to fresh empty contents while preserving state identity. All clients, including unseated observers, are disconnected; recursive cleanup emits no partial departure views. The HTTP server remains listening for fresh joins. Expected validation failures remain requester-only and leave the room unchanged; this recovery adds neither a `SERVER_ERROR` action error nor `gameAborted`. See [contract conventions](../project-managment/Events%20Contract.md#conventions). Tests inject faults; no production debug control exposes fault injection.
+See the [root README](../README.md) for connection and setup recovery behavior and limitations. Use the diagnostic switches above to inspect event outcomes. Unexpected faults must be logged even when routine diagnostics are disabled; tests inject faults without exposing production debug controls.
 
 ## Commands and checks
 
@@ -134,7 +132,7 @@ Keep Node runner options **before file paths**. Use the direct commands for name
 
 ### Test organization and fixtures
 
-Keep tests in `test/<feature>/`: client `.unit.test.js`, `.component.test.jsx`, and `.integration.test.js(x)`; server `.unit.test.js`, `.integration.test.js`, and `.asset.test.js`. Put helpers in `test/helpers/`, outside discovery. Group cross-feature scenarios under their primary behavior while retaining representative transitions. The client lobby integration checks the private-deal transition; the server setup suite also exercises lobby-to-deal behavior. Run server-owned artwork integrity checks with `test:assets`.
+Keep tests in `test/<feature>/`: client `.unit.test.js`, `.component.test.jsx`, and `.integration.test.js(x)`; server `.unit.test.js`, `.integration.test.js`, and `.asset.test.js`. Put helpers in `test/helpers/`, outside discovery. Group cross-feature scenarios under their primary behavior while retaining representative transitions. Keep current scenario-to-test mappings in the [root README](../README.md#source-and-coverage-map). Run server-owned artwork integrity checks with `test:assets`.
 
 The [room harness](server/test/helpers/room.js) creates a fresh server per test, supports injected game state, bounds socket/acknowledgement/event waits, and tears down connections. `dealtHarness` exercises the real setup transition. New features need independent fixtures rather than replaying lobby scenarios. For example, powers belong in `test/powers/` with feature-specific fake sockets or injected state and a matching feature script; retain representative transition tests and avoid empty future suites.
 
@@ -157,7 +155,7 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-These non-browser checks do not establish visual correctness. [Test Scenarios](../project-managment/Test%20Scenarios.md) defines acceptance coverage and manual checks. Browser playtesting remains manual; no automated browser suite or test for the reserved `gameState` event is required.
+These non-browser checks do not establish visual correctness. [Test Scenarios](../project-managment/Test%20Scenarios.md) defines intended acceptance scenarios and manual checks. Browser playtesting remains manual; no automated browser suite or test for the reserved `gameState` event is required.
 
 ## Documentation ownership and updates
 
@@ -165,15 +163,16 @@ Paths in the first column are repository-relative; links resolve from this file.
 
 | Document | Owns; update when these facts change |
 | --- | --- |
+| [README.md](../README.md) | Current capabilities, limitations, temporary implementation exceptions, and capability-to-source/test mappings |
 | [project-managment/MVP.md](../project-managment/MVP.md) | Product goals, audience, scope/exclusions, and release acceptance |
 | [project-managment/Game Rules.md](../project-managment/Game%20Rules.md) | Gameplay, card visibility policy, powers, matching, scoring, turns, lifecycle |
 | [project-managment/Game Data Model.md](../project-managment/Game%20Data%20Model.md) | State ownership, field meaning, relationships, invariants; keep source JSDoc accurate |
 | [project-managment/Events Contract.md](../project-managment/Events%20Contract.md) | Events, payloads, acknowledgements, errors, recipient redaction, ordering; keep shared public types accurate |
 | [project-managment/designs/UI Rules.md](../project-managment/designs/UI%20Rules.md) | Layout, controls, accessibility, feedback, animations, screen transitions |
-| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md) | Acceptance sequences, manual validation, scenario-to-test coverage links |
+| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md) | Intended acceptance sequences and manual validation procedures |
 | [code/Development.md](Development.md) | Setup, commands, dependencies, environment-variable names, diagnostics, documentation ownership |
 | [code/client/README.md](client/README.md) and [code/server/README.md](server/README.md) | Package purpose, minimal startup, entry links |
 
-For every implementation, inspect documents whose responsibilities are affected, including cross-package effects. Update a document only when a fact it owns changes. Implementing an already documented rule normally changes code/tests and, when useful, acceptance-coverage links; it does not require rewriting unchanged specifications. Keep detailed definitions in their canonical home and link elsewhere. MVP changes require deliberate product-scope or acceptance decisions.
+For every implementation, read the [root README](../README.md), relevant source/tests, and affected specifications. Update the root README when delivered capabilities, limitations, temporary exceptions, or coverage change; it is the only documentation update required solely for implementation progress. Change documents under `project-managment/` only when intended design changes: rules, contracts, state semantics, UI requirements, or acceptance requirements. Implementing an existing requirement does not qualify. Keep design definitions in their canonical home and record temporary implementation exceptions only in the README. MVP changes require deliberate product-scope or acceptance decisions.
 
-Treat specifications as intended behavior and source/tests as implementation evidence. Keep milestone/status tracking out of repository documents; report checks, defects, and unverified acceptance criteria in chat. Do not commit or update GitHub without a separate request. Local coding and test-placement constraints remain in [client instructions](client/AGENTS.md) and [server instructions](server/AGENTS.md).
+Keep affected source comments, JSDoc, and shared public types accurate as part of code changes. Update development and package startup instructions when tooling or startup requirements actually change. Keep individual check results, unresolved defects, manual validation results, checkboxes, and chronological progress logs in chat or authorized GitHub updates rather than the README or design documents. Do not commit or update GitHub without a separate request. Local coding and test-placement constraints remain in [client instructions](client/AGENTS.md) and [server instructions](server/AGENTS.md).

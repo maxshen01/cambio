@@ -6,8 +6,8 @@ Follow [test organization and fixtures](../Development.md#test-organization-and-
 
 Use `src/socket/log.js` for diagnostics; log only event names, outcomes, and small metadata, never display names or full payloads. See [diagnostic switches](../Development.md#environment-and-diagnostics) when needed.
 
-For each change, consult relevant entries in the [documentation ownership guide](../Development.md#documentation-ownership-and-updates), including cross-package effects. Inspect affected specifications; update only changed facts and link canonical definitions. Specifications describe intent; source/tests establish implementation. Keep affected JSDoc/shared types accurate.
+For each change, read the [root README](../../README.md), relevant code/tests, and affected specifications using the [documentation ownership guide](../Development.md#documentation-ownership-and-updates). Update the root README when capabilities, limitations, temporary implementation exceptions, or coverage change. It is the only documentation update required solely for implementation progress. Change `project-managment/` only when intended design changes; implementing an existing requirement does not qualify. Keep affected source comments, JSDoc, and shared public types accurate. Update development/startup instructions only when tooling or startup requirements change.
 
-Report checks, defects, and unverified criteria in chat. Do not add repository status tracking, commit, or update GitHub without a separate request.
+Report individual check results, unresolved defects, and manual/unverified criteria in chat or authorized GitHub updates. Keep progress checkboxes and chronological logs out of repository documentation. Do not commit or update GitHub without a separate request.
 
 For UI changes, inspect UI Rules; for socket changes, Events Contract and shared public types; for eligibility/privacy, Game Rules. Find specification paths in the ownership guide.

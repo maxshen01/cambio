@@ -1,10 +1,10 @@
 # Cambio — Events Contract
 
-This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. Exact implemented setup/first-turn payload declarations and card views are in [shared public types](../code/shared/lobbyTypes.js). Other payloads below remain planned where no public source type exists. Source and [server socket/setup tests](../code/server/test/setup/setup.integration.test.js) establish implemented behavior, not the presence of an event in this specification. The fourth memorization `playerReady` is followed by exactly one `turnChanged` for a uniformly selected connected player. Drawing and active-game recovery remain deferred; `gameState` remains reserved and is not emitted.
+This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. See the [root README](../README.md) for current implementation capabilities, limitations, and coverage, and [shared public types](../code/shared/lobbyTypes.js) for source declarations.
 
 ## Conventions
 
-- **Unexpected undealt-lobby faults**: an unexpected exception in a lobby action or disconnect handler is logged, resets the shared room to a fresh empty state, and disconnects all current clients. The server stays listening for fresh connections. Recovery preserves the shared state object's identity, prevents recursive cleanup, and emits no partial departure broadcasts. Clients clear membership and pending actions and require reload to rejoin. Expected domain validation failures remain requester-only `error` events with unchanged payloads and no room reset. This lobby recovery does not emit `gameAborted` or add a `SERVER_ERROR` client-action code; active-game abort handling remains deferred.
+- **Unexpected undealt-lobby faults**: an unexpected exception in a lobby action or disconnect handler is logged, resets the shared room to a fresh empty state, and disconnects all current clients. The server stays listening for fresh connections. Recovery preserves the shared state object's identity, prevents recursive cleanup, and emits no partial departure broadcasts. Clients clear membership and pending actions and require reload to rejoin. Expected domain validation failures remain requester-only `error` events with unchanged payloads and no room reset. This lobby recovery does not emit `gameAborted` or add a `SERVER_ERROR` client-action code. Active-game abort behavior is specified in the connection events below.
 
 - **Naming**: all event names are `camelCase` (e.g. `joinRoom`, `playerJoined`).
 - **Event index**: links below lead to the single detailed definition for each event, including its direction, payload, validation, and results.
@@ -33,7 +33,7 @@ This is the target wire contract for the complete game. [Game Rules](Game%20Rule
 
 ## Shared Object Shapes
 
-These shapes are defined here once and referenced by event payloads. Implemented `CardView`, `DrawnCardView`, `PlayerSummary`, and `LobbyView` declarations are also available in [shared public types](../code/shared/lobbyTypes.js); remaining shapes describe planned wire behavior. `Card` and `GameState` in [Game Data Model](Game%20Data%20Model.md) are server-only; never send them directly.
+These shapes are defined here once and referenced by event payloads. See [shared public types](../code/shared/lobbyTypes.js) for source declarations and the [root README](../README.md) for implementation coverage. `Card` and `GameState` in [Game Data Model](Game%20Data%20Model.md) are server-only; never send them directly.
 
 ### Client targets and server notifications
 
@@ -108,7 +108,7 @@ The view represents one owned pending card, separate from every hand. [Game Rule
 { playerId: string }
 ```
 
-This contract shorthand is the structure of the implemented `ReadyNotice` in [shared types](../code/shared/lobbyTypes.js). Event tables specify which player it identifies; it carries no name, seat, or card data.
+This contract shorthand is the structure of `ReadyNotice` in [shared types](../code/shared/lobbyTypes.js). Event tables specify which player it identifies; it carries no name, seat, or card data.
 
 **PlayerSummary** — public seat identity and readiness:
 

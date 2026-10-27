@@ -6,6 +6,7 @@ import { createGameState } from "./game/state.js";
 import { registerJoinRoom } from "./sockets/joinRoom.js";
 import { registerLobbyDisconnect } from "./sockets/disconnect.js";
 import { registerReady } from "./sockets/ready.js";
+import { registerTurns } from "./sockets/turns.js";
 import { logSocket } from "./sockets/log.js";
 import { createLobbyBoundary } from "./sockets/boundary.js";
 
@@ -21,6 +22,7 @@ export function createServer({ gameState = createGameState(), random = Math.rand
         logSocket("info", socket.id, "connection", "connected");
         registerJoinRoom(io, socket, gameState, run);
         registerReady(io, socket, gameState, run, random);
+        registerTurns(io, socket, gameState, run, random);
         registerLobbyDisconnect(io, socket, gameState, run);
 
         socket.onAny((eventName, ...args) => {

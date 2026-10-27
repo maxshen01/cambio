@@ -4,7 +4,7 @@ This document owns layout, controls, feedback, animations, accessibility, and sc
 
 [Start Screen.png](Start%20Screen.png), [Playing Screen.png](Playing%20Screen.png), and [User Power Screen.png](User%20Power%20Screen.png) are illustrative sketches. Written layout rules below supersede any player-specific drawn-card positions in those images. Blue circles represent players, filled red rectangles stand for card graphics, purple represents the deck, and yellow the discard pile.
 
-These are the intended screens for the complete one-round game. Source and tests establish implemented behavior; describing a gameplay or results screen here does not claim it is implemented.
+These are the intended screens for the complete one-round game. See the [root README](../../README.md) for current implementation capabilities, limitations, and coverage.
 
 ## Lobby
 
@@ -28,7 +28,7 @@ These are the intended screens for the complete one-round game. Source and tests
 ## Memorization
 
 - Keep **Call Cambio** visible and disabled during memorization. Use the same board and reserved shared drawn-card area described [below](#board-and-cards).
-- `dealComplete` resets readiness and starts memorization. Enable the same **Ready Up** button again for each player to confirm they have memorized their two revealed cards. When a player presses it, disable their button while pending. Hide their two opening card faces only after their `playerReady` confirmation, removing the face IDs from display state. A rejected Ready preserves the faces and allows retry. Keep Ready Up disabled after acceptance and do not offer Unready during memorization. The first `turnChanged` starts play after all four confirmations, removes any remaining opening face IDs, and highlights the current player. Hide setup readiness marks during play; keep **Ready Up** and **Call Cambio** visible and disabled. Draw controls remain unavailable until drawing is implemented.
+- `dealComplete` resets readiness and starts memorization. Enable the same **Ready Up** button again for each player to confirm they have memorized their two revealed cards. When a player presses it, disable their button while pending. Hide their two opening card faces only after their `playerReady` confirmation, removing the face IDs from display state. A rejected Ready preserves the faces and allows retry. Keep Ready Up disabled after acceptance and do not offer Unready during memorization. The first `turnChanged` starts play after all four confirmations, removes any remaining opening face IDs, and highlights the current player. Hide setup readiness marks during play. Keep **Ready Up** visible and disabled; **Call Cambio** and draw controls follow the gameplay eligibility rules below.
 
 Opening-card visibility and readiness eligibility follow [setup and memorization](../Game%20Rules.md#setup-and-memorization). Event order, readiness reset, and recipient-specific opening payloads follow [setup events](../Events%20Contract.md#setup--deal-events).
 

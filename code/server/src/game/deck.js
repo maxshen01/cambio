@@ -55,3 +55,14 @@ export function shuffleDeck(cards, random = Math.random) {
   }
   return cards;
 }
+
+/** Refill a low deck from older discards; both piles' remaining top order is preserved.
+ * Retry after each successful draw/discard so a previously short discard pile can refill later.
+ * @param {import('./types.js').GameState} state
+ * @param {() => number} [random]
+ */
+export function refillDeck(state, random = Math.random) {
+  if (state.deck.cards.length > 2 || state.discardPile.cards.length < 3) return;
+  const recycled = state.discardPile.cards.splice(0, state.discardPile.cards.length - 2);
+  state.deck.cards.unshift(...shuffleDeck(recycled, random));
+}

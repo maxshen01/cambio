@@ -13,7 +13,7 @@ This skill plans product work and publishes its agreed plan. Executing this work
 
 ## Plan mode: explore and agree
 
-1. Read relevant repository instructions, affected code, contracts, and any supplied issue. Establish current behavior, desired outcome, exclusions, and dependencies. Record the planning baseline commit and relevant uncommitted changes without modifying them.
+1. Read the root `README.md`, relevant repository instructions, affected code, contracts, and any supplied issue. Establish current behavior, desired outcome, exclusions, and dependencies. Record the planning baseline commit and relevant uncommitted changes without modifying them.
 2. Reuse an approved conversation plan, incorporating subsequent user corrections. Preserve its agreed steps, issue structure, exclusions, and final checkpoint without reopening settled decisions. Resolve only remaining material scope and implementation decisions with the user. Discover repository facts before asking questions. Do not silently include adjacent features just because they are prerequisites; agree whether to include or defer them and make any temporary limitation explicit.
 3. For work not already structured by an agreed plan, divide it into logical, independently testable steps and apply the sub-issue policy below. Use as many steps as the task needs. Each step should specify the intended change, acceptance criteria, appropriate automated checks, and a manual checkpoint only where practical under the guidance below. Identify dependencies that prevent a checkpoint from being exercised yet.
 4. Prepare a title and body for each proposed issue using the structure below. Resolve material decisions before finalizing, including any parent-child structure and dependencies. If the user requests revisions while still in Plan mode, revise the draft only; do not mutate GitHub or repository files.
@@ -29,6 +29,10 @@ Keep the parent focused on the overall outcome, child work, dependencies, and co
 
 Agree the complete structure during planning. A request to publish that agreed structure authorizes creating and linking its parent and children without another routine confirmation. It does not authorize additional, unplanned issues.
 
+## Documentation maintenance
+
+Use the root `README.md` as the single account of implementation capabilities, limitations, temporary exceptions, and coverage. Include its maintenance in implementation steps when those facts change. Plan changes under `project-managment/` only for intended design changes; implementing an existing requirement does not qualify. Keep source comments/public types accurate as code changes, and maintain development/startup instructions only for actual tooling or startup changes.
+
 ## Issue content
 
 Keep the issue self-contained and proportionate to the task. Include:
@@ -41,11 +45,11 @@ Keep the issue self-contained and proportionate to the task. Include:
 
 Include these future-chat instructions in the issue:
 
-> Read the issue, relevant repository instructions, and current code. Implement the requested step, run its required checks, and report changes, verification results, unresolved defects, and unverified acceptance criteria in chat. Stop at the specified user checkpoint; if no manual checkpoint applies, report automated results and stop after the requested step. Commits and GitHub status updates require a separate user request; this issue does not authorize them.
+> Read the issue, root `README.md`, relevant repository instructions, specifications, and current code/tests. Implement the requested step, update the root README when capabilities, limitations, temporary implementation exceptions, or coverage change, and change `project-managment/` only if intended design changes. Keep source comments/public types accurate and update development/startup instructions only for tooling or startup changes. Run required checks and report changes, verification results, unresolved defects, and unverified acceptance criteria in chat. Stop at the specified user checkpoint; if no manual checkpoint applies, report automated results and stop after the requested step. Commits and GitHub status updates require a separate user request; this issue does not authorize them.
 
 > Never launch, attach to, inspect, or control a browser, or check browser availability. This includes browser automation, headless browser tests, screenshots, and visual verification. Use non-browser checks, including jsdom, and leave manual browser testing to the user. Report browser-dependent checks as unrun and visual acceptance criteria as unverified until the user validates them.
 
-Implementation results belong in chat. Do not instruct implementing agents to commit changes, update checkboxes, or maintain GitHub progress. Completing a step must not trigger requests to commit or update GitHub; leave those actions to a separate user request. User confirmation that manual validation passed is not itself a request to edit GitHub.
+Individual check results, unresolved defects, manual validation reports, and progress tracking belong in chat or authorized GitHub updates. Current capabilities, limitations, temporary implementation exceptions, and coverage belong in the root README. Do not instruct implementing agents to commit changes, update checkboxes, or maintain GitHub progress. Completing a step must not trigger requests to commit or update GitHub; leave those actions to a separate user request. User confirmation that manual validation passed is not itself a request to edit GitHub.
 
 ## Practical manual checkpoints
 

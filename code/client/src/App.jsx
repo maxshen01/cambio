@@ -1,4 +1,4 @@
-// Composes joining, the lobby, memorization, and the first active turn.
+// Composes joining, the lobby, memorization, and ordinary deck-draw turns.
 import { JoinForm } from './lobby/JoinForm.jsx';
 import { SeatList } from './lobby/SeatList.jsx';
 import { SetupBoard } from './lobby/SetupBoard.jsx';
@@ -12,7 +12,8 @@ import { preloadCardArtwork } from './cards/cardArtwork.js';
 export function App({ socket }) {
   useEffect(() => { void preloadCardArtwork(); }, []);
   const { connection, connectionLost, pending, identity, players, error, join, nameChanged,
-    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards, turnPlayerId } = useLobby(socket);
+    toggleReady, retry, joined, localPlayer, canJoin, canReady, canRetry, stage, cards, turnPlayerId,
+    drawnCard, discardTop, movement, canDraw, canResolve, draw, discard, swap } = useLobby(socket);
   const showJoinDialog = !joined;
   const connectionStatus = connection === 'lost' ? 'Connection lost'
     : connection === 'failed' ? 'Connection failed'
@@ -44,7 +45,9 @@ export function App({ socket }) {
         <h1 className="lobby__title">{stage !== 'lobby' ? 'Cambio' : 'Cambio lobby'}</h1>
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
         {stage !== 'lobby' && identity ? (
-          <SetupBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId} canReady={canReady} onReady={toggleReady} />
+          <SetupBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
+            drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw} canResolve={canResolve}
+            onDraw={draw} onDiscard={discard} onSwap={swap} canReady={canReady} onReady={toggleReady} />
         ) : <div className="lobby__table">
           <SeatList players={players} localSeatId={identity?.seatId} />
           <button className="ready-button" type="button" disabled={!canReady} onClick={toggleReady}>

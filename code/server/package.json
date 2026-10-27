@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test:lobby": "node --test --test-reporter ./test/helpers/reporter.js \"test/lobby/**/*.test.js\"",
     "test:setup": "node --test --test-reporter ./test/helpers/reporter.js \"test/setup/**/*.test.js\"",
+    "test:turns": "node --test --test-reporter ./test/helpers/reporter.js \"test/turns/**/*.test.js\"",
     "test:cards": "node --test --test-reporter ./test/helpers/reporter.js \"test/cards/**/*.test.js\"",
     "test:recovery": "node --test --test-reporter ./test/helpers/reporter.js \"test/recovery/**/*.test.js\"",
     "test:fast": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.unit.test.js\"",

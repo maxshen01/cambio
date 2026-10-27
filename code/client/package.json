@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test:lobby": "vitest run test/lobby/",
     "test:setup": "vitest run test/setup/",
+    "test:turns": "vitest run test/turns/",
     "test:cards": "vitest run test/cards/",
     "test:recovery": "vitest run test/recovery/",
     "test:fast": "vitest run --exclude \"**/*.integration.test.*\" --exclude \"**/*.asset.test.*\"",

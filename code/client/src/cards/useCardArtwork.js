@@ -1,10 +1,10 @@
-// Gates setup presentation on only the artwork needed by the current recipient's view.
+// Gates card presentation on only the artwork needed by the current recipient's view.
 import { useEffect, useState } from 'react';
 import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../../shared/cardCatalog.js';
 import { isCardArtworkReady, loadCardArtwork } from './cardArtwork.js';
 
 /** Wait for download and decoding; stale deal completions cannot change the current status.
- * @param {import('../../../shared/lobbyTypes.js').CardView[]} cards
+ * @param {({ faceUp: true, cardId: number } | { faceUp: false })[]} cards
  */
 export function useCardArtwork(cards) {
   const key = [...new Set([CARD_BACK_IMAGE, ...cards.filter(card => card.faceUp)

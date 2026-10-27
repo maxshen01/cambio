@@ -2,6 +2,8 @@
 
 React/Vite client for joining the shared Cambio room and displaying recipient-authorized game state.
 
+See the [root README](../../README.md) for current implementation capabilities, limitations, and coverage.
+
 Start the [server](../server/README.md) first. From this directory:
 
 ```powershell

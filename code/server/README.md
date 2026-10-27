@@ -2,6 +2,8 @@
 
 Node.js/Socket.IO server owning the shared room, authoritative card state, and action validation.
 
+See the [root README](../../README.md) for current implementation capabilities, limitations, and coverage.
+
 Complete [environment setup](../Development.md#stack-and-setup), including the local `.env` file. From this directory:
 
 ```powershell

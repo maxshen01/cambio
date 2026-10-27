@@ -1,4 +1,4 @@
-// Bridges setup/turn events to display state; refs guard requests and socket lifetimes.
+// Bridges setup and deck-turn events to display state, guarding requests and socket lifetimes.
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { checkDisplayName } from '../../../shared/displayName.js';
 import { logClientEvent } from '../socket/log.js';
@@ -14,6 +14,7 @@ export function useLobby(socket) {
   const eligibility = selectLobby(state);
   const lifetime = useRef({ generation: 0, active: false, lost: false });
   const requests = useRef({ connecting: false, join: false, ready: /** @type {string | null} */ (null) });
+  const turnRequest = useRef(false);
 
   useEffect(() => {
     const guard = lifetime.current;
@@ -29,12 +30,14 @@ export function useLobby(socket) {
     function onConnectError() {
       if (!valid()) return;
       requests.current = { connecting: false, join: false, ready: null };
+      turnRequest.current = false;
       dispatch({ type: 'failed' });
       logClientEvent('connect_error', 'failed');
     }
     function onDisconnect() {
       if (!valid()) return;
       guard.lost = true;
+      turnRequest.current = false;
       ++guard.generation;
       requests.current = { connecting: false, join: false, ready: null };
       dispatch({ type: 'lost' });
@@ -51,6 +54,7 @@ export function useLobby(socket) {
     function onDeparture(lobby) {
       if (!valid()) return;
       requests.current.join = false;
+      turnRequest.current = false;
       requests.current.ready = null;
       dispatch({ type: 'departure', players: lobby.players });
       logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
@@ -59,6 +63,7 @@ export function useLobby(socket) {
     function onDeal(deal) {
       if (!valid()) return;
       requests.current.join = false;
+      turnRequest.current = false;
       requests.current.ready = null;
       dispatch({ type: 'deal', cards: deal.cards });
       logClientEvent('dealComplete', 'received', { cardCount: deal.cards.length });
@@ -78,13 +83,34 @@ export function useLobby(socket) {
     function onTurn({ playerId }) {
       if (!valid()) return;
       requests.current.ready = null;
+      turnRequest.current = false;
       dispatch({ type: 'turn', playerId });
       logClientEvent('turnChanged', 'received');
+    }
+    /** @param {import('../../../shared/lobbyTypes.js').DrawnCardView} card */
+    function onDrawn(card) {
+      if (!valid()) return;
+      turnRequest.current = false;
+      dispatch({ type: 'drawn', card });
+      logClientEvent('cardDrawn', 'received');
+    }
+    /** @param {import('../../../shared/lobbyTypes.js').DiscardPileUpdated} notice */
+    function onPile({ top }) {
+      if (!valid()) return;
+      dispatch({ type: 'pile', top });
+      logClientEvent('discardPileUpdated', 'received');
+    }
+    /** @param {import('../../../shared/lobbyTypes.js').DrawnSwapNotice} notice */
+    function onSwapped(notice) {
+      if (!valid()) return;
+      dispatch({ type: 'swapped', notice });
+      logClientEvent('cardSwapped', 'received');
     }
     /** @param {import('../../../shared/lobbyTypes.js').LobbyError} error */
     function onError(error) {
       if (!valid()) return;
       requests.current.join = false;
+      turnRequest.current = false;
       requests.current.ready = null;
       dispatch({ type: 'error', error });
       logClientEvent('error', 'received', { code: error.code });
@@ -96,6 +122,9 @@ export function useLobby(socket) {
     socket.on('playerDisconnected', onDeparture);
     socket.on('dealComplete', onDeal);
     socket.on('turnChanged', onTurn);
+    socket.on('cardDrawn', onDrawn);
+    socket.on('discardPileUpdated', onPile);
+    socket.on('cardSwapped', onSwapped);
     socket.on('playerReady', onReady);
     socket.on('playerUnready', onUnready);
     socket.on('error', onError);
@@ -114,6 +143,9 @@ export function useLobby(socket) {
       socket.off('playerDisconnected', onDeparture);
       socket.off('dealComplete', onDeal);
       socket.off('turnChanged', onTurn);
+      socket.off('cardDrawn', onDrawn);
+      socket.off('discardPileUpdated', onPile);
+      socket.off('cardSwapped', onSwapped);
       socket.off('playerReady', onReady);
       socket.off('playerUnready', onUnready);
       socket.off('error', onError);
@@ -159,5 +191,32 @@ export function useLobby(socket) {
     logClientEvent(event, 'sent');
   }
 
-  return { ...state, ...eligibility, join, nameChanged, toggleReady, retry };
+  /** Guard before React rerenders so overlapping draw/discard/swap clicks send once.
+   * @param {boolean} eligible
+   */
+  function beginTurnRequest(eligible) {
+    if (!eligible || !socket.connected || turnRequest.current || lifetime.current.lost || !lifetime.current.active) return false;
+    turnRequest.current = true;
+    dispatch({ type: 'turnStarted' });
+    return true;
+  }
+  function draw() {
+    if (!beginTurnRequest(eligibility.canDraw)) return;
+    socket.emit('drawCard', { source: 'deck' });
+    logClientEvent('drawCard', 'sent');
+  }
+  function discard() {
+    if (!beginTurnRequest(eligibility.canResolve)) return;
+    socket.emit('discardDrawnCard', {});
+    logClientEvent('discardDrawnCard', 'sent');
+  }
+  /** @param {import('../../../shared/lobbyTypes.js').HandSlotId} handSlotId */
+  function swap(handSlotId) {
+    if (!state.identity || !state.cards.some(card => card.playerId === state.identity?.playerId && card.handSlotId === handSlotId)
+      || !beginTurnRequest(eligibility.canResolve)) return;
+    socket.emit('swapDrawnCard', { target: { playerId: state.identity.playerId, handSlotId } });
+    logClientEvent('swapDrawnCard', 'sent');
+  }
+
+  return { ...state, ...eligibility, join, nameChanged, toggleReady, retry, draw, discard, swap };
 }
