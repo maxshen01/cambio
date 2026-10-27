@@ -1,14 +1,14 @@
 // Adapts join requests to synchronous rules and public lobby broadcasts.
 import { joinPlayer } from '../game/lobby.js';
-import { toLobbyView } from '../game/lobbyView.js';
+import { toLobbyView } from '../game/views/lobbyView.js';
 import { logSocket } from './log.js';
 import { PLAYER_ROOM } from './rooms.js';
 
 /** Acknowledge before broadcasting membership to seated clients.
- * @param {import('./types.js').LobbyServer} io
- * @param {import('./types.js').LobbySocket} socket
+ * @param {import('./types.js').GameServer} io
+ * @param {import('./types.js').GameSocket} socket
  * @param {import('../game/types.js').GameState} gameState
- * @param {import('./types.js').LobbyBoundary} run
+ * @param {import('./types.js').GameBoundary} run
  */
 export function registerJoinRoom(io, socket, gameState, run) {
   socket.on('joinRoom', (payload, ack) => run(socket, 'joinRoom', () => {

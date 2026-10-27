@@ -1,15 +1,15 @@
-// Contains synchronous lobby faults and resets this room without stopping the listener.
+// Contains synchronous game-handler faults and resets this room without stopping the listener.
 import { DomainError } from '../game/domainError.js';
 import { createGameState } from '../game/state.js';
 import { logSocket, logUnexpectedSocketError } from './log.js';
 
 /**
  * One boundary per shared room suppresses re-entrant disconnect cleanup during recovery.
- * @param {import('./types.js').LobbyServer} io
+ * @param {import('./types.js').GameServer} io
  * @param {import('../game/types.js').GameState} gameState
- * @returns {import('./types.js').LobbyBoundary}
+ * @returns {import('./types.js').GameBoundary}
  */
-export function createLobbyBoundary(io, gameState) {
+export function createGameBoundary(io, gameState) {
   let recovering = false;
   return (socket, event, action) => {
     if (recovering) return;

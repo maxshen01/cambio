@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
 import { joinPlayer, removeLobbyPlayer, readyPlayer, unreadyPlayer } from '../../src/game/lobby.js';
-import { toLobbyView } from '../../src/game/lobbyView.js';
+import { toLobbyView } from '../../src/game/views/lobbyView.js';
 
 test('join rejection precedence is membership, name, stage, then capacity', () => {
   const state = createGameState();

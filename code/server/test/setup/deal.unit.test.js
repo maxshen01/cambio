@@ -4,7 +4,8 @@ import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
 import { joinPlayer } from '../../src/game/lobby.js';
 import { createDeck } from '../../src/game/deck.js';
-import { dealIfReady, toDealView } from '../../src/game/deal.js';
+import { dealIfReady } from '../../src/game/deal.js';
+import { toDealView } from '../../src/game/views/dealView.js';
 
 function readyRoom() {
   const state = createGameState();

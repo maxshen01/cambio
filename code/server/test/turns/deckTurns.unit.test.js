@@ -1,7 +1,8 @@
 // Covers private pending-card ownership, synchronous resolution, and refill conservation.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { drawCard, discardDrawnCard, swapDrawnCard, toDrawnCardView } from '../../src/game/turns.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
+import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
 import { refillDeck, createDeck } from '../../src/game/deck.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
 

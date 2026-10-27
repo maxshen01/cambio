@@ -1,13 +1,14 @@
 // Adapts validated ordinary turns to private draws and ordered public resolution events.
-import { drawCard, discardDrawnCard, swapDrawnCard, toDrawnCardView } from '../game/turns.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../game/turns.js';
+import { toDrawnCardView } from '../game/views/drawnCardView.js';
 import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
 /** Register ordinary deck actions through the shared error boundary.
- * @param {import('./types.js').LobbyServer} io
- * @param {import('./types.js').LobbySocket} socket
+ * @param {import('./types.js').GameServer} io
+ * @param {import('./types.js').GameSocket} socket
  * @param {import('../game/types.js').GameState} state
- * @param {import('./types.js').LobbyBoundary} run
+ * @param {import('./types.js').GameBoundary} run
  * @param {() => number} [random]
  */
 export function registerTurns(io, socket, state, run, random = Math.random) {

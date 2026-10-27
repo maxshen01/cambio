@@ -1,15 +1,16 @@
 // Confirms setup readiness, privately deals, and broadcasts the first active turn.
 import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
-import { dealIfReady, toDealView } from '../game/deal.js';
+import { dealIfReady } from '../game/deal.js';
+import { toDealView } from '../game/views/dealView.js';
 import { startPlayIfReady } from '../game/turns.js';
 import { PLAYER_ROOM } from './rooms.js';
 import { logSocket } from './log.js';
 
 /** Register readiness actions, which intentionally have no acknowledgement.
- * @param {import('./types.js').LobbyServer} io
- * @param {import('./types.js').LobbySocket} socket
+ * @param {import('./types.js').GameServer} io
+ * @param {import('./types.js').GameSocket} socket
  * @param {import('../game/types.js').GameState} gameState
- * @param {import('./types.js').LobbyBoundary} run
+ * @param {import('./types.js').GameBoundary} run
  * @param {() => number} [random]
  */
 export function registerReady(io, socket, gameState, run, random = Math.random) {

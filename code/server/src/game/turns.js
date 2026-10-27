@@ -22,7 +22,7 @@ export function startPlayIfReady(state, random = Math.random) {
 /** Validate membership and turn ownership before changing any round fields.
  * @param {GameState} state @param {string} id
  */
-function turnPlayer(state, id) {
+function requireTurnPlayer(state, id) {
   const player = state.players.find(player => player.id === id);
   if (!player) throw new DomainError('NOT_IN_ROOM', 'You are not in this room.');
   if (state.turn !== id) throw new DomainError('NOT_YOUR_TURN', 'It is not your turn.');
@@ -35,7 +35,7 @@ function turnPlayer(state, id) {
  * @param {() => number} [random]
  */
 export function drawCard(state, id, payload, random = Math.random) {
-  const player = turnPlayer(state, id);
+  const player = requireTurnPlayer(state, id);
   if (!payload || typeof payload !== 'object' || !('source' in payload) || payload.source !== 'deck') {
     throw new DomainError('INVALID_DRAW_SOURCE', 'Choose the deck to draw a card.');
   }
@@ -52,22 +52,11 @@ export function drawCard(state, id, payload, random = Math.random) {
   return player;
 }
 
-/** Project only the pending card face authorized for this recipient.
- * @param {import('./types.js').Player} player @param {string} recipientId
- * @returns {import('../../../shared/lobbyTypes.js').DrawnCardView}
- */
-export function toDrawnCardView(player, recipientId) {
-  if (!player.drawnCard) throw new Error('No pending drawn card to project');
-  return player.id === recipientId
-    ? { playerId: player.id, faceUp: true, cardId: player.drawnCard.cardId }
-    : { playerId: player.id, faceUp: false };
-}
-
 /** Validate a resolution while leaving rejected requests completely unchanged.
  * @param {GameState} state @param {string} id
  */
-function resolutionPlayer(state, id) {
-  const player = turnPlayer(state, id);
+function requireResolutionPlayer(state, id) {
+  const player = requireTurnPlayer(state, id);
   if (state.phase !== 'active' || state.turnStep !== 'awaitingDrawnCardResolution' || state.pendingPower) {
     throw new DomainError('RESOLUTION_NOT_AVAILABLE', 'Card resolution is not available right now.');
   }
@@ -95,7 +84,7 @@ function finishTurn(state, player, discarded, random) {
  * @param {GameState} state @param {string} id @param {() => number} [random]
  */
 export function discardDrawnCard(state, id, random = Math.random) {
-  const player = resolutionPlayer(state, id);
+  const player = requireResolutionPlayer(state, id);
   finishTurn(state, player, /** @type {import('./types.js').Card} */ (player.drawnCard), random);
 }
 
@@ -105,7 +94,7 @@ export function discardDrawnCard(state, id, random = Math.random) {
  * @returns {import('../../../shared/lobbyTypes.js').DrawnSwapNotice}
  */
 export function swapDrawnCard(state, id, payload, random = Math.random) {
-  const player = resolutionPlayer(state, id);
+  const player = requireResolutionPlayer(state, id);
   const target = payload && typeof payload === 'object' && 'target' in payload ? payload.target : null;
   if (!target || typeof target !== 'object' || !('playerId' in target) || target.playerId !== id
     || !('handSlotId' in target)) throw new DomainError('INVALID_TARGET', 'Choose one of your occupied hand slots.');

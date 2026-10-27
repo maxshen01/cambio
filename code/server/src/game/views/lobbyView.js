@@ -1,8 +1,8 @@
 // Maps server game state to the public lobby view sent in events.
 
 /** Include only public seat fields in a LobbyView.
- * @param {import('./types.js').GameState} state
- * @returns {import('../../../shared/lobbyTypes.js').LobbyView}
+ * @param {import('../types.js').GameState} state
+ * @returns {import('../../../../shared/lobbyTypes.js').LobbyView}
  */
 export function toLobbyView(state) {
   const playersInSeatOrder = [...state.players].sort((first, second) => {
