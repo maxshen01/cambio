@@ -15,12 +15,13 @@ import { useCardMovements } from '../cards/useCardMovements.js';
  * drawnCard: import('../../../shared/lobbyTypes.js').DrawnCardView | null,
  * discardTop: import('../../../shared/lobbyTypes.js').DiscardView | null,
  * movement: import('../game/gameClientState.js').GameClientState['movement'],
- * canDraw: boolean, canResolve: boolean, onDraw: () => void, onDiscard: () => void,
+ * canDraw: boolean, canDrawDiscard: boolean, canReplace: boolean, canDiscardDrawn: boolean,
+ * onDraw: () => void, onDrawDiscard: () => void, onDiscard: () => void,
  * onSwap: (slot: import('../../../shared/lobbyTypes.js').HandSlotId) => void,
  * canReady: boolean, onReady: () => void }} props
  */
 export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, discardTop, movement,
-  canDraw, canResolve, onDraw, onDiscard, onSwap, canReady, onReady }) {
+  canDraw, canDrawDiscard, canReplace, canDiscardDrawn, onDraw, onDrawDiscard, onDiscard, onSwap, canReady, onReady }) {
   const board = useRef(/** @type {HTMLElement | null} */ (null));
   const artwork = useCardArtwork([...cards, ...(drawnCard ? [drawnCard] : []),
     ...(discardTop ? [{ faceUp: /** @type {const} */ (true), cardId: discardTop.cardId }] : [])]);
@@ -42,12 +43,12 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
             isCurrentTurn={player.playerId === turnPlayerId} showReadiness={!turnPlayerId}
             artworkReady={artwork.ready}
             replacementMode={Boolean(turnPlayerId) && player.playerId === identity.playerId}
-            canReplaceCard={canResolve} onReplaceCard={onSwap} />
+            canReplaceCard={canReplace} onReplaceCard={onSwap} />
         ))}
       </ol>
       <CardPiles artworkReady={artwork.ready} drawnCard={drawnCard} discardTop={discardTop}
-        drawerName={drawer?.displayName} canDraw={canDraw} canResolve={canResolve}
-        onDraw={onDraw} onDiscard={onDiscard} />
+        drawerName={drawer?.displayName} canDraw={canDraw} canDrawDiscard={canDrawDiscard} canDiscardDrawn={canDiscardDrawn}
+        onDraw={onDraw} onDrawDiscard={onDrawDiscard} onDiscard={onDiscard} />
       <GameControls canReady={canReady && artwork.ready} onReady={onReady} />
     </section>
   );

@@ -13,8 +13,8 @@ test('one deck draw stays outside the hand and only its owner sees its face', ()
   assert.equal(state.players[0].drawnCard, top);
   assert.equal(state.players[0].hand.length, 4);
   assert.equal(state.turnStep, 'awaitingDrawnCardResolution');
-  assert.deepEqual(toDrawnCardView(state.players[0], 'p1'), { playerId: 'p1', faceUp: true, cardId: top.cardId });
-  assert.deepEqual(toDrawnCardView(state.players[0], 'p2'), { playerId: 'p1', faceUp: false });
+  assert.deepEqual(toDrawnCardView(state.players[0], 'p1'), { playerId: 'p1', source: 'deck', faceUp: true, cardId: top.cardId });
+  assert.deepEqual(toDrawnCardView(state.players[0], 'p2'), { playerId: 'p1', source: 'deck', faceUp: false });
   assert.equal(allCards(state).length, 108);
 });
 

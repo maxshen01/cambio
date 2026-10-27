@@ -76,7 +76,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'turnChanged', playerId });
       logClientEvent('turnChanged', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').DrawnCardView} card */
+    /** @param {import('../../../shared/lobbyTypes.js').CardDrawnNotice} card */
     function onDrawn(card) {
       if (!valid()) return;
       guard.turnPending = false;

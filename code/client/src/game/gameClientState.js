@@ -11,12 +11,12 @@
  * @property {PlayerSummary[]} players
  * @property {'lobby' | 'memorization' | 'active'} stage
  * @property {string | null} turnPlayerId
- * @property {import('../../../shared/lobbyTypes.js').DrawnCardView | null} drawnCard
+ * @property {import('../../../shared/lobbyTypes.js').CardDrawnNotice | null} drawnCard
  * @property {import('../../../shared/lobbyTypes.js').DiscardView | null} discardTop
  * @property {boolean} turnPending A turn action has been sent and is awaiting its response.
  * @property {boolean} awaitingTurn Resolution arrived; wait for turnChanged before enabling actions.
  * @property {number} movementId
- * @property {{ id: number, kind: 'draw' | 'discard' | 'swap', target?: import('../../../shared/lobbyTypes.js').HandSlotRef } | null} movement
+ * @property {({ id: number, kind: 'draw', source: 'deck' | 'discard' } | { id: number, kind: 'discard' } | { id: number, kind: 'swap', target: import('../../../shared/lobbyTypes.js').HandSlotRef }) | null} movement
  * @property {import('../../../shared/lobbyTypes.js').CardView[]} cards
  * @property {boolean} joinPending
  * @property {boolean} readyPending
@@ -30,7 +30,7 @@
  * | { type: 'dealReceived', cards: import('../../../shared/lobbyTypes.js').CardView[] }
  * | { type: 'readinessReceived', playerId: string, isReady: boolean }
  * | { type: 'turnChanged', playerId: string }
- * | { type: 'drawnCardReceived', card: import('../../../shared/lobbyTypes.js').DrawnCardView }
+ * | { type: 'drawnCardReceived', card: import('../../../shared/lobbyTypes.js').CardDrawnNotice }
  * | { type: 'discardPileReceived', top: import('../../../shared/lobbyTypes.js').DiscardView | null }
  * | { type: 'cardSwapReceived', notice: import('../../../shared/lobbyTypes.js').DrawnSwapNotice }
  * | { type: 'serverErrorReceived', error: LobbyError }} GameClientAction

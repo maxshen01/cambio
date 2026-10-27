@@ -2,7 +2,7 @@
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 /** @typedef {import('../../../shared/lobbyTypes.js').CardView} CardView */
 /** @typedef {import('../../../shared/lobbyTypes.js').PlayerSummary} PlayerSummary */
-/** @typedef {import('../../../shared/lobbyTypes.js').DrawnCardView} DrawnCardView */
+/** @typedef {import('../../../shared/lobbyTypes.js').CardDrawnNotice} CardDrawnNotice */
 /** @typedef {import('../../../shared/lobbyTypes.js').DiscardView} DiscardView */
 /** @typedef {import('../../../shared/lobbyTypes.js').DrawnSwapNotice} DrawnSwapNotice */
 
@@ -82,20 +82,21 @@ export function beginTurn(state, playerId) {
     readyPending: false,
     turnPending: false,
     awaitingTurn: false,
+    movement: state.movement?.kind === 'draw' ? null : state.movement,
     error: null,
   };
 }
 
-/** Retain a drawn face only for its owner; opponents see the drawer alone.
+/** Honor the server's visibility and retain its source with the pending card.
  * @param {GameClientState} state
- * @param {DrawnCardView} card
+ * @param {CardDrawnNotice} card
  * @returns {GameClientState}
  */
 export function receiveDrawnCard(state, card) {
   if (state.connection !== 'connected' || state.stage !== 'active' || card.playerId !== state.turnPlayerId) return state;
-  const drawnCard = card.faceUp && card.playerId === state.identity?.playerId
-    ? { playerId: card.playerId, faceUp: /** @type {const} */ (true), cardId: card.cardId }
-    : { playerId: card.playerId, faceUp: /** @type {const} */ (false) };
+  const drawnCard = card.faceUp
+    ? { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (true), cardId: card.cardId }
+    : { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (false) };
   return {
     ...state,
     drawnCard,
@@ -103,17 +104,20 @@ export function receiveDrawnCard(state, card) {
     awaitingTurn: false,
     error: null,
     movementId: state.movementId + 1,
-    movement: { id: state.movementId + 1, kind: 'draw' },
+    movement: { id: state.movementId + 1, kind: 'draw', source: card.source },
   };
 }
 
-/** Both supported resolutions end with a pile update; wait for turnChanged before acting.
+/** An exposed-top update preserves a discard draw; completed resolutions await turnChanged.
  * @param {GameClientState} state
  * @param {DiscardView | null} top
  * @returns {GameClientState}
  */
 export function resolveDiscard(state, top) {
   if (state.connection !== 'connected' || state.stage !== 'active') return state;
+  if (state.drawnCard?.source === 'discard') {
+    return { ...state, discardTop: top ? { cardId: top.cardId } : null };
+  }
   return {
     ...state,
     discardTop: top ? { cardId: top.cardId } : null,

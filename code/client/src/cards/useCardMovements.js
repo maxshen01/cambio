@@ -34,7 +34,7 @@ export function useCardMovements(board, movement, artworkReady) {
     }
     const drawn = root.querySelector('.setup-drawn');
     const discard = root.querySelector('.setup-discard');
-    if (movement.kind === 'draw') move(root.querySelector('.setup-deck'), drawn);
+    if (movement.kind === 'draw') move(movement.source === 'discard' ? discard : root.querySelector('.setup-deck'), drawn);
     else if (movement.kind === 'discard') move(drawn, discard);
     else {
       const target = movement.target;

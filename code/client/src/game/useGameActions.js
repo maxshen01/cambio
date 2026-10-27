@@ -66,19 +66,24 @@ export function useGameActions({ socket, state, view, permissions, dispatch, ses
     socket.emit('drawCard', { source: 'deck' });
     logClientEvent('drawCard', 'sent');
   }
+  function drawFromDiscard() {
+    if (!beginTurnRequest(permissions.canDrawDiscard)) return;
+    socket.emit('drawCard', { source: 'discard' });
+    logClientEvent('drawCard', 'sent', { source: 'discard' });
+  }
   function discardDrawnCard() {
-    if (!beginTurnRequest(permissions.canResolve)) return;
+    if (!beginTurnRequest(permissions.canDiscardDrawn)) return;
     socket.emit('discardDrawnCard', {});
     logClientEvent('discardDrawnCard', 'sent');
   }
   /** @param {import('../../../shared/lobbyTypes.js').HandSlotId} handSlotId */
   function replaceHandCard(handSlotId) {
     if (!state.identity || !state.cards.some(card => card.playerId === state.identity?.playerId && card.handSlotId === handSlotId)
-      || !beginTurnRequest(permissions.canResolve)) return;
+      || !beginTurnRequest(permissions.canReplace)) return;
     socket.emit('swapDrawnCard', { target: { playerId: state.identity.playerId, handSlotId } });
     logClientEvent('swapDrawnCard', 'sent');
   }
 
   return { joinLobby, notifyNameChanged, toggleReady, retryConnection,
-    drawFromDeck, discardDrawnCard, replaceHandCard };
+    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard };
 }

@@ -33,7 +33,7 @@ test('discard draws expose an older top or empty pile, remain public, and requir
     assert.equal(state.discardPile.cards.at(-1), older);
     assert.equal(state.discardPile.topMatchStatus, older ? 'exposed' : null);
     for (const recipient of state.players) {
-      assert.deepEqual(toDrawnCardView(player, recipient.id), { playerId: 'p4', faceUp: true, cardId: top.cardId });
+      assert.deepEqual(toDrawnCardView(player, recipient.id), { playerId: 'p4', source: 'discard', faceUp: true, cardId: top.cardId });
     }
     reject(state, () => discardDrawnCard(state, 'p4'), 'MUST_SWAP_DISCARD_DRAW');
     for (const source of ['deck', 'discard']) reject(state, () => drawCard(state, 'p4', { source }), 'DRAW_NOT_AVAILABLE');

@@ -10,6 +10,8 @@ export function selectGameClient(state) {
   const allReady = state.players.filter(player => player.isReady).length === 4;
   const ownTurn = connected && joined && state.stage === 'active' && state.turnPlayerId === state.identity?.playerId
     && !state.turnPending && !state.awaitingTurn;
+  const canReplace = ownTurn && state.drawnCard?.playerId === state.identity?.playerId;
+  const canDraw = ownTurn && !state.drawnCard;
   return {
     view: {
       connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
@@ -20,8 +22,10 @@ export function selectGameClient(state) {
       canReady: connected && joined && !state.readyPending && state.stage !== 'active'
         && (state.stage === 'memorization' ? !localPlayer?.isReady : (!localPlayer?.isReady || !allReady)),
       canRetry: state.connection === 'failed',
-      canDraw: ownTurn && !state.drawnCard,
-      canResolve: ownTurn && state.drawnCard?.playerId === state.identity?.playerId,
+      canDraw,
+      canDrawDiscard: canDraw && state.discardTop !== null,
+      canReplace,
+      canDiscardDrawn: canReplace && state.drawnCard?.source === 'deck',
     },
   };
 }

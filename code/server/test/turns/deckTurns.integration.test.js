@@ -34,8 +34,8 @@ test('IT-02 privately draws, rejects a duplicate, discards, replaces, and wraps 
     owner.emit('drawCard', { source: 'deck' });
     const views = await Promise.all(draws);
     views.forEach((view, index) => assert.deepEqual(view, index === turn % 4
-      ? { playerId: owner.id, faceUp: true, cardId: top.cardId }
-      : { playerId: owner.id, faceUp: false }));
+      ? { playerId: owner.id, source: 'deck', faceUp: true, cardId: top.cardId }
+      : { playerId: owner.id, source: 'deck', faceUp: false }));
     const before = structuredClone(gameState);
     const duplicate = nextEvent(owner, 'error');
     owner.emit('drawCard', { source: 'deck' });
@@ -149,7 +149,7 @@ test('real setup leads through a deck discard into a discard draw and replacemen
   const publicDraws = clients.map(client => nextEvent(client, 'cardDrawn'));
   const emptyPiles = clients.map(client => nextEvent(client, 'discardPileUpdated'));
   clients[1].emit('drawCard', { source: 'discard' });
-  assert.deepEqual(await Promise.all(publicDraws), clients.map(() => ({ playerId: clients[1].id, faceUp: true, cardId: top.cardId })));
+  assert.deepEqual(await Promise.all(publicDraws), clients.map(() => ({ playerId: clients[1].id, source: 'discard', faceUp: true, cardId: top.cardId })));
   assert.deepEqual(await Promise.all(emptyPiles), clients.map(() => ({ top: null })));
   const displaced = gameState.players[1].hand[0].card;
   const nextTurns = clients.map(client => nextEvent(client, 'turnChanged'));
@@ -203,7 +203,7 @@ test('IT-03 backend publicly draws before pile updates, rejects direct discard, 
     await rejected(owner, 'swapDrawnCard', { target }, 'NOT_YOUR_TURN');
     for (let index = 0; index < clients.length; index++) {
       assert.deepEqual(records[index].filter(entry => entry.event !== 'error'), [
-        { event: 'cardDrawn', payload: { playerId: owner.id, faceUp: true, cardId: top.cardId } },
+        { event: 'cardDrawn', payload: { playerId: owner.id, source: 'discard', faceUp: true, cardId: top.cardId } },
         { event: 'discardPileUpdated', payload: { top: older ? { cardId: older.cardId } : null } },
         { event: 'cardSwapped', payload: { kind: 'drawn', target } },
         { event: 'discardPileUpdated', payload: { top: { cardId: displaced.cardId } } },

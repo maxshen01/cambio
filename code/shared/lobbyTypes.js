@@ -16,6 +16,7 @@
  * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7 | 8} HandSlotId
  * @typedef {{ playerId: string, handSlotId: HandSlotId } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} CardView
  * @typedef {{ playerId: string } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} DrawnCardView
+ * @typedef {DrawnCardView & { source: 'deck' | 'discard' }} CardDrawnNotice
  * @typedef {{ cards: CardView[] }} DealComplete
  * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING'} LobbyErrorCode
  * @typedef {{ code: LobbyErrorCode, message: string }} LobbyError
@@ -33,7 +34,7 @@
  * @property {(payload: ReadyNotice) => void} playerUnready
  * @property {(payload: DealComplete) => void} dealComplete
  * @property {(payload: TurnChanged) => void} turnChanged
- * @property {(payload: DrawnCardView) => void} cardDrawn
+ * @property {(payload: CardDrawnNotice) => void} cardDrawn
  * @property {(payload: DiscardPileUpdated) => void} discardPileUpdated
  * @property {(payload: DrawnSwapNotice) => void} cardSwapped
  * @property {(payload: LobbyError) => void} error

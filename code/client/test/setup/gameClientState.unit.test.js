@@ -82,8 +82,8 @@ it('loss clears private and pending state and cannot be undone by late events or
   const memorization = gameClientReducer(joinedState(), { type: 'dealReceived', cards: openingView() });
   const lost = gameClientReducer({
     ...memorization, joinPending: true, readyPending: true, turnPending: true, awaitingTurn: true,
-    drawnCard: { playerId: 'p1', faceUp: true, cardId: 7 }, discardTop: { cardId: 8 },
-    movement: { id: 1, kind: 'draw' },
+    drawnCard: { playerId: 'p1', source: 'deck', faceUp: true, cardId: 7 }, discardTop: { cardId: 8 },
+    movement: { id: 1, kind: 'draw', source: 'deck' },
   }, { type: 'connectionLost' });
   expect(lost).toMatchObject({
     connection: 'lost', identity: null, players: [], cards: [], stage: 'lobby', turnPlayerId: null,

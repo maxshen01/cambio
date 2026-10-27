@@ -1,4 +1,4 @@
-// Composes joining, the lobby, memorization, and ordinary deck-draw turns.
+// Composes joining, the lobby, memorization, and ordinary deck/discard turns.
 import { JoinDialog } from './lobby/JoinDialog.jsx';
 import { LobbyScreen } from './lobby/LobbyScreen.jsx';
 import { GameBoard } from './board/GameBoard.jsx';
@@ -14,9 +14,9 @@ export function App({ socket }) {
   const { state, view, permissions, actions } = useGameClient(socket);
   const { identity, players, error, stage, cards, turnPlayerId, drawnCard, discardTop, movement } = state;
   const { connectionLost, localPlayer, joined, connectionStatus } = view;
-  const { canJoin, canReady, canRetry, canDraw, canResolve } = permissions;
+  const { canJoin, canReady, canRetry, canDraw, canDrawDiscard, canReplace, canDiscardDrawn } = permissions;
   const { joinLobby, notifyNameChanged, toggleReady, retryConnection,
-    drawFromDeck, discardDrawnCard, replaceHandCard } = actions;
+    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard } = actions;
   const showJoinDialog = !joined;
 
   return (
@@ -26,8 +26,9 @@ export function App({ socket }) {
         {!showJoinDialog && error && <p className="lobby__error" role="alert">{error.message}</p>}
         {stage !== 'lobby' && identity ? (
           <GameBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
-            drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw} canResolve={canResolve}
-            onDraw={drawFromDeck} onDiscard={discardDrawnCard} onSwap={replaceHandCard} canReady={canReady} onReady={toggleReady} />
+            drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw}
+            canDrawDiscard={canDrawDiscard} canReplace={canReplace} canDiscardDrawn={canDiscardDrawn}
+            onDraw={drawFromDeck} onDrawDiscard={drawFromDiscard} onDiscard={discardDrawnCard} onSwap={replaceHandCard} canReady={canReady} onReady={toggleReady} />
         ) : <LobbyScreen players={players} localSeatId={identity?.seatId}
           isReady={localPlayer?.isReady ?? false} canReady={canReady} onReady={toggleReady} />}
       </div>

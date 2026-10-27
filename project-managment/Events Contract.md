@@ -65,6 +65,14 @@ Hand slot IDs are per player and range from `1` to `8`; [HandSlot semantics](Gam
 
 `playerId` identifies the drawer, not a display position. There is no `handSlotId`: this card is outside every hand. The same visibility rule applies: a face-up view requires `cardId`, and a facedown view omits it entirely. `cardDrawn` uses recipient-specific views; `powerCardRevealed` sends the same face-up view to everyone.
 
+**CardDrawnNotice** — a `DrawnCardView` plus the authoritative draw source, used only by `cardDrawn`:
+
+```js
+{ playerId: string, source: "deck" | "discard", faceUp: bool, cardId?: int }
+```
+
+`source` is required for every recipient, including facedown deck views. It comes from the server's pending `drawnFrom`. Clients display the authorized face and use the source to distinguish replacement-only discard draws from deck draws that permit direct discard, and to retain pending discard draws through older-top pile updates. It reveals no private card identity. The generic `DrawnCardView` used elsewhere is unchanged.
+
 The view represents one owned pending card, separate from every hand. [Game Rules](Game%20Rules.md#turns-and-draw-resolution) defines owner-only resolution and privacy; the [UI Rules](designs/UI%20Rules.md#board-and-cards) define shared placement and empty-state presentation. Retain this view throughout power resolution. Clear it on swap, completed discard, reset/empty snapshot, or local connection loss. A pile update after a discard draw must retain it.
 
 **PlayerSwap** — two hand positions exchanged after server validation:
@@ -384,7 +392,7 @@ This index links to each event's complete definition; payloads appear only in th
 | --- | --- |
 | Direction | (Server to All) |
 | Trigger | A `drawCard` request succeeds. |
-| Payload | A `DrawnCardView` with `playerId` equal to the drawer and no `handSlotId`. For a deck draw, the drawer receives `faceUp: true` and `cardId`; all other players receive `faceUp: false` without `cardId`. For a discard draw, every player receives `faceUp: true` and `cardId`. |
+| Payload | A `CardDrawnNotice` with `playerId` equal to the drawer, required `source: "deck" \| "discard"`, and no `handSlotId`. Source is the same for every recipient. For a deck draw, the drawer receives `faceUp: true` and `cardId`; all other players receive `faceUp: false` without `cardId`. For a discard draw, every player receives `faceUp: true` and `cardId`. |
 | Preconditions | The server has removed one card from the chosen source and stored it as the drawer's pending card. |
 | Server effects | None; `drawCard` already changed the piles and pending draw. |
 | Resulting events | Clients show the card in the shared drawn-card area centered below the deck and discard piles until it is resolved. After a discard draw, `discardPileUpdated` follows to show the new top or `null` while retaining the pending card in the shared area; after a deck draw, no pile update follows. |

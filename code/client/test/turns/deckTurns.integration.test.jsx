@@ -1,4 +1,4 @@
-// Four real clients exercise private deck draws and both ordinary resolutions under jsdom.
+// Four real clients exercise private/public draws and ordinary resolutions under jsdom.
 import { act, render, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { io as connectClient } from 'socket.io-client';
@@ -8,7 +8,7 @@ import { activeGame } from '../../../server/test/helpers/activeGame.js';
 import { App } from '../../src/App.jsx';
 import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../../shared/cardCatalog.js';
 
-it('keeps deck faces private and updates all four boards through discard and facedown replacement', async () => {
+it('IT-02/IT-03: plays private deck and public discard turns through all four boards', async () => {
   const { httpServer, io, gameState } = createServer();
   await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve));
   const sockets = [];
@@ -50,7 +50,7 @@ it('keeps deck faces private and updates all four boards through discard and fac
       await waitFor(() => expect(query(index).getByRole('listitem', { name: 'Seat 2' })).toHaveAttribute('aria-current', 'true'));
       expect(query(index).getByRole('img', { name: 'Discard pile' })).toHaveAttribute('src', CARD_IMAGES[7]);
       expect(query(index).queryByRole('img', { name: /Drawn card/ })).not.toBeInTheDocument();
-      expect(query(index).getByRole('button', { name: 'Draw from discard' })).toBeDisabled();
+      expect(query(index).getByRole('button', { name: 'Draw from discard' })).toHaveProperty('disabled', index !== 1);
       expect(query(index).queryByText(/Use power|Don't use/)).not.toBeInTheDocument();
     }
     const drawn = gameState.deck.cards.at(-1);
@@ -67,12 +67,51 @@ it('keeps deck faces private and updates all four boards through discard and fac
       expect(player2.getByRole('img', { name: 'Slot 2, face down' })).toHaveAttribute('src', CARD_BACK_IMAGE);
     }
     expect(gameState.players[1].hand[1].card).toBe(drawn);
+    // Exercise both older-top and sole-card draws through the real UI controls.
+    for (const [ownerIndex, soleCard] of [[2, false], [3, true]]) {
+      if (soleCard) {
+        // Recycle buried cards in the fixture without changing its publicly visible top.
+        gameState.deck.cards.unshift(...gameState.discardPile.cards.splice(0, gameState.discardPile.cards.length - 1));
+      }
+      const top = gameState.discardPile.cards.at(-1);
+      const older = gameState.discardPile.cards.at(-2);
+      const replaced = gameState.players[ownerIndex].hand[0].card;
+      const discardButton = query(ownerIndex).getByRole('button', { name: 'Draw from discard' });
+      expect(discardButton).toBeEnabled();
+      await user.click(discardButton);
+      for (let index = 0; index < 4; index++) {
+        const held = await query(index).findByRole('img', { name: `Drawn card for Player ${ownerIndex + 1}, face up` });
+        expect(held).toHaveAttribute('src', CARD_IMAGES[top.cardId]);
+        await waitFor(() => {
+          if (older) expect(query(index).getByRole('img', { name: 'Discard pile' })).toHaveAttribute('src', CARD_IMAGES[older.cardId]);
+          else expect(query(index).queryByRole('img', { name: 'Discard pile' })).not.toBeInTheDocument();
+        });
+        // The pending display must survive the older-top update for every recipient.
+        expect(held).toBeInTheDocument();
+        expect(query(index).getByRole('button', { name: 'Discard drawn card' })).toBeDisabled();
+        expect(query(index).getByRole('button', { name: 'Draw from deck' })).toBeDisabled();
+        if (older) expect(query(index).getByRole('button', { name: 'Draw from discard' })).toBeDisabled();
+      }
+      const slot = query(ownerIndex).getByRole('button', { name: 'Replace slot 1 with drawn card' });
+      expect(slot).toBeEnabled();
+      await user.click(slot);
+      const nextSeat = (ownerIndex + 1) % 4 + 1;
+      for (let index = 0; index < 4; index++) {
+        await waitFor(() => expect(query(index).getByRole('listitem', { name: `Seat ${nextSeat}` })).toHaveAttribute('aria-current', 'true'));
+        expect(query(index).queryByRole('img', { name: /Drawn card/ })).not.toBeInTheDocument();
+        expect(query(index).getByRole('img', { name: 'Discard pile' })).toHaveAttribute('src', CARD_IMAGES[replaced.cardId]);
+        expect(query(index).getByRole('button', { name: 'Draw from discard' })).toHaveProperty('disabled', index !== (ownerIndex + 1) % 4);
+        const hand = within(query(index).getByRole('listitem', { name: `Seat ${ownerIndex + 1}` }));
+        expect(hand.getByRole('img', { name: 'Slot 1, face down' })).toHaveAttribute('src', CARD_BACK_IMAGE);
+      }
+      expect(gameState.players[ownerIndex].hand[0].card).toBe(top);
+    }
     // Connection loss while holding a private card remains terminal for that local tab.
-    await user.click(query(2).getByRole('button', { name: 'Draw from deck' }));
-    await query(2).findByRole('img', { name: 'Drawn card for Player 3, face up' });
-    act(() => sockets[2].disconnect());
-    await waitFor(() => expect(query(2).getByRole('button', { name: 'Reload to rejoin' })).toBeEnabled());
-    expect(query(2).queryByRole('img')).not.toBeInTheDocument();
+    await user.click(query(0).getByRole('button', { name: 'Draw from deck' }));
+    await query(0).findByRole('img', { name: 'Drawn card for Player 1, face up' });
+    act(() => sockets[0].disconnect());
+    await waitFor(() => expect(query(0).getByRole('button', { name: 'Reload to rejoin' })).toBeEnabled());
+    expect(query(0).queryByRole('img')).not.toBeInTheDocument();
   } finally {
     for (const view of views) view.unmount();
     for (const socket of sockets) socket.disconnect();
