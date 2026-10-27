@@ -1,4 +1,4 @@
-// Real Socket.IO coverage for deck privacy, ordered resolutions, and requester-only errors.
+// Real Socket.IO coverage for draw privacy/publicity, ordered resolutions, and requester-only errors.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { harness, dealtHarness, confirmReady } from '../helpers/room.js';
@@ -86,7 +86,7 @@ test('socket validation rejects wrong stage/player, malformed targets, empty dec
   }
   await rejected(outsider, 'drawCard', { source: 'deck' }, 'NOT_IN_ROOM');
   await rejected(clients[1], 'drawCard', { source: 'deck' }, 'NOT_YOUR_TURN');
-  for (const payload of [null, {}, { source: 'discard' }, { source: 'bad' }]) {
+  for (const payload of [null, {}, { source: 'bad' }]) {
     await rejected(clients[0], 'drawCard', payload, 'INVALID_DRAW_SOURCE');
   }
   gameState.phase = 'deal';
@@ -132,7 +132,7 @@ test('all power kinds resolve through ordinary socket events with no power promp
   assert.ok(seen.every(event => ['cardDrawn', 'cardSwapped', 'discardPileUpdated', 'turnChanged'].includes(event)));
 });
 
-test('real lobby and memorization progression leads into a complete deck turn', async t => {
+test('real setup leads through a deck discard into a discard draw and replacement', async t => {
   const { clients, gameState } = await dealtHarness(t, { random: () => 0 });
   const starts = clients.map(client => nextEvent(client, 'turnChanged'));
   for (const client of clients) await confirmReady(client, clients);
@@ -146,4 +146,79 @@ test('real lobby and memorization progression leads into a complete deck turn', 
   await Promise.all(turns);
   assert.equal(gameState.turn, clients[1].id);
   assert.equal(gameState.discardPile.cards.at(-1), top);
+  const publicDraws = clients.map(client => nextEvent(client, 'cardDrawn'));
+  const emptyPiles = clients.map(client => nextEvent(client, 'discardPileUpdated'));
+  clients[1].emit('drawCard', { source: 'discard' });
+  assert.deepEqual(await Promise.all(publicDraws), clients.map(() => ({ playerId: clients[1].id, faceUp: true, cardId: top.cardId })));
+  assert.deepEqual(await Promise.all(emptyPiles), clients.map(() => ({ top: null })));
+  const displaced = gameState.players[1].hand[0].card;
+  const nextTurns = clients.map(client => nextEvent(client, 'turnChanged'));
+  clients[1].emit('swapDrawnCard', { target: { playerId: clients[1].id, handSlotId: 1 } });
+  await Promise.all(nextTurns);
+  assert.equal(gameState.players[1].hand[0].card, top);
+  assert.equal(gameState.discardPile.cards.at(-1), displaced);
+  assert.equal(gameState.turn, clients[2].id);
+});
+
+test('IT-03 backend publicly draws before pile updates, rejects direct discard, and replaces once', async t => {
+  for (const count of [1, 2]) {
+    const { clients, connect, gameState } = await activeHarness(t);
+    const outsider = await connect();
+    const recipients = [...clients, outsider];
+    const records = recipients.map(() => []);
+    recipients.forEach((client, index) => client.onAny((event, payload) => records[index].push({ event, payload })));
+    gameState.discardPile.cards = gameState.deck.cards.splice(-count);
+    const physical = new Set(allCards(gameState));
+    const top = gameState.discardPile.cards.at(-1);
+    const older = gameState.discardPile.cards.at(-2);
+    const owner = clients[0];
+    const target = { playerId: owner.id, handSlotId: 1 };
+    const displaced = gameState.players[0].hand[0].card;
+
+    async function rejected(client, event, payload, code) {
+      const before = structuredClone(gameState);
+      const lengths = records.map(record => record.length);
+      const response = nextEvent(client, 'error');
+      client.emit(event, payload);
+      assert.equal((await response).code, code);
+      assert.deepEqual(gameState, before);
+      records.forEach((record, index) => assert.deepEqual(record.slice(lengths[index]).map(entry => entry.event),
+        recipients[index] === client ? ['error'] : []));
+    }
+
+    await rejected(outsider, 'drawCard', { source: 'discard' }, 'NOT_IN_ROOM');
+    await rejected(clients[1], 'drawCard', { source: 'discard' }, 'NOT_YOUR_TURN');
+    const piles = clients.map(client => nextEvent(client, 'discardPileUpdated'));
+    owner.emit('drawCard', { source: 'discard' });
+    assert.deepEqual(await Promise.all(piles), clients.map(() => ({ top: older ? { cardId: older.cardId } : null })));
+    assert.equal(gameState.discardPile.topMatchStatus, older ? 'exposed' : null);
+    await rejected(owner, 'discardDrawnCard', {}, 'MUST_SWAP_DISCARD_DRAW');
+    for (const source of ['deck', 'discard']) await rejected(owner, 'drawCard', { source }, 'DRAW_NOT_AVAILABLE');
+    for (const invalid of [{ playerId: clients[1].id, handSlotId: 1 }, { playerId: owner.id, handSlotId: 8 }]) {
+      await rejected(owner, 'swapDrawnCard', { target: invalid }, 'INVALID_TARGET');
+    }
+    const turns = clients.map(client => nextEvent(client, 'turnChanged'));
+    owner.emit('swapDrawnCard', { target });
+    assert.deepEqual(await Promise.all(turns), clients.map(() => ({ playerId: clients[1].id })));
+    await rejected(owner, 'swapDrawnCard', { target }, 'NOT_YOUR_TURN');
+    for (let index = 0; index < clients.length; index++) {
+      assert.deepEqual(records[index].filter(entry => entry.event !== 'error'), [
+        { event: 'cardDrawn', payload: { playerId: owner.id, faceUp: true, cardId: top.cardId } },
+        { event: 'discardPileUpdated', payload: { top: older ? { cardId: older.cardId } : null } },
+        { event: 'cardSwapped', payload: { kind: 'drawn', target } },
+        { event: 'discardPileUpdated', payload: { top: { cardId: displaced.cardId } } },
+        { event: 'turnChanged', payload: { playerId: clients[1].id } },
+      ]);
+    }
+    assert.ok(records[4].every(entry => entry.event === 'error'));
+    assert.equal(gameState.players[0].hand[0].card, top);
+    assert.equal(gameState.players[0].drawnCard, null);
+    assert.equal(gameState.discardPile.topMatchStatus, 'eligible');
+    assert.equal(gameState.pendingPower, null);
+    assert.equal(allCards(gameState).length, 108);
+    assert.deepEqual(new Set(allCards(gameState)), physical);
+    // Empty-source errors are domain errors with no mutation or public emissions.
+    gameState.discardPile.cards = [];
+    await rejected(clients[1], 'drawCard', { source: 'discard' }, 'DISCARD_EMPTY');
+  }
 });

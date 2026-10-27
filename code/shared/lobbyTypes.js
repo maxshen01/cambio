@@ -1,4 +1,4 @@
-// Public setup/deck-turn protocol and card views; drawn cards have no hand-slot position.
+// Public setup/ordinary-turn protocol and card views; drawn cards have no hand-slot position.
 /**
  * @typedef {1 | 2 | 3 | 4} SeatId
  * @typedef {{ playerId: string, displayName: string, seatId: SeatId, connected: boolean, isReady: boolean }} PlayerSummary
@@ -7,7 +7,7 @@
  * @typedef {{ playerId: string, seatId: SeatId }} JoinAck
  * @typedef {{ playerId: string }} ReadyNotice
  * @typedef {{ playerId: string }} TurnChanged
- * @typedef {{ source: 'deck' }} DrawRequest
+ * @typedef {{ source: 'deck' | 'discard' }} DrawRequest
  * @typedef {{ playerId: string, handSlotId: HandSlotId }} HandSlotRef
  * @typedef {{ target: HandSlotRef }} DrawnSwapRequest
  * @typedef {{ kind: 'drawn', target: HandSlotRef }} DrawnSwapNotice
@@ -17,7 +17,7 @@
  * @typedef {{ playerId: string, handSlotId: HandSlotId } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} CardView
  * @typedef {{ playerId: string } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} DrawnCardView
  * @typedef {{ cards: CardView[] }} DealComplete
- * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING'} LobbyErrorCode
+ * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING'} LobbyErrorCode
  * @typedef {{ code: LobbyErrorCode, message: string }} LobbyError
  * @typedef {Object} ClientEvents
  * @property {(payload: JoinRequest, ack?: (identity: JoinAck) => void) => void} joinRoom

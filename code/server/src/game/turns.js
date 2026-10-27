@@ -1,4 +1,4 @@
-// Synchronous first-turn, private deck-draw, and ordinary resolution rules; powers are inactive.
+// Synchronous first-turn, deck/discard draws, and ordinary resolution rules; powers are inactive.
 import { isMemorization } from './lobby.js';
 import { DomainError } from './domainError.js';
 import { refillDeck } from './deck.js';
@@ -30,23 +30,28 @@ function requireTurnPlayer(state, id) {
   return player;
 }
 
-/** Draw exactly once; discard-source draws are deferred to the next implementation step.
+/** Draw exactly once from the chosen pile, retaining ownership outside the hand.
  * @param {GameState} state @param {string} id @param {unknown} payload
  * @param {() => number} [random]
  */
 export function drawCard(state, id, payload, random = Math.random) {
   const player = requireTurnPlayer(state, id);
-  if (!payload || typeof payload !== 'object' || !('source' in payload) || payload.source !== 'deck') {
-    throw new DomainError('INVALID_DRAW_SOURCE', 'Choose the deck to draw a card.');
+  if (!payload || typeof payload !== 'object' || !('source' in payload)
+    || (payload.source !== 'deck' && payload.source !== 'discard')) {
+    throw new DomainError('INVALID_DRAW_SOURCE', 'Choose the deck or discard pile to draw a card.');
   }
   if (state.phase !== 'active' || state.turnStep !== 'awaitingDraw' || state.pendingPower
     || state.players.some(player => player.drawnCard)) {
     throw new DomainError('DRAW_NOT_AVAILABLE', 'Drawing is not available right now.');
   }
-  const card = state.deck.cards.at(-1);
-  if (!card) throw new DomainError('DECK_EMPTY', 'The deck is empty.');
-  state.deck.cards.pop();
-  Object.assign(player, { drawnCard: card, drawnFrom: 'deck', drawnCardRevealed: false });
+  const source = payload.source;
+  const pile = source === 'deck' ? state.deck.cards : state.discardPile.cards;
+  const card = pile.at(-1);
+  if (!card) throw new DomainError(source === 'deck' ? 'DECK_EMPTY' : 'DISCARD_EMPTY',
+    source === 'deck' ? 'The deck is empty.' : 'The discard pile is empty.');
+  pile.pop();
+  if (source === 'discard') state.discardPile.topMatchStatus = pile.length ? 'exposed' : null;
+  Object.assign(player, { drawnCard: card, drawnFrom: source, drawnCardRevealed: false });
   state.turnStep = 'awaitingDrawnCardResolution';
   refillDeck(state, random);
   return player;
@@ -85,6 +90,9 @@ function finishTurn(state, player, discarded, random) {
  */
 export function discardDrawnCard(state, id, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
+  if (player.drawnFrom === 'discard') {
+    throw new DomainError('MUST_SWAP_DISCARD_DRAW', 'Replace one of your hand cards with the discard draw.');
+  }
   finishTurn(state, player, /** @type {import('./types.js').Card} */ (player.drawnCard), random);
 }
 

@@ -5,7 +5,7 @@
  */
 export function toDrawnCardView(player, recipientId) {
   if (!player.drawnCard) throw new Error('No pending drawn card to project');
-  return player.id === recipientId
+  return player.drawnFrom === 'discard' || player.id === recipientId
     ? { playerId: player.id, faceUp: true, cardId: player.drawnCard.cardId }
     : { playerId: player.id, faceUp: false };
 }

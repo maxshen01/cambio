@@ -73,7 +73,7 @@ test('invalid draws and resolutions leave the entire state unchanged', () => {
   const state = activeGame();
   reject(state, () => drawCard(state, 'outsider', { source: 'deck' }), 'NOT_IN_ROOM');
   reject(state, () => drawCard(state, 'p2', { source: 'deck' }), 'NOT_YOUR_TURN');
-  for (const payload of [undefined, null, {}, { source: 'discard' }, { source: 'other' }]) {
+  for (const payload of [undefined, null, {}, { source: 'other' }]) {
     reject(state, () => drawCard(state, 'p1', payload), 'INVALID_DRAW_SOURCE');
   }
   for (const phase of ['deal', 'finalRound', 'roundOver', 'gameAborted']) {
