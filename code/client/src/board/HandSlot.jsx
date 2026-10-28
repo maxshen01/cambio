@@ -1,10 +1,10 @@
 // Reserves one stable hand position and exposes replacement only for the local player's hand.
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 
-/** @param {{ playerId: string, slot: import('../../../shared/lobbyTypes.js').HandSlotId,
- * card: import('../../../shared/lobbyTypes.js').CardView | undefined,
+/** @param {{ playerId: string, slot: import('../../../shared/protocol.js').HandSlotId,
+ * card: import('../../../shared/protocol.js').CardView | undefined,
  * artworkReady: boolean, replacementMode: boolean, canReplaceCard: boolean,
- * onReplaceCard: (slot: import('../../../shared/lobbyTypes.js').HandSlotId) => void }} props
+ * onReplaceCard: (slot: import('../../../shared/protocol.js').HandSlotId) => void }} props
  */
 export function HandSlot({ playerId, slot, card, artworkReady, replacementMode, canReplaceCard, onReplaceCard }) {
   return (

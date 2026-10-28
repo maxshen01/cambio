@@ -76,7 +76,7 @@ export function useGameActions({ socket, state, view, permissions, dispatch, ses
     socket.emit('discardDrawnCard', {});
     logClientEvent('discardDrawnCard', 'sent');
   }
-  /** @param {import('../../../shared/lobbyTypes.js').HandSlotId} handSlotId */
+  /** @param {import('../../../shared/protocol.js').HandSlotId} handSlotId */
   function replaceHandCard(handSlotId) {
     if (!state.identity || !state.cards.some(card => card.playerId === state.identity?.playerId && card.handSlotId === handSlotId)
       || !beginTurnRequest(permissions.canReplace)) return;

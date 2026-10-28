@@ -1,16 +1,14 @@
 // Confirms setup readiness, privately deals, and broadcasts the first active turn.
-import { readyPlayer, unreadyPlayer } from '../game/lobby.js';
-import { dealIfReady } from '../game/deal.js';
-import { toDealView } from '../game/views/dealView.js';
-import { startPlayIfReady } from '../game/turns.js';
-import { PLAYER_ROOM } from './rooms.js';
-import { logSocket } from './log.js';
+import { readyPlayer, unreadyPlayer, dealIfReady, startPlayIfReady } from '../../game/setup.js';
+import { toDealView } from '../../game/views/dealView.js';
+import { PLAYER_ROOM } from '../rooms.js';
+import { logSocket } from '../log.js';
 
 /** Register readiness actions, which intentionally have no acknowledgement.
- * @param {import('./types.js').GameServer} io
- * @param {import('./types.js').GameSocket} socket
- * @param {import('../game/types.js').GameState} gameState
- * @param {import('./types.js').GameBoundary} run
+ * @param {import('../types.js').GameServer} io
+ * @param {import('../types.js').GameSocket} socket
+ * @param {import('../../game/types.js').GameState} gameState
+ * @param {import('../types.js').GameBoundary} run
  * @param {() => number} [random]
  */
 export function registerReady(io, socket, gameState, run, random = Math.random) {
@@ -26,7 +24,7 @@ export function registerReady(io, socket, gameState, run, random = Math.random) 
       logSocket('info', socket.id, event, 'accepted', {
         readyCount: gameState.players.filter(player => player.isReady).length,
       });
-      if (event === 'ready' && dealIfReady(gameState)) {
+      if (event === 'ready' && dealIfReady(gameState, random)) {
         for (const player of gameState.players) {
           io.sockets.sockets.get(player.id)?.emit('dealComplete', toDealView(gameState, player.id));
         }

@@ -2,7 +2,7 @@
 
 This document owns server-state meaning, ownership, relationships, and invariants. [Game Rules](Game%20Rules.md) owns gameplay policy; [Events Contract](Events%20Contract.md) owns wire shapes, recipient redaction, errors, and ordering. Never send authoritative state objects directly to clients.
 
-This document defines the intended state model. Source declarations are in [server game types](../code/server/src/game/types.js) and [shared public types](../code/shared/lobbyTypes.js). See the [root README](../README.md) for current implementation capabilities, limitations, and coverage.
+This document defines the intended state model. Source declarations are in [server game types](../code/server/src/game/types.js) and [shared public types](../code/shared/protocol.js). See the [root README](../README.md) for current implementation capabilities, limitations, and coverage.
 
 ## Card
 
@@ -74,6 +74,6 @@ The exact `Power`, `Rank`, and `Suit` unions are declared in [server game types]
 ### Public projections
 
 - [LobbyView and GameStateView](Events%20Contract.md#server-to-frontend) are recipient-specific projections, never authoritative state. Lobby summaries map `Player.id` to public `playerId`; seats remain stable even though arrays are ordered.
-- Hand cards use `CardView` with slot IDs 1–8. The single pending card uses `DrawnCardView` with owner identity and no slot ID. Exact public declarations live in [shared types](../code/shared/lobbyTypes.js); the contract owns payload visibility and snapshot fields.
+- Hand cards use `CardView` with slot IDs 1–8. The single pending card uses `DrawnCardView` with owner identity and no slot ID. Exact public declarations live in [shared types](../code/shared/protocol.js); the contract owns payload visibility and snapshot fields.
 - Visibility is derived from setup readiness, draw source, the power reveal flag, phase, and recipient. Temporary match flips and power peeks are client display state; snapshots restore the baseline without replaying temporary faces or requiring a server flip-back event.
 - Snapshot prompt visibility, matching availability, final-grace flags, and hidden-field omission are defined once in the [wire projection](Events%20Contract.md#server-to-frontend). Physical placement and empty-state display belong to the [UI Rules](designs/UI%20Rules.md#board-and-cards).

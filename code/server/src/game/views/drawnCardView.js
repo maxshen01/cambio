@@ -1,7 +1,7 @@
 // Builds the pending drawn-card view authorized for one recipient.
 /** Project the authoritative source and only the face authorized for this recipient.
  * @param {import('../types.js').Player} player @param {string} recipientId
- * @returns {import('../../../../shared/lobbyTypes.js').CardDrawnNotice}
+ * @returns {import('../../../../shared/protocol.js').CardDrawnNotice}
  */
 export function toDrawnCardView(player, recipientId) {
   if (!player.drawnCard) throw new Error('No pending drawn card to project');

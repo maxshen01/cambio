@@ -8,16 +8,16 @@ import { useCardArtwork } from '../cards/useCardArtwork.js';
 import { useCardMovements } from '../cards/useCardMovements.js';
 
 /** Display recipient-authorized hands and actions; empty positions reserve invisible space.
- * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
- * cards: import('../../../shared/lobbyTypes.js').CardView[],
- * identity: import('../../../shared/lobbyTypes.js').JoinAck,
+ * @param {{ players: import('../../../shared/protocol.js').PlayerSummary[],
+ * cards: import('../../../shared/protocol.js').CardView[],
+ * identity: import('../../../shared/protocol.js').JoinAck,
  * turnPlayerId: string | null,
- * drawnCard: import('../../../shared/lobbyTypes.js').DrawnCardView | null,
- * discardTop: import('../../../shared/lobbyTypes.js').DiscardView | null,
+ * drawnCard: import('../../../shared/protocol.js').DrawnCardView | null,
+ * discardTop: import('../../../shared/protocol.js').DiscardView | null,
  * movement: import('../game/gameClientState.js').GameClientState['movement'],
  * canDraw: boolean, canDrawDiscard: boolean, canReplace: boolean, canDiscardDrawn: boolean,
  * onDraw: () => void, onDrawDiscard: () => void, onDiscard: () => void,
- * onSwap: (slot: import('../../../shared/lobbyTypes.js').HandSlotId) => void,
+ * onSwap: (slot: import('../../../shared/protocol.js').HandSlotId) => void,
  * canReady: boolean, onReady: () => void }} props
  */
 export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, discardTop, movement,

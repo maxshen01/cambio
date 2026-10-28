@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
-import { joinPlayer, removeLobbyPlayer, readyPlayer, unreadyPlayer } from '../../src/game/lobby.js';
+import { joinPlayer, removeLobbyPlayer } from '../../src/game/lobby.js';
+import { readyPlayer, unreadyPlayer } from '../../src/game/setup.js';
 import { toLobbyView } from '../../src/game/views/lobbyView.js';
 
 test('join rejection precedence is membership, name, stage, then capacity', () => {
@@ -42,6 +43,7 @@ test('joins take the lowest vacant seat and keep players in seat order', () => {
   assert.equal(state.players[0].isReady, true);
   assert.equal(player.isReady, false);
   assert.deepEqual(player.hand, []);
+  assert.notEqual(player.hand, state.players[0].hand);
 });
 
 test('disconnect cleanup frees only an undealt seated player and preserves survivors', () => {

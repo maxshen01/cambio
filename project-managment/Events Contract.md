@@ -1,6 +1,6 @@
 # Cambio — Events Contract
 
-This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. See the [root README](../README.md) for current implementation capabilities, limitations, and coverage, and [shared public types](../code/shared/lobbyTypes.js) for source declarations.
+This is the target wire contract for the complete game. [Game Rules](Game%20Rules.md) owns gameplay policy; [Game Data Model](Game%20Data%20Model.md) owns server-state semantics. See the [root README](../README.md) for current implementation capabilities, limitations, and coverage, and [shared public types](../code/shared/protocol.js) for source declarations.
 
 ## Conventions
 
@@ -33,7 +33,7 @@ This is the target wire contract for the complete game. [Game Rules](Game%20Rule
 
 ## Shared Object Shapes
 
-These shapes are defined here once and referenced by event payloads. See [shared public types](../code/shared/lobbyTypes.js) for source declarations and the [root README](../README.md) for implementation coverage. `Card` and `GameState` in [Game Data Model](Game%20Data%20Model.md) are server-only; never send them directly.
+These shapes are defined here once and referenced by event payloads. See [shared public types](../code/shared/protocol.js) for source declarations and the [root README](../README.md) for implementation coverage. `Card` and `GameState` in [Game Data Model](Game%20Data%20Model.md) are server-only; never send them directly.
 
 ### Client targets and server notifications
 
@@ -116,7 +116,7 @@ The view represents one owned pending card, separate from every hand. [Game Rule
 { playerId: string }
 ```
 
-This contract shorthand is the structure of `ReadyNotice` in [shared types](../code/shared/lobbyTypes.js). Event tables specify which player it identifies; it carries no name, seat, or card data.
+This contract shorthand is the structure of `ReadyNotice` in [shared types](../code/shared/protocol.js). Event tables specify which player it identifies; it carries no name, seat, or card data.
 
 **PlayerSummary** — public seat identity and readiness:
 

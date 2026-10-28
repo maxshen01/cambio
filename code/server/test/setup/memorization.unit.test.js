@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
-import { dealIfReady } from '../../src/game/deal.js';
-import { startPlayIfReady } from '../../src/game/turns.js';
-import { isMemorization, joinPlayer, readyPlayer, unreadyPlayer, removeLobbyPlayer } from '../../src/game/lobby.js';
+import { dealIfReady, startPlayIfReady, readyPlayer, unreadyPlayer } from '../../src/game/setup.js';
+import { isMemorization } from '../../src/game/selectors.js';
+import { joinPlayer, removeLobbyPlayer } from '../../src/game/lobby.js';
 
 function dealtRoom() {
   const state = createGameState();

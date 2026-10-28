@@ -1,8 +1,8 @@
 // Composes the waiting-room seats and server-confirmed readiness control.
 import { SeatList } from './SeatList.jsx';
 
-/** @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
- * localSeatId?: import('../../../shared/lobbyTypes.js').SeatId,
+/** @param {{ players: import('../../../shared/protocol.js').PlayerSummary[],
+ * localSeatId?: import('../../../shared/protocol.js').SeatId,
  * isReady: boolean, canReady: boolean, onReady: () => void }} props
  */
 export function LobbyScreen({ players, localSeatId, isReady, canReady, onReady }) {

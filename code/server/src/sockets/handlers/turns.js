@@ -1,14 +1,14 @@
 // Adapts ordinary turns to authorized drawn-card views and ordered public pile/resolution events.
-import { drawCard, discardDrawnCard, swapDrawnCard } from '../game/turns.js';
-import { toDrawnCardView } from '../game/views/drawnCardView.js';
-import { PLAYER_ROOM } from './rooms.js';
-import { logSocket } from './log.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../game/turns.js';
+import { toDrawnCardView } from '../../game/views/drawnCardView.js';
+import { PLAYER_ROOM } from '../rooms.js';
+import { logSocket } from '../log.js';
 
 /** Register ordinary deck/discard actions through the shared error boundary.
- * @param {import('./types.js').GameServer} io
- * @param {import('./types.js').GameSocket} socket
- * @param {import('../game/types.js').GameState} state
- * @param {import('./types.js').GameBoundary} run
+ * @param {import('../types.js').GameServer} io
+ * @param {import('../types.js').GameSocket} socket
+ * @param {import('../../game/types.js').GameState} state
+ * @param {import('../types.js').GameBoundary} run
  * @param {() => number} [random]
  */
 export function registerTurns(io, socket, state, run, random = Math.random) {
@@ -38,9 +38,9 @@ export function registerTurns(io, socket, state, run, random = Math.random) {
     logSocket('info', socket.id, 'discardDrawnCard', 'accepted');
   }));
   socket.on('swapDrawnCard', payload => run(socket, 'swapDrawnCard', () => {
-    const notice = swapDrawnCard(state, socket.id, payload, random);
-    io.to(PLAYER_ROOM).emit('cardSwapped', notice);
+    const handSlotId = swapDrawnCard(state, socket.id, payload, random);
+    io.to(PLAYER_ROOM).emit('cardSwapped', { kind: 'drawn', target: { playerId: socket.id, handSlotId } });
     publishResolution();
-    logSocket('info', socket.id, 'swapDrawnCard', 'accepted', { handSlotId: notice.target.handSlotId });
+    logSocket('info', socket.id, 'swapDrawnCard', 'accepted', { handSlotId });
   }));
 }

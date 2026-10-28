@@ -1,10 +1,10 @@
 // Pure, atomic transitions for the server-confirmed client view.
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
-/** @typedef {import('../../../shared/lobbyTypes.js').CardView} CardView */
-/** @typedef {import('../../../shared/lobbyTypes.js').PlayerSummary} PlayerSummary */
-/** @typedef {import('../../../shared/lobbyTypes.js').CardDrawnNotice} CardDrawnNotice */
-/** @typedef {import('../../../shared/lobbyTypes.js').DiscardView} DiscardView */
-/** @typedef {import('../../../shared/lobbyTypes.js').DrawnSwapNotice} DrawnSwapNotice */
+/** @typedef {import('../../../shared/protocol.js').CardView} CardView */
+/** @typedef {import('../../../shared/protocol.js').PlayerSummary} PlayerSummary */
+/** @typedef {import('../../../shared/protocol.js').CardDrawnNotice} CardDrawnNotice */
+/** @typedef {import('../../../shared/protocol.js').DiscardView} DiscardView */
+/** @typedef {import('../../../shared/protocol.js').DrawnSwapNotice} DrawnSwapNotice */
 
 /** Remove face identities rather than merely hiding their images.
  * @param {CardView[]} cards @returns {CardView[]}

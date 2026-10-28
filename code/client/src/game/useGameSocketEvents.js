@@ -36,21 +36,21 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'connectionLost' });
       logClientEvent('disconnect', 'lost');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').LobbyView} lobby */
+    /** @param {import('../../../shared/protocol.js').LobbyView} lobby */
     function onPlayers(lobby) {
       if (!valid()) return;
       dispatch({ type: 'playersReceived', players: lobby.players });
       logClientEvent('lobby', 'received', { playerCount: lobby.players.length });
     }
     /** A prestart departure cancels the deal and any outstanding setup request.
-     * @param {import('../../../shared/lobbyTypes.js').LobbyView} lobby */
+     * @param {import('../../../shared/protocol.js').LobbyView} lobby */
     function onDeparture(lobby) {
       if (!valid()) return;
       clearActionRequests(guard);
       dispatch({ type: 'playerDepartureReceived', players: lobby.players });
       logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
     }
-    /** @param {import('../../../shared/lobbyTypes.js').DealComplete} deal */
+    /** @param {import('../../../shared/protocol.js').DealComplete} deal */
     function onDeal(deal) {
       if (!valid()) return;
       clearActionRequests(guard);
@@ -64,11 +64,11 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'readinessReceived', playerId, isReady });
       logClientEvent(isReady ? 'playerReady' : 'playerUnready', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').ReadyNotice} notice */
+    /** @param {import('../../../shared/protocol.js').ReadyNotice} notice */
     const onReady = ({ playerId }) => onMark(playerId, true);
-    /** @param {import('../../../shared/lobbyTypes.js').ReadyNotice} notice */
+    /** @param {import('../../../shared/protocol.js').ReadyNotice} notice */
     const onUnready = ({ playerId }) => onMark(playerId, false);
-    /** @param {import('../../../shared/lobbyTypes.js').TurnChanged} notice */
+    /** @param {import('../../../shared/protocol.js').TurnChanged} notice */
     function onTurn({ playerId }) {
       if (!valid()) return;
       guard.readyPlayerId = null;
@@ -76,26 +76,26 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'turnChanged', playerId });
       logClientEvent('turnChanged', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').CardDrawnNotice} card */
+    /** @param {import('../../../shared/protocol.js').CardDrawnNotice} card */
     function onDrawn(card) {
       if (!valid()) return;
       guard.turnPending = false;
       dispatch({ type: 'drawnCardReceived', card });
       logClientEvent('cardDrawn', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').DiscardPileUpdated} notice */
+    /** @param {import('../../../shared/protocol.js').DiscardPileUpdated} notice */
     function onPile({ top }) {
       if (!valid()) return;
       dispatch({ type: 'discardPileReceived', top });
       logClientEvent('discardPileUpdated', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').DrawnSwapNotice} notice */
+    /** @param {import('../../../shared/protocol.js').DrawnSwapNotice} notice */
     function onSwapped(notice) {
       if (!valid()) return;
       dispatch({ type: 'cardSwapReceived', notice });
       logClientEvent('cardSwapped', 'received');
     }
-    /** @param {import('../../../shared/lobbyTypes.js').LobbyError} error */
+    /** @param {import('../../../shared/protocol.js').LobbyError} error */
     function onError(error) {
       if (!valid()) return;
       clearActionRequests(guard);

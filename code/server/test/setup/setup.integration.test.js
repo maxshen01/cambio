@@ -2,12 +2,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGameState } from '../../src/game/state.js';
+import { createDeck } from '../../src/game/deck.js';
 import { nextEvent } from '../helpers/socket.js';
 import { harness, join, dealtHarness, confirmReady } from '../helpers/room.js';
+
+test('server randomness controls the opening shuffle', async t => {
+  const { gameState } = await dealtHarness(t, { random: () => 1 - Number.EPSILON });
+  const ordered = createDeck();
+  assert.deepEqual(gameState.deck.cards, ordered.slice(0, 92));
+  for (const [seat, player] of gameState.players.entries()) {
+    assert.deepEqual(player.hand.map(slot => slot.card),
+      [0, 1, 2, 3].map(pass => ordered[107 - pass * 4 - seat]));
+  }
+});
 
 test('fourth memorization notice precedes exactly one first turn, with targeted readiness errors', async t => {
   let randomCalls = 0;
   const { clients, connect, gameState } = await dealtHarness(t, { random: () => { randomCalls++; return 0.5; } });
+  const postDealRandomCalls = randomCalls;
   const outsider = await connect();
   const events = [];
   const errors = [];
@@ -29,7 +41,7 @@ test('fourth memorization notice precedes exactly one first turn, with targeted 
     await confirmReady(client, clients);
     await Promise.all(turns);
     assert.equal(gameState.phase, index === 3 ? 'active' : 'deal');
-    assert.equal(randomCalls, index === 3 ? 1 : 0);
+    assert.equal(randomCalls - postDealRandomCalls, index === 3 ? 1 : 0);
     const before = structuredClone(gameState);
     client.emit('ready', {});
     if (index === 3) await nextEvent(client, 'error');

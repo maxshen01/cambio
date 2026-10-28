@@ -1,4 +1,5 @@
 // Constructs fresh room state and resets setup while retaining seated player identities.
+import { resetPlayerForRound } from './player.js';
 
 /** Create an empty, undealt room. Other game fields start without a pending turn or action.
  * @returns {import("./types.js").GameState}
@@ -27,9 +28,6 @@ export function createGameState() {
 export function resetSetup(state, players) {
   Object.assign(state, createGameState(), { players });
   for (const player of players) {
-    Object.assign(player, {
-      hand: [], isReady: false, drawnCard: null, drawnFrom: null,
-      drawnCardRevealed: false, score: 0, calledCambio: false,
-    });
+    resetPlayerForRound(player);
   }
 }

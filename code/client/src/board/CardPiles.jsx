@@ -2,8 +2,8 @@
 import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 
 /** @param {{ artworkReady: boolean,
- * drawnCard: import('../../../shared/lobbyTypes.js').DrawnCardView | null,
- * discardTop: import('../../../shared/lobbyTypes.js').DiscardView | null,
+ * drawnCard: import('../../../shared/protocol.js').DrawnCardView | null,
+ * discardTop: import('../../../shared/protocol.js').DiscardView | null,
  * drawerName?: string, canDraw: boolean, canDrawDiscard: boolean, canDiscardDrawn: boolean,
  * onDraw: () => void, onDrawDiscard: () => void, onDiscard: () => void }} props
  */

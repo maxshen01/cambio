@@ -1,5 +1,5 @@
 // Mutable connection guards and request locks; these must update before a React render.
-/** @typedef {import('socket.io-client').Socket<import('../../../shared/lobbyTypes.js').ServerEvents, import('../../../shared/lobbyTypes.js').ClientEvents>} GameSocket */
+/** @typedef {import('socket.io-client').Socket<import('../../../shared/protocol.js').ServerEvents, import('../../../shared/protocol.js').ClientEvents>} GameSocket */
 /** @typedef {import('react').Dispatch<import('./gameClientState.js').GameClientAction>} ClientDispatch */
 /** @typedef {{ generation: number, active: boolean, lost: boolean, connecting: boolean,
  * joinPending: boolean, readyPlayerId: string | null, turnPending: boolean }} SessionControl */

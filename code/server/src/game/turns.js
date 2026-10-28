@@ -1,23 +1,9 @@
-// Synchronous first-turn, deck/discard draws, and ordinary resolution rules; powers are inactive.
-import { isMemorization } from './lobby.js';
+// Deck/discard draws and ordinary resolution rules; powers are inactive.
+import { clearDrawnCard } from './player.js';
+import { nextPlayerInSeatOrder } from './seats.js';
 import { DomainError } from './domainError.js';
 import { refillDeck } from './deck.js';
 /** @typedef {import('./types.js').GameState} GameState */
-
-/** Choose the starter once; call after broadcasting the fourth playerReady notice.
- * @param {import('./types.js').GameState} state
- * @param {() => number} [random] Uniform sample in [0, 1).
- * @returns {boolean}
- */
-export function startPlayIfReady(state, random = Math.random) {
-  if (!isMemorization(state) || !state.players.every(player => player.connected && player.isReady)) return false;
-  const players = [...state.players].sort((a, b) => a.seatId - b.seatId);
-  const starter = players[Math.floor(random() * players.length)];
-  state.phase = 'active';
-  state.turn = starter.id;
-  state.turnStep = 'awaitingDraw';
-  return true;
-}
 
 /** Validate membership and turn ownership before changing any round fields.
  * @param {GameState} state @param {string} id
@@ -76,12 +62,11 @@ function requireResolutionPlayer(state, id) {
 function finishTurn(state, player, discarded, random) {
   state.discardPile.cards.push(discarded);
   state.discardPile.topMatchStatus = 'eligible';
-  Object.assign(player, { drawnCard: null, drawnFrom: null, drawnCardRevealed: false });
+  clearDrawnCard(player);
   state.pendingPower = null;
   state.pendingPowerStage = null;
   refillDeck(state, random);
-  const players = [...state.players].sort((a, b) => a.seatId - b.seatId);
-  state.turn = players[(players.findIndex(candidate => candidate.id === player.id) + 1) % players.length].id;
+  state.turn = nextPlayerInSeatOrder(state.players, player.id).id;
   state.turnStep = 'awaitingDraw';
 }
 
@@ -99,7 +84,7 @@ export function discardDrawnCard(state, id, random = Math.random) {
 /** Replace an occupied own-hand slot facedown, then discard its displaced card.
  * @param {GameState} state @param {string} id @param {unknown} payload
  * @param {() => number} [random]
- * @returns {import('../../../shared/lobbyTypes.js').DrawnSwapNotice}
+ * @returns {import('./types.js').HandSlot['handSlotId']}
  */
 export function swapDrawnCard(state, id, payload, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
@@ -111,5 +96,5 @@ export function swapDrawnCard(state, id, payload, random = Math.random) {
   const displaced = slot.card;
   slot.card = /** @type {import('./types.js').Card} */ (player.drawnCard);
   finishTurn(state, player, displaced, random);
-  return { kind: 'drawn', target: { playerId: id, handSlotId: slot.handSlotId } };
+  return slot.handSlotId;
 }

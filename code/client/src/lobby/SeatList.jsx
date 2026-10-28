@@ -2,8 +2,8 @@
 import { getSeatPosition } from '../board/seatPosition.js';
 
 /** Rotate the four stable seats around the local player's position.
- * @param {{ players: import('../../../shared/lobbyTypes.js').PlayerSummary[],
- * localSeatId?: import('../../../shared/lobbyTypes.js').SeatId }} props
+ * @param {{ players: import('../../../shared/protocol.js').PlayerSummary[],
+ * localSeatId?: import('../../../shared/protocol.js').SeatId }} props
  */
 export function SeatList({ players, localSeatId = 1 }) {
   return (

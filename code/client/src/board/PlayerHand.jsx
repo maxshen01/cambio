@@ -1,14 +1,14 @@
 // Renders a player's details and eight reserved card positions around the table.
 import { HandSlot } from './HandSlot.jsx';
 
-/** @type {import('../../../shared/lobbyTypes.js').HandSlotId[]} */
+/** @type {import('../../../shared/protocol.js').HandSlotId[]} */
 const handSlots = [1, 2, 3, 4, 5, 6, 7, 8];
 
-/** @param {{ player: import('../../../shared/lobbyTypes.js').PlayerSummary,
- * cards: import('../../../shared/lobbyTypes.js').CardView[], position: string,
+/** @param {{ player: import('../../../shared/protocol.js').PlayerSummary,
+ * cards: import('../../../shared/protocol.js').CardView[], position: string,
  * isCurrentTurn: boolean, showReadiness: boolean, artworkReady: boolean,
  * replacementMode: boolean, canReplaceCard: boolean,
- * onReplaceCard: (slot: import('../../../shared/lobbyTypes.js').HandSlotId) => void }} props
+ * onReplaceCard: (slot: import('../../../shared/protocol.js').HandSlotId) => void }} props
  */
 export function PlayerHand({ player, cards, position, isCurrentTurn, showReadiness, artworkReady,
   replacementMode, canReplaceCard, onReplaceCard }) {
