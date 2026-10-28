@@ -32,7 +32,10 @@ export function gameClientReducer(state, action) {
     case 'playersReceived':
       return state.connection === 'connected' ? { ...state, players: action.players } : state;
     case 'playerDepartureReceived':
-      return state.connection === 'connected' ? returnToLobby(state, action.players) : state;
+      if (state.connection !== 'connected') return state;
+      return state.stage === 'active' ? { ...state, players: action.players } : returnToLobby(state, action.players);
+    case 'gameAborted':
+      return state.connection === 'connected' ? returnToLobby(state, action.notice.lobby.players) : state;
     case 'dealReceived':
       return applyDeal(state, action.cards);
     case 'readinessReceived':

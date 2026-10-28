@@ -116,7 +116,7 @@ it.each(['turn', 'deal', 'lobby', 'loss'])('clears source and stale draw movemen
   act(() => {
     if (boundary === 'turn') socket.receive('turnChanged', { playerId: 'p2' });
     else if (boundary === 'deal') socket.receive('dealComplete', { cards });
-    else if (boundary === 'lobby') socket.receive('playerDisconnected', { players });
+    else if (boundary === 'lobby') socket.receive('gameAborted', { reason: 'SERVER_ERROR', lobby: { players } });
     else socket.disconnect();
   });
   expect(result.current.state).toMatchObject({ drawnCard: null, movement: null });

@@ -1,8 +1,9 @@
-// Public setup/ordinary-turn protocol and card views; drawn cards have no hand-slot position.
+// Public setup, turn, and abort protocol; drawn cards have no hand-slot position.
 /**
  * @typedef {1 | 2 | 3 | 4} SeatId
  * @typedef {{ playerId: string, displayName: string, seatId: SeatId, connected: boolean, isReady: boolean }} PlayerSummary
  * @typedef {{ players: PlayerSummary[] }} LobbyView
+ * @typedef {({ reason: 'PLAYER_DISCONNECTED', playerId: string } | { reason: 'SERVER_ERROR', playerId?: never }) & { lobby: LobbyView }} GameAborted
  * @typedef {{ displayName: string }} JoinRequest
  * @typedef {{ playerId: string, seatId: SeatId }} JoinAck
  * @typedef {{ playerId: string }} ReadyNotice
@@ -30,6 +31,7 @@
  * @typedef {Object} ServerEvents
  * @property {(payload: LobbyView) => void} playerJoined
  * @property {(payload: LobbyView) => void} playerDisconnected
+ * @property {(payload: GameAborted) => void} gameAborted
  * @property {(payload: ReadyNotice) => void} playerReady
  * @property {(payload: ReadyNotice) => void} playerUnready
  * @property {(payload: DealComplete) => void} dealComplete

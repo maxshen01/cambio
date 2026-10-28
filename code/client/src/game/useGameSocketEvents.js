@@ -42,13 +42,20 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'playersReceived', players: lobby.players });
       logClientEvent('lobby', 'received', { playerCount: lobby.players.length });
     }
-    /** A prestart departure cancels the deal and any outstanding setup request.
+    /** Departure updates connections during play and cancels setup before play.
      * @param {import('../../../shared/protocol.js').LobbyView} lobby */
     function onDeparture(lobby) {
       if (!valid()) return;
       clearActionRequests(guard);
       dispatch({ type: 'playerDepartureReceived', players: lobby.players });
       logClientEvent('playerDisconnected', 'received', { playerCount: lobby.players.length });
+    }
+    /** @param {import('../../../shared/protocol.js').GameAborted} notice */
+    function onAbort(notice) {
+      if (!valid()) return;
+      clearActionRequests(guard);
+      dispatch({ type: 'gameAborted', notice });
+      logClientEvent('gameAborted', 'received', { reason: notice.reason });
     }
     /** @param {import('../../../shared/protocol.js').DealComplete} deal */
     function onDeal(deal) {
@@ -107,6 +114,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
     socket.on('disconnect', onDisconnect);
     socket.on('playerJoined', onPlayers);
     socket.on('playerDisconnected', onDeparture);
+    socket.on('gameAborted', onAbort);
     socket.on('dealComplete', onDeal);
     socket.on('turnChanged', onTurn);
     socket.on('cardDrawn', onDrawn);
@@ -128,6 +136,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
       socket.off('disconnect', onDisconnect);
       socket.off('playerJoined', onPlayers);
       socket.off('playerDisconnected', onDeparture);
+      socket.off('gameAborted', onAbort);
       socket.off('dealComplete', onDeal);
       socket.off('turnChanged', onTurn);
       socket.off('cardDrawn', onDrawn);

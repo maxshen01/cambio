@@ -4,7 +4,7 @@ import { createServer as createHttpServer } from "node:http";
 import { Server } from "socket.io";
 import { createGameState } from "./game/state.js";
 import { registerJoinRoom } from "./sockets/handlers/joinRoom.js";
-import { registerSetupDisconnect } from "./sockets/handlers/disconnect.js";
+import { registerDisconnect } from "./sockets/handlers/disconnect.js";
 import { registerReady } from "./sockets/handlers/ready.js";
 import { registerTurns } from "./sockets/handlers/turns.js";
 import { logSocket } from "./sockets/log.js";
@@ -23,7 +23,7 @@ export function createServer({ gameState = createGameState(), random = Math.rand
         registerJoinRoom(io, socket, gameState, run);
         registerReady(io, socket, gameState, run, random);
         registerTurns(io, socket, gameState, run, random);
-        registerSetupDisconnect(io, socket, gameState, run);
+        registerDisconnect(io, socket, gameState, run);
 
         socket.onAny((eventName, ...args) => {
             const outcome =

@@ -148,7 +148,7 @@ export function resolveSwap(state, notice) {
   };
 }
 
-/** A prestart departure clears the deal and retains the server-supplied seats and readiness.
+/** A setup departure or abort clears the round and retains server-supplied lobby membership.
  * @param {GameClientState} state
  * @param {PlayerSummary[]} players
  * @returns {GameClientState}

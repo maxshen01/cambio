@@ -27,6 +27,7 @@
  * | { type: 'joinAcknowledged', identity: Identity }
  * | { type: 'playersReceived', players: PlayerSummary[] }
  * | { type: 'playerDepartureReceived', players: PlayerSummary[] }
+ * | { type: 'gameAborted', notice: import('../../../shared/protocol.js').GameAborted }
  * | { type: 'dealReceived', cards: import('../../../shared/protocol.js').CardView[] }
  * | { type: 'readinessReceived', playerId: string, isReady: boolean }
  * | { type: 'turnChanged', playerId: string }
