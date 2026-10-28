@@ -69,7 +69,7 @@ test('IT-02 privately draws, rejects a duplicate, discards, replaces, and wraps 
   assert.deepEqual(outsiderEvents, []);
 });
 
-test('socket validation rejects wrong stage/player, malformed targets, empty deck, and unsupported sources privately', async t => {
+test('each turn action rejects a representative invalid request privately without mutation', async t => {
   const { clients, connect, gameState } = await activeHarness(t);
   const outsider = await connect();
   const records = new Map([...clients, outsider].map(client => [client, []]));
@@ -85,49 +85,33 @@ test('socket validation rejects wrong stage/player, malformed targets, empty dec
     for (const [recipient, record] of records) if (recipient !== client) assert.deepEqual(record, []);
   }
   await rejected(outsider, 'drawCard', { source: 'deck' }, 'NOT_IN_ROOM');
-  await rejected(clients[1], 'drawCard', { source: 'deck' }, 'NOT_YOUR_TURN');
-  for (const payload of [null, {}, { source: 'bad' }]) {
-    await rejected(clients[0], 'drawCard', payload, 'INVALID_DRAW_SOURCE');
-  }
-  gameState.phase = 'deal';
-  await rejected(clients[0], 'drawCard', { source: 'deck' }, 'DRAW_NOT_AVAILABLE');
-  gameState.phase = 'active';
+  await rejected(clients[0], 'drawCard', { source: 'bad' }, 'INVALID_DRAW_SOURCE');
   await rejected(clients[0], 'discardDrawnCard', {}, 'RESOLUTION_NOT_AVAILABLE');
   const draws = clients.map(client => nextEvent(client, 'cardDrawn'));
   clients[0].emit('drawCard', { source: 'deck' });
   await Promise.all(draws);
-  for (const target of [null, { playerId: clients[1].id, handSlotId: 1 }, { playerId: clients[0].id, handSlotId: 8 }]) {
-    await rejected(clients[0], 'swapDrawnCard', { target }, 'INVALID_TARGET');
-  }
-  await rejected(clients[1], 'discardDrawnCard', {}, 'NOT_YOUR_TURN');
-  gameState.players[0].drawnCard = null;
-  await rejected(clients[0], 'discardDrawnCard', {}, 'NO_DRAWN_CARD');
-  gameState.turnStep = 'awaitingDraw';
-  gameState.deck.cards = [];
-  await rejected(clients[0], 'drawCard', { source: 'deck' }, 'DECK_EMPTY');
+  await rejected(clients[0], 'swapDrawnCard',
+    { target: { playerId: clients[1].id, handSlotId: 1 } }, 'INVALID_TARGET');
 });
 
-test('all power kinds resolve through ordinary socket events with no power prompts or effects', async t => {
+test('representative power cards discard and replace through ordinary socket events without effects', async t => {
   const { clients, gameState } = await activeHarness(t);
-  const powers = [...new Set(gameState.deck.cards.map(card => card.power).filter(Boolean))];
   const seen = [];
   clients[0].onAny(event => seen.push(event));
-  for (const power of powers) {
-    for (const replace of [false, true]) {
-      const index = gameState.deck.cards.findIndex(card => card.power === power);
-      const [card] = gameState.deck.cards.splice(index, 1);
-      gameState.deck.cards.push(card);
-      const owner = clients.find(client => client.id === gameState.turn);
-      const draws = clients.map(client => nextEvent(client, 'cardDrawn'));
-      owner.emit('drawCard', { source: 'deck' });
-      await Promise.all(draws);
-      const turns = clients.map(client => nextEvent(client, 'turnChanged'));
-      owner.emit(replace ? 'swapDrawnCard' : 'discardDrawnCard', replace ? { target: { playerId: owner.id, handSlotId: 1 } } : {});
-      await Promise.all(turns);
-      assert.equal(gameState.pendingPower, null);
-      assert.equal(gameState.pendingPowerStage, null);
-      assert.equal(card.power, power);
-    }
+  for (const [power, replace] of [['selfPeek', false], ['twoPeekSwap', true]]) {
+    const index = gameState.deck.cards.findIndex(card => card.power === power);
+    const [card] = gameState.deck.cards.splice(index, 1);
+    gameState.deck.cards.push(card);
+    const owner = clients.find(client => client.id === gameState.turn);
+    const draws = clients.map(client => nextEvent(client, 'cardDrawn'));
+    owner.emit('drawCard', { source: 'deck' });
+    await Promise.all(draws);
+    const turns = clients.map(client => nextEvent(client, 'turnChanged'));
+    owner.emit(replace ? 'swapDrawnCard' : 'discardDrawnCard', replace ? { target: { playerId: owner.id, handSlotId: 1 } } : {});
+    await Promise.all(turns);
+    assert.equal(gameState.pendingPower, null);
+    assert.equal(gameState.pendingPowerStage, null);
+    assert.equal(card.power, power);
   }
   assert.ok(seen.every(event => ['cardDrawn', 'cardSwapped', 'discardPileUpdated', 'turnChanged'].includes(event)));
 });

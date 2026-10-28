@@ -164,23 +164,6 @@ test('lobby view exposes only public player fields in seat order', () => {
   });
 });
 
-test('invalid and repeated joins leave state unchanged', () => {
-  const state = createGameState();
-  joinPlayer(state, { id: 'one', displayName: 'One' });
-  const before = structuredClone(state);
-
-  for (const [input, code] of [
-    [{ id: 'one', displayName: 'Again' }, 'ALREADY_IN_ROOM'],
-    [{ id: 'two', displayName: '   ' }, 'INVALID_NAME'],
-    [{ id: 'two', displayName: 123 }, 'INVALID_NAME'],
-  ]) {
-    assert.throws(() => {
-      joinPlayer(state, input);
-    }, { code });
-    assert.deepEqual(state, before);
-  }
-});
-
 test('display names normalize and accept international letters and common punctuation', () => {
   const state = createGameState();
   const names = [

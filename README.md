@@ -31,7 +31,7 @@ The [client code guide](code/client/README.md#reading-the-client-code) explains 
 
 Server rules live in `code/server/src/game/`: `player.js` owns player defaults and resets, `seats.js` owns seat ordering and allocation, and `selectors.js` recognizes setup stages. `lobby.js` owns membership, `setup.js` owns readiness, dealing, and first-turn activation, and `turns.js` owns ordinary draw and resolution rules. Socket event handlers live in `code/server/src/sockets/handlers/`; the readiness handler coordinates setup transitions and broadcasts. Public event types live in [protocol.js](code/shared/protocol.js).
 
-These links describe what the tests exercise, not a record of individual test runs or manual acceptance.
+These links describe what the tests exercise, not a record of individual test runs or manual acceptance. Server unit tests cover detailed rule combinations and all inactive power cards; socket tests cover representative validation failures and power cards alongside recipient privacy, ordered events, and setup-to-play transitions. Memorization departure/redeal integration checks use zero and three prior confirmations.
 
 | Capability | Source | Test coverage |
 | --- | --- | --- |

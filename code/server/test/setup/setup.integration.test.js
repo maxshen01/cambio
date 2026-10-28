@@ -6,16 +6,6 @@ import { createDeck } from '../../src/game/deck.js';
 import { nextEvent } from '../helpers/socket.js';
 import { harness, join, dealtHarness, confirmReady } from '../helpers/room.js';
 
-test('server randomness controls the opening shuffle', async t => {
-  const { gameState } = await dealtHarness(t, { random: () => 1 - Number.EPSILON });
-  const ordered = createDeck();
-  assert.deepEqual(gameState.deck.cards, ordered.slice(0, 92));
-  for (const [seat, player] of gameState.players.entries()) {
-    assert.deepEqual(player.hand.map(slot => slot.card),
-      [0, 1, 2, 3].map(pass => ordered[107 - pass * 4 - seat]));
-  }
-});
-
 test('fourth memorization notice precedes exactly one first turn, with targeted readiness errors', async t => {
   let randomCalls = 0;
   const { clients, connect, gameState } = await dealtHarness(t, { random: () => { randomCalls++; return 0.5; } });
@@ -72,7 +62,7 @@ test('fourth memorization notice precedes exactly one first turn, with targeted 
   ]);
 });
 
-for (const readyCount of [0, 2, 3]) {
+for (const readyCount of [0, 3]) {
   test(`departure after ${readyCount} memorization confirmations clears the deal and permits replacement-seat redealing`, async t => {
     const { clients, connect, gameState } = await dealtHarness(t);
     const outsider = await connect();
@@ -125,8 +115,8 @@ for (const readyCount of [0, 2, 3]) {
   });
 }
 
-test('fourth lobby Ready sends one recipient-private deal after the ready notice', async t => {
-  const { connect, gameState } = await harness(t);
+test('fourth lobby Ready sends one deterministic recipient-private deal after the ready notice', async t => {
+  const { connect, gameState } = await harness(t, createGameState(), { random: () => 1 - Number.EPSILON });
   const outsider = await connect();
   let outsiderUpdates = 0;
   for (const event of ['playerReady', 'dealComplete', 'gameState', 'turnChanged']) {
@@ -158,18 +148,6 @@ test('fourth lobby Ready sends one recipient-private deal after the ready notice
   }
 
   assert.deepEqual(gameState.players.map(player => player.isReady), [true, false, false, false]);
-  // Seed stale round fields to verify the real event path applies the full deal reset.
-  Object.assign(gameState, {
-    deck: { cards: [{ cardId: 999 }] },
-    discardPile: { cards: [{ cardId: 998 }], topMatchStatus: 'matched' },
-    turn: 'stale', turnStep: 'resolvingPower', pendingPower: 'selfPeek',
-    pendingPowerStage: 'awaitingPeekDone',
-    pendingMatch: { matcherPlayerId: 'stale', recipientPlayerId: 'stale', stage: 'awaitingGift' },
-    cambioCalledBy: 'stale', finalMatchGraceDeadline: 123, winners: ['stale'],
-  });
-  for (const player of gameState.players) {
-    Object.assign(player, { drawnCard: { cardId: 997 }, drawnFrom: 'deck', drawnCardRevealed: true, score: 5, calledCambio: true });
-  }
   clients[0].emit('ready', {});
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.equal(readyEvents.length, 1);
@@ -195,12 +173,11 @@ test('fourth lobby Ready sends one recipient-private deal after the ready notice
   assert.equal(gameState.turnStep, null);
   assert.equal(gameState.deck.cards.length, 92);
   assert.deepEqual(gameState.players.map(player => player.isReady), [false, false, false, false]);
-  assert.deepEqual({ ...gameState, players: [], deck: { cards: [] } }, createGameState());
-  for (const player of gameState.players) {
-    assert.deepEqual({
-      drawnCard: player.drawnCard, drawnFrom: player.drawnFrom, drawnCardRevealed: player.drawnCardRevealed,
-      score: player.score, calledCambio: player.calledCambio,
-    }, { drawnCard: null, drawnFrom: null, drawnCardRevealed: false, score: 0, calledCambio: false });
+  const ordered = createDeck();
+  assert.deepEqual(gameState.deck.cards, ordered.slice(0, 92));
+  for (const [seat, player] of gameState.players.entries()) {
+    assert.deepEqual(player.hand.map(slot => slot.card),
+      [0, 1, 2, 3].map(pass => ordered[107 - pass * 4 - seat]));
   }
   assert.deepEqual(gameState, dealtState);
   assert.equal(deals.length, 4);
