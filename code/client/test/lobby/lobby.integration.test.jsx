@@ -1,0 +1,99 @@
+// Checks IT-01 from lobby readiness through private dealing and the first active turn.
+import { render, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { io as connectClient } from 'socket.io-client';
+import { expect, it } from 'vitest';
+import { createServer } from '../../../server/src/server.js';
+import { App } from '../../src/App.jsx';
+
+it('joins, deals, and starts the same first turn on four separate socket connections', async () => {
+  const { httpServer, io, gameState } = createServer({ random: () => 0.75 });
+  await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${httpServer.address().port}`;
+  const sockets = [];
+  const views = [];
+
+  try {
+    for (let seat = 1; seat <= 4; seat++) {
+      const socket = connectClient(url, {
+        autoConnect: false,
+        reconnection: false,
+        forceNew: true,
+        transports: ['websocket'],
+      });
+      sockets.push(socket);
+      const view = render(<App socket={socket} />);
+      views.push(view);
+      await waitFor(() => expect(within(view.container).getByRole('status')).toHaveTextContent('Connected'));
+      expect(within(view.container).getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.type(within(view.container).getByRole('textbox', { name: /name/i }), `Player ${seat}`);
+      await user.click(within(view.container).getByRole('button', { name: /join/i }));
+      await waitFor(() => expect(within(view.container).queryByRole('dialog')).not.toBeInTheDocument());
+
+      for (const joinedView of views) {
+        await waitFor(() => {
+          for (let occupiedSeat = 1; occupiedSeat <= seat; occupiedSeat++) {
+            expect(within(joinedView.container).getByRole('listitem', { name: `Seat ${occupiedSeat}` }))
+              .toHaveTextContent(`Player ${occupiedSeat}`);
+          }
+          expect(within(joinedView.container).queryAllByText('Empty')).toHaveLength(4 - seat);
+        });
+      }
+      expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
+        .toHaveTextContent(`Player ${seat}`);
+      expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
+        .toHaveClass('seat--bottom');
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+      if (seat === 1) {
+        await user.click(within(view.container).getByRole('button', { name: 'Ready Up' }));
+        for (const joinedView of views) {
+          await waitFor(() => expect(within(joinedView.container).getByRole('listitem', { name: 'Seat 1' }))
+            .toHaveTextContent('Ready'));
+        }
+        await user.click(within(view.container).getByRole('button', { name: 'Unready' }));
+        await waitFor(() => expect(within(view.container).getByRole('listitem', { name: 'Seat 1' }))
+          .toHaveTextContent('Not ready'));
+        await user.click(within(view.container).getByRole('button', { name: 'Ready Up' }));
+        await waitFor(() => expect(within(view.container).getByRole('listitem', { name: 'Seat 1' }))
+          .toHaveTextContent('Ready'));
+      }
+    }
+
+    for (let seat = 2; seat <= 4; seat++) {
+      const user = userEvent.setup();
+      await user.click(within(views[seat - 1].container).getByRole('button', { name: 'Ready Up' }));
+    }
+    for (const view of views) {
+      await waitFor(() => {
+        for (let seat = 1; seat <= 4; seat++) {
+          expect(within(view.container).getByRole('listitem', { name: `Seat ${seat}` }))
+            .toHaveTextContent('Not ready');
+        }
+      });
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeEnabled();
+      expect(within(view.container).getAllByRole('img', { name: /face up/ })).toHaveLength(2);
+    }
+    for (let index = 0; index < 4; index++) {
+      const user = userEvent.setup();
+      await user.click(within(views[index].container).getByRole('button', { name: 'Ready Up' }));
+      await waitFor(() => expect(gameState.players[index].isReady).toBe(true));
+      if (index < 3) {
+        expect(gameState.phase).toBe('deal');
+        for (const view of views) expect(within(view.container).queryByText('Current turn')).not.toBeInTheDocument();
+      }
+    }
+    for (const view of views) {
+      await waitFor(() => expect(within(view.container).getByRole('region', { name: 'Playing board' })).toBeInTheDocument());
+      expect(within(view.container).getByRole('listitem', { name: 'Seat 4' })).toHaveAttribute('aria-current', 'true');
+      expect(within(view.container).getAllByRole('img', { name: /face down/ })).toHaveLength(16);
+      expect(within(view.container).queryAllByRole('img', { name: /face up/ })).toHaveLength(0);
+      expect(within(view.container).getByRole('button', { name: 'Ready Up' })).toBeDisabled();
+    }
+    expect(gameState).toMatchObject({ phase: 'active', turn: sockets[3].id, turnStep: 'awaitingDraw' });
+  } finally {
+    for (const socket of sockets) socket.disconnect();
+    await new Promise(resolve => io.close(resolve));
+  }
+}, 15000);

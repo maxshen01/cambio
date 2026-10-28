@@ -1,19 +1,13 @@
-# Server directory structure
+# Server instructions
 
-```text
-server/
-|-- src/                Server application code
-|   |-- game/           Game rules and data models
-|   `-- sockets/        Connection code
-|-- test/               Unit and integration tests
-|-- package.json        Package configuration and scripts
-`-- package-lock.json   Locked dependencies
-```
+Place implementation in `src/`: rules/models in `src/game/`, connection code in `src/sockets/`. Use Node's test runner in `test/<feature>/`; helpers belong in `test/helpers/`.
 
-Place server implementation code in `src/`. Keep game rules and data models in `src/game/`, and all connection code in `src/sockets/`. Put unit and integration tests in `test/`.
+Follow [test organization and fixtures](../Development.md#test-organization-and-fixtures) when adding tests/features; use independent injected-state fixtures, preserve recursive discovery, empty-selection guards, and representative transitions. Use [server checks](../Development.md#server-commands) during development and the [pre-merge gate](../Development.md#pre-merge-gate) for implementation changes. Documentation-only changes need reference/requirement checks.
 
-Run server tests with `npm.cmd test` from this directory; the package script uses Node's test runner.
+Use `src/sockets/log.js` for diagnostics; log only event names, outcomes, and small metadata, never incoming payload contents. Unexpected errors must be logged even with diagnostics off. See [diagnostic switches](../Development.md#environment-and-diagnostics) when needed.
 
-For useful Socket.IO diagnostics, use the existing `src/sockets/log.js` helper and the `SOCKET_DEBUG=1` switch. Log event names, outcomes, and small metadata without incoming payload contents. Unexpected server errors are logged even when diagnostics are off.
+For each change, read the [root README](../../README.md), relevant code/tests, and affected specifications using the [documentation ownership guide](../Development.md#documentation-ownership-and-updates). Update the root README when capabilities, limitations, temporary implementation exceptions, or coverage change. It is the only documentation update required solely for implementation progress. Change `project-managment/` only when intended design changes; implementing an existing requirement does not qualify. Keep affected source comments, JSDoc, and shared public types accurate. Update development/startup instructions only when tooling or startup requirements change.
 
-All command line inputs will be returned back in bash.
+Report individual check results, unresolved defects, and manual/unverified criteria in chat or authorized GitHub updates. Keep progress checkboxes and chronological logs out of repository documentation. Do not commit or update GitHub without a separate request.
+
+For rule/state changes, inspect Game Rules and Game Data Model; for socket/error/projection changes, Events Contract and shared public types. Also inspect UI Rules if client interactions/presentation change. Find specification paths in the ownership guide.

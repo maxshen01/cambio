@@ -1,4 +1,4 @@
-/* Temporary lobby layout based on the start-screen sketch. */
+/* Basic desktop lobby and setup layouts based on the screen sketches. */
 :root {
   font-family: system-ui, sans-serif;
   color: #17212b;
@@ -238,6 +238,189 @@ input {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+}
+
+/* Empty slots reserve dimensions only: no borders, fills, or card graphics. */
+.lobby__content--setup {
+  width: min(100%, 1000px);
+}
+
+.setup-board {
+  --card-width: 54px;
+  --card-height: 78px;
+  --hand-width: 240px;
+  --hand-height: 164px;
+  position: relative;
+  min-width: 800px;
+  height: 700px;
+  margin: 0 auto;
+}
+
+.setup-players {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-player {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.setup-player__details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 250px;
+}
+
+.setup-player--current .setup-player__details {
+  outline: 3px solid #f4d35e;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.setup-player .seat__circle {
+  width: 36px;
+}
+
+.setup-player--top,
+.setup-player--bottom {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.setup-player--top { top: 0; }
+.setup-player--bottom { bottom: 0; }
+.setup-player--bottom .setup-player__details { order: 1; }
+
+.setup-player--left,
+.setup-player--right {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.setup-player--left { left: 0; }
+.setup-player--right { right: 0; }
+
+.setup-hand-frame {
+  position: relative;
+  width: var(--hand-width);
+  height: var(--hand-height);
+}
+
+.setup-hand {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(4, var(--card-width));
+  grid-template-rows: repeat(2, var(--card-height));
+  gap: 8px;
+  width: var(--hand-width);
+  height: var(--hand-height);
+}
+
+.setup-player--top .setup-hand { transform: rotate(180deg); }
+.setup-player--left .setup-hand-frame,
+.setup-player--right .setup-hand-frame {
+  width: var(--hand-height);
+  height: var(--hand-width);
+}
+
+.setup-player--left .setup-hand,
+.setup-player--right .setup-hand {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.setup-player--right .setup-hand {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.setup-hand__slot,
+.setup-drawn,
+.setup-discard,
+.setup-deck,
+.setup-card {
+  width: var(--card-width);
+  height: var(--card-height);
+}
+
+.setup-artwork-status {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 18rem;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.setup-card {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+}
+
+/* Card controls retain their artwork dimensions and stay legible when unavailable. */
+.card-action {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-action:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.card-action:enabled:hover,
+.card-action:focus-visible {
+  outline: 3px solid #f4d35e;
+  outline-offset: 2px;
+}
+
+.setup-drawn {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: center;
+}
+
+.setup-piles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(2, var(--card-width));
+  column-gap: 28px;
+  row-gap: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.setup-controls {
+  position: absolute;
+  right: 10%;
+  bottom: 32px;
+  display: grid;
+  gap: 12px;
+}
+
+.setup-controls button {
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #78d851;
+}
+
+.setup-controls button:disabled {
+  background: #d3d7da;
+  color: #47535e;
+  cursor: not-allowed;
 }
 
 @media (max-width: 540px) {

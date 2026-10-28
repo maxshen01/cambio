@@ -1,0 +1,46 @@
+// Adapts ordinary turns to authorized drawn-card views and ordered public pile/resolution events.
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../game/turns.js';
+import { toDrawnCardView } from '../../game/views/drawnCardView.js';
+import { PLAYER_ROOM } from '../rooms.js';
+import { logSocket } from '../log.js';
+
+/** Register ordinary deck/discard actions through the shared error boundary.
+ * @param {import('../types.js').GameServer} io
+ * @param {import('../types.js').GameSocket} socket
+ * @param {import('../../game/types.js').GameState} state
+ * @param {import('../types.js').GameBoundary} run
+ * @param {() => number} [random]
+ */
+export function registerTurns(io, socket, state, run, random = Math.random) {
+  socket.on('drawCard', payload => run(socket, 'drawCard', () => {
+    const player = drawCard(state, socket.id, payload, random);
+    for (const recipient of state.players) {
+      io.sockets.sockets.get(recipient.id)?.emit('cardDrawn', toDrawnCardView(player, recipient.id));
+    }
+    if (player.drawnFrom === 'discard') publishDiscardPile();
+    logSocket('info', socket.id, 'drawCard', 'accepted', { source: player.drawnFrom === 'discard' ? 'discard' : 'deck' });
+  }));
+
+  /** Publish only the visible top, never buried cards or pile counts. */
+  function publishDiscardPile() {
+    const top = state.discardPile.cards.at(-1);
+    io.to(PLAYER_ROOM).emit('discardPileUpdated', { top: top ? { cardId: top.cardId } : null });
+  }
+
+  /** Publish resolution immediately; animations never gate server progression. */
+  function publishResolution() {
+    publishDiscardPile();
+    io.to(PLAYER_ROOM).emit('turnChanged', { playerId: /** @type {string} */ (state.turn) });
+  }
+  socket.on('discardDrawnCard', () => run(socket, 'discardDrawnCard', () => {
+    discardDrawnCard(state, socket.id, random);
+    publishResolution();
+    logSocket('info', socket.id, 'discardDrawnCard', 'accepted');
+  }));
+  socket.on('swapDrawnCard', payload => run(socket, 'swapDrawnCard', () => {
+    const handSlotId = swapDrawnCard(state, socket.id, payload, random);
+    io.to(PLAYER_ROOM).emit('cardSwapped', { kind: 'drawn', target: { playerId: socket.id, handSlotId } });
+    publishResolution();
+    logSocket('info', socket.id, 'swapDrawnCard', 'accepted', { handSlotId });
+  }));
+}

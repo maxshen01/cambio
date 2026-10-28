@@ -1,20 +1,13 @@
-# Client directory structure
+# Client instructions
 
-```text
-client/
-|-- src/                React application code
-|   |-- lobby/          Join flow and lobby components
-|   |-- socket/         Socket.IO client connection
-|   `-- styles/         Minimal application styles
-|-- test/               React component and lobby behavior tests
-|-- index.html          Vite HTML entry point
-|-- vite.config.js      Development server, proxy, and test configuration
-|-- package.json        Package configuration and scripts
-`-- package-lock.json   Locked dependencies
-```
+Place implementation in `src/`: lobby/join components in `src/lobby/`, socket setup in `src/socket/`. Use React Testing Library/Vitest in `test/<feature>/`; helpers belong in `test/helpers/`.
 
-Place client implementation code in `src/`. Keep the join flow and lobby display in `src/lobby/`, and Socket.IO connection setup in `src/socket/`. Put React tests in `test/` using Vitest and React Testing Library.
+Follow [test organization and fixtures](../Development.md#test-organization-and-fixtures) when adding tests/features; preserve empty-selection guards and representative transitions. Use [client checks](../Development.md#client-commands) during development and the [pre-merge gate](../Development.md#pre-merge-gate) for implementation changes. Documentation-only changes need reference/requirement checks. Leave browser and visual validation to the user.
 
-Run client tests with `npm.cmd test` and verify production builds with `npm.cmd run build` from this directory.
+Use `src/socket/log.js` for diagnostics; log only event names, outcomes, and small metadata, never display names or full payloads. See [diagnostic switches](../Development.md#environment-and-diagnostics) when needed.
 
-For useful Socket.IO diagnostics, use the existing `src/socket/log.js` helper and the `VITE_SOCKET_DEBUG=1` switch. Log event names, outcomes, and small metadata such as seat IDs or player counts; omit display names and full event payloads.
+For each change, read the [root README](../../README.md), relevant code/tests, and affected specifications using the [documentation ownership guide](../Development.md#documentation-ownership-and-updates). Update the root README when capabilities, limitations, temporary implementation exceptions, or coverage change. It is the only documentation update required solely for implementation progress. Change `project-managment/` only when intended design changes; implementing an existing requirement does not qualify. Keep affected source comments, JSDoc, and shared public types accurate. Update development/startup instructions only when tooling or startup requirements change.
+
+Report individual check results, unresolved defects, and manual/unverified criteria in chat or authorized GitHub updates. Keep progress checkboxes and chronological logs out of repository documentation. Do not commit or update GitHub without a separate request.
+
+For UI changes, inspect UI Rules; for socket changes, Events Contract and shared public types; for eligibility/privacy, Game Rules. Find specification paths in the ownership guide.
