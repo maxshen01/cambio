@@ -50,7 +50,7 @@ test('discard and replacement each advance exactly once clockwise, including sea
   }
 });
 
-test('peek discards start resolution, other powers discard immediately, and every power replaces without effects', () => {
+test('peek and Jack discards start resolution, remaining powers discard immediately, and every power replaces without effects', () => {
   for (const card of createDeck().filter(card => card.power)) {
     for (const action of ['discard', 'swap']) {
       const state = activeGame();
@@ -58,7 +58,7 @@ test('peek discards start resolution, other powers discard immediately, and ever
       drawCard(state, 'p1', { source: 'deck' });
       if (action === 'discard') {
         const result = discardDrawnCard(state, 'p1');
-        if (card.power === 'selfPeek' || card.power === 'opponentPeek') {
+        if (card.power === 'selfPeek' || card.power === 'opponentPeek' || card.power === 'blindSwap') {
           assert.deepEqual(result, { kind: 'powerStarted', playerId: 'p1', power: card.power });
           assert.equal(state.players[0].drawnCard, card);
           assert.equal(state.discardPile.cards.length, 0);

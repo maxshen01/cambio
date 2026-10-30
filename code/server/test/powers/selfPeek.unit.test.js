@@ -56,7 +56,7 @@ for (const rank of [7, 8, 9, 10]) {
     started.players[0].drawnCardRevealed = true;
     assert.deepEqual(state, started);
     assert.equal(player.drawnCard, held);
-    assert.deepEqual(result, { target, card: peeked });
+    assert.deepEqual(result, { kind: 'peek', target, card: peeked });
     assert.equal(result.card, peeked);
     assert.equal(allCards(state).length, 108);
     // No timer or subsequent action is required to keep the peek pending.
@@ -130,7 +130,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
       state => { state.players[0].drawnFrom = 'discard'; },
       state => { state.players[0].drawnFrom = null; },
       state => { state.players[0].drawnCard = null; },
-      state => { state.players[0].drawnCard = { ...state.players[0].drawnCard, power: 'blindSwap' }; },
+      state => { state.players[0].drawnCard = { ...state.players[0].drawnCard, power: 'onePeekSwap' }; },
       state => { state.turnStep = 'awaitingDraw'; },
     ]) {
       const state = fixture();
@@ -138,7 +138,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
       rejectsUnchanged(state, () => action(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     }
   }
-  for (const rank of [1, 11, 12, 13]) {
+  for (const rank of [1, 12, 13]) {
     const state = drawnPower(rank);
     rejectsUnchanged(state, () => startPowerResolution(state, 'p1'), 'POWER_NOT_AVAILABLE');
   }

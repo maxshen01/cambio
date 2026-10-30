@@ -1,4 +1,4 @@
-// Public setup, turn, peek, and abort protocol; drawn cards have no hand-slot position.
+// Public setup, turn, peek, blind-swap, and abort protocol; drawn cards have no hand-slot position.
 /**
  * @typedef {1 | 2 | 3 | 4} SeatId
  * @typedef {{ playerId: string, displayName: string, seatId: SeatId, connected: boolean, isReady: boolean }} PlayerSummary
@@ -12,6 +12,8 @@
  * @typedef {{ playerId: string, handSlotId: HandSlotId }} HandSlotRef
  * @typedef {{ target: HandSlotRef }} DrawnSwapRequest
  * @typedef {{ kind: 'drawn', target: HandSlotRef }} DrawnSwapNotice
+ * @typedef {{ first: HandSlotRef, second: HandSlotRef }} PlayerSwap
+ * @typedef {DrawnSwapNotice | (PlayerSwap & { kind: 'power' })} CardSwapNotice
  * @typedef {{ cardId: number }} DiscardView
  * @typedef {{ top: DiscardView | null }} DiscardPileUpdated
  * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7 | 8} HandSlotId
@@ -19,12 +21,12 @@
  * @typedef {{ playerId: string } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} DrawnCardView
  * @typedef {DrawnCardView & { source: 'deck' | 'discard' }} CardDrawnNotice
  * @typedef {{ cards: CardView[] }} DealComplete
- * @typedef {{ peekTarget: HandSlotRef }} ChoosePowerTargetsRequest
+ * @typedef {{ peekTarget: HandSlotRef } | PlayerSwap} ChoosePowerTargetsRequest
  * @typedef {{ playerId: string }} PowerResolutionStarted
- * @typedef {{ power: 'selfPeek' | 'opponentPeek' }} PowerAvailable
+ * @typedef {{ power: 'selfPeek' | 'opponentPeek' | 'blindSwap' }} PowerAvailable
  * @typedef {{ playerId: string, faceUp: true, cardId: number }} PowerCardRevealed
  * @typedef {{ targets: CardView[] }} PowerPeekResult
- * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING' | 'POWER_NOT_AVAILABLE' | 'INVALID_POWER_ACTION' | 'INVALID_POWER_TARGET'} LobbyErrorCode
+ * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING' | 'POWER_NOT_AVAILABLE' | 'INVALID_POWER_ACTION' | 'INVALID_POWER_TARGET' | 'SWAP_NOT_ALLOWED'} LobbyErrorCode
  * @typedef {{ code: LobbyErrorCode, message: string }} LobbyError
  * @typedef {Object} ClientEvents
  * @property {(payload: JoinRequest, ack?: (identity: JoinAck) => void) => void} joinRoom
@@ -47,7 +49,7 @@
  * @property {(payload: TurnChanged) => void} turnChanged
  * @property {(payload: CardDrawnNotice) => void} cardDrawn
  * @property {(payload: DiscardPileUpdated) => void} discardPileUpdated
- * @property {(payload: DrawnSwapNotice) => void} cardSwapped
+ * @property {(payload: CardSwapNotice) => void} cardSwapped
  * @property {(payload: PowerResolutionStarted) => void} powerResolutionStarted
  * @property {(payload: PowerAvailable) => void} powerAvailable
  * @property {(payload: PowerCardRevealed) => void} powerCardRevealed

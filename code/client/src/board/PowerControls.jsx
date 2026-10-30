@@ -10,15 +10,17 @@ export function PowerControls({ prompt, canUse, canConfirm, canSkip, canDone, on
   const viewing = prompt?.stage === 'awaitingPeekDone';
   const selecting = prompt?.stage === 'awaitingTargets';
   const opponent = prompt?.power === 'opponentPeek';
-  const label = opponent ? 'Opponent-peek' : 'Self-peek';
+  const blindSwap = prompt?.power === 'blindSwap';
+  const label = blindSwap ? 'Blind-swap' : opponent ? 'Opponent-peek' : 'Self-peek';
   useEffect(() => {
     if (viewing && canDone) done.current?.focus();
   }, [viewing, canDone]);
   if (!prompt) return null;
   return <>
     <aside className="power-explanation" aria-label={`${label} power`} aria-live="polite">
-      <p id={descriptionId}>{opponent ? "Look at one opponent's card." : 'Look at one of your own cards.'} It stays visible until you choose Done.</p>
-      {selecting && !viewing && <p>{opponent ? "Choose one of your opponents' cards." : 'Choose one of your cards.'}</p>}
+      <p id={descriptionId}>{blindSwap ? 'Swap two cards belonging to different players without looking at them. Choose your card and an opponent’s, or two opponents’ cards.'
+        : `${opponent ? "Look at one opponent's card." : 'Look at one of your own cards.'} It stays visible until you choose Done.`}</p>
+      {selecting && !viewing && <p>{blindSwap ? 'Choose two cards, then confirm. Select a highlighted card again to deselect it.' : opponent ? "Choose one of your opponents' cards." : 'Choose one of your cards.'}</p>}
     </aside>
     <div className="power-controls" role="group" aria-label={`${label} actions`} aria-describedby={descriptionId}>
       {viewing ? <button ref={done} type="button" disabled={!canDone} onClick={onDone}>Done</button> : <>

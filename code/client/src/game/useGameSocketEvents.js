@@ -97,7 +97,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'discardPileReceived', top });
       logClientEvent('discardPileUpdated', 'received');
     }
-    /** @param {import('../../../shared/protocol.js').DrawnSwapNotice} notice */
+    /** @param {import('../../../shared/protocol.js').CardSwapNotice} notice */
     function onSwapped(notice) {
       if (!valid()) return;
       dispatch({ type: 'cardSwapReceived', notice });

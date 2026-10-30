@@ -14,7 +14,7 @@ export function selectGameClient(state) {
   const canReplace = ownPendingCard && !state.resolvingPower;
   const canDraw = ownTurn && !state.drawnCard && !state.resolvingPower;
   const powerChoice = ownPendingCard && state.resolvingPower
-    && (state.powerPrompt?.power === 'selfPeek' || state.powerPrompt?.power === 'opponentPeek');
+    && (state.powerPrompt?.power === 'selfPeek' || state.powerPrompt?.power === 'opponentPeek' || state.powerPrompt?.power === 'blindSwap');
   return {
     view: {
       connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
@@ -33,7 +33,7 @@ export function selectGameClient(state) {
       canUsePower: powerChoice && state.powerPrompt?.stage === 'awaitingChoice',
       canChoosePowerTargets: powerChoice && state.powerPrompt?.stage === 'awaitingTargets',
       canSkipPower: powerChoice && (state.powerPrompt?.stage === 'awaitingChoice' || state.powerPrompt?.stage === 'awaitingTargets'),
-      canFinishPowerPeek: powerChoice && state.powerPrompt?.stage === 'awaitingPeekDone',
+      canFinishPowerPeek: powerChoice && state.powerPrompt?.power !== 'blindSwap' && state.powerPrompt?.stage === 'awaitingPeekDone',
     },
   };
 }

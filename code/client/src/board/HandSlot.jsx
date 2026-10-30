@@ -3,7 +3,7 @@ import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
 
 /** @param {{ playerId: string, slot: import('../../../shared/protocol.js').HandSlotId,
  * card: import('../../../shared/protocol.js').CardView | undefined,
- * artworkReady: boolean, actionMode: 'replace' | 'peek' | 'none', canAct: boolean,
+ * artworkReady: boolean, actionMode: 'replace' | 'peek' | 'swap' | 'none', canAct: boolean,
  * selected: boolean, peeked: boolean,
  * onAction: (slot: import('../../../shared/protocol.js').HandSlotId) => void }} props
  */
@@ -16,8 +16,8 @@ export function HandSlot({ playerId, slot, card, artworkReady, actionMode, canAc
       data-player-id={playerId} data-slot={slot}
       style={{ gridColumn: Math.ceil(slot / 2), gridRow: slot % 2 === 1 ? 1 : 2 }}>
       {card && artworkReady && (actionMode === 'none' ? image : <button type="button" className="card-action" disabled={!canAct}
-        data-card-action={actionMode} aria-pressed={actionMode === 'peek' ? selected : undefined}
-        aria-label={actionMode === 'peek' ? `Peek at slot ${slot}` : `Replace slot ${slot} with drawn card`}
+        data-card-action={actionMode} aria-pressed={actionMode === 'peek' || actionMode === 'swap' ? selected : undefined}
+        aria-label={actionMode === 'swap' ? `Swap slot ${slot}` : actionMode === 'peek' ? `Peek at slot ${slot}` : `Replace slot ${slot} with drawn card`}
         onClick={() => onAction(card.handSlotId)}>{image}</button>)}
     </div>
   );

@@ -96,15 +96,29 @@ export function useGameActions({ socket, dispatch, session }) {
   }
 
   /** Check current occupancy and power-specific ownership before locking the request.
-   * @param {import('../../../shared/protocol.js').HandSlotRef} target
+   * @param {import('../../../shared/protocol.js').HandSlotRef | import('../../../shared/protocol.js').PlayerSwap} target
    */
   function choosePowerTargets(target) {
     const state = control.state;
-    if (!state.identity || !target || !state.powerPrompt
-      || (state.powerPrompt.power === 'selfPeek' ? target.playerId !== state.identity.playerId : target.playerId === state.identity.playerId)
-      || !state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId)
-      || !beginTurnRequest('canChoosePowerTargets', 'choosePowerTargets')) return;
-    socket.emit('choosePowerTargets', { peekTarget: { playerId: target.playerId, handSlotId: target.handSlotId } });
+    if (!state.identity || !target || !state.powerPrompt) return;
+    /** @type {import('../../../shared/protocol.js').ChoosePowerTargetsRequest} */
+    let payload;
+    const occupied = (/** @type {import('../../../shared/protocol.js').HandSlotRef} */ ref) => ref
+      && state.cards.some(card => card.playerId === ref.playerId && card.handSlotId === ref.handSlotId);
+    if (state.powerPrompt.power === 'blindSwap') {
+      if (!('first' in target) || !occupied(target.first) || !occupied(target.second)
+        || target.first.playerId === target.second.playerId) return;
+      payload = {
+        first: { playerId: target.first.playerId, handSlotId: target.first.handSlotId },
+        second: { playerId: target.second.playerId, handSlotId: target.second.handSlotId },
+      };
+    } else {
+      if (!('playerId' in target) || !occupied(target)
+        || (state.powerPrompt.power === 'selfPeek' ? target.playerId !== state.identity.playerId : target.playerId === state.identity.playerId)) return;
+      payload = { peekTarget: { playerId: target.playerId, handSlotId: target.handSlotId } };
+    }
+    if (!beginTurnRequest('canChoosePowerTargets', 'choosePowerTargets')) return;
+    socket.emit('choosePowerTargets', payload);
     logClientEvent('choosePowerTargets', 'sent');
   }
   function skipPower() {

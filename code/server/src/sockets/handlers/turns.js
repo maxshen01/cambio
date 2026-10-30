@@ -1,4 +1,4 @@
-// Adapts turns and peeks to recipient-authorized views and ordered notifications.
+// Adapts turns, peeks, and blind swaps to authorized views and ordered notifications.
 import { drawCard, discardDrawnCard, swapDrawnCard } from '../../game/turns.js';
 import { usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../game/powers.js';
 import { toDrawnCardView } from '../../game/views/drawnCardView.js';
@@ -6,7 +6,7 @@ import { toPowerPeekResult } from '../../game/views/powerPeekView.js';
 import { PLAYER_ROOM } from '../rooms.js';
 import { logSocket } from '../log.js';
 
-/** Register deck/discard and peek actions through the shared error boundary.
+/** Register deck/discard and power actions through the shared error boundary.
  * @param {import('../types.js').GameServer} io
  * @param {import('../types.js').GameSocket} socket
  * @param {import('../../game/types.js').GameState} state
@@ -52,9 +52,14 @@ export function registerTurns(io, socket, state, run, random = Math.random) {
     logSocket('info', socket.id, 'usePower', 'accepted');
   }));
   socket.on('choosePowerTargets', payload => run(socket, 'choosePowerTargets', () => {
-    const result = choosePowerTargets(state, socket.id, payload);
-    for (const recipient of state.players) {
-      io.sockets.sockets.get(recipient.id)?.emit('powerPeekResult', toPowerPeekResult(result, socket.id, recipient.id));
+    const result = choosePowerTargets(state, socket.id, payload, random);
+    if (result.kind === 'swap') {
+      io.to(PLAYER_ROOM).emit('cardSwapped', { kind: 'power', first: result.first, second: result.second });
+      publishResolution();
+    } else {
+      for (const recipient of state.players) {
+        io.sockets.sockets.get(recipient.id)?.emit('powerPeekResult', toPowerPeekResult(result, socket.id, recipient.id));
+      }
     }
     logSocket('info', socket.id, 'choosePowerTargets', 'accepted');
   }));

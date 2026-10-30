@@ -5,7 +5,7 @@ import { clearedPowerState } from './powerTransitions.js';
 /** @typedef {import('../../../shared/protocol.js').PlayerSummary} PlayerSummary */
 /** @typedef {import('../../../shared/protocol.js').CardDrawnNotice} CardDrawnNotice */
 /** @typedef {import('../../../shared/protocol.js').DiscardView} DiscardView */
-/** @typedef {import('../../../shared/protocol.js').DrawnSwapNotice} DrawnSwapNotice */
+/** @typedef {import('../../../shared/protocol.js').CardSwapNotice} CardSwapNotice */
 
 /** Remove face identities rather than merely hiding their images.
  * @param {CardView[]} cards @returns {CardView[]}
@@ -129,18 +129,35 @@ export function resolveDiscard(state, top) {
     drawnCard: null,
     awaitingTurn: true,
     movementId: state.movementId + 1,
-    movement: state.movement?.kind === 'swap' ? { ...state.movement, id: state.movementId + 1 }
+    movement: state.movement?.kind === 'powerSwap' ? state.movement
+      : state.movement?.kind === 'swap' ? { ...state.movement, id: state.movementId + 1 }
       : { id: state.movementId + 1, kind: 'discard' },
   };
 }
 
 /** Keep the replacement facedown; the following pile event supplies the displaced face.
  * @param {GameClientState} state
- * @param {DrawnSwapNotice} notice
+ * @param {CardSwapNotice} notice
  * @returns {GameClientState}
  */
 export function resolveSwap(state, notice) {
   if (state.connection !== 'connected' || state.stage !== 'active') return state;
+  if (notice.kind === 'power') {
+    if (!state.resolvingPower || !state.drawnCard?.faceUp || state.awaitingTurn) return state;
+    const targets = [notice.first, notice.second];
+    if (notice.first.playerId === notice.second.playerId || targets.some(target =>
+      !state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId))) return state;
+    return {
+      ...state,
+      powerPrompt: null, powerPeekTargets: [], pendingPowerAction: null,
+      // Keep the held power and public resolution block until discardPileUpdated.
+      turnPending: true, awaitingTurn: true,
+      cards: state.cards.map(card => targets.some(target => card.playerId === target.playerId && card.handSlotId === target.handSlotId)
+        ? hideHandCard(card) : card),
+      movementId: state.movementId + 1,
+      movement: { id: state.movementId + 1, kind: 'powerSwap', first: { ...notice.first }, second: { ...notice.second } },
+    };
+  }
   const target = notice.target;
   return {
     ...state,

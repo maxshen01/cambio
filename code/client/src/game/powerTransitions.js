@@ -27,14 +27,14 @@ export function startPower(state, notice) {
   return { ...state, ...clearedPowerState(), resolvingPower: true, turnPending: false, error: null };
 }
 
-/** Only the current drawer receives a supported peek choice.
+/** Only the current drawer receives a supported power choice.
  * @param {GameClientState} state @param {import('../../../shared/protocol.js').PowerAvailable} notice
  * @returns {GameClientState}
  */
 export function offerPower(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || state.powerPrompt
     || state.turnPlayerId !== state.identity?.playerId
-    || (notice.power !== 'selfPeek' && notice.power !== 'opponentPeek')) return state;
+    || (notice.power !== 'selfPeek' && notice.power !== 'opponentPeek' && notice.power !== 'blindSwap')) return state;
   return { ...state, powerPrompt: { power: notice.power, stage: 'awaitingChoice' }, error: null };
 }
 
@@ -59,7 +59,7 @@ export function receivePowerPeek(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || !state.drawnCard?.faceUp
     || state.powerPeekTargets.length || notice.targets.length !== 1) return state;
   const owner = state.turnPlayerId === state.identity?.playerId;
-  if (owner && state.powerPrompt?.stage !== 'awaitingTargets') return state;
+  if (owner && (state.powerPrompt?.stage !== 'awaitingTargets' || state.powerPrompt.power === 'blindSwap')) return state;
   const target = notice.targets[0];
   if (owner && (state.powerPrompt?.power === 'selfPeek'
     ? target.playerId !== state.turnPlayerId : target.playerId === state.turnPlayerId)) return state;

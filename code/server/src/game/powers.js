@@ -1,4 +1,4 @@
-// Single-card peek rules; socket notifications and recipient projection are separate.
+// Peek and blind-swap rules; socket notifications and recipient projection are separate.
 import { DomainError } from './domainError.js';
 import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
 /** @typedef {import('./types.js').GameState} GameState */
@@ -7,10 +7,10 @@ import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
  * @param {GameState} state @param {string} id
  * @param {'awaitingChoice' | 'awaitingTargets' | 'awaitingPeekDone' | null} stage Null starts resolution.
  */
-function requirePeek(state, id, stage) {
+function requirePower(state, id, stage) {
   const player = requireTurnPlayer(state, id);
   if (state.phase !== 'active' || player.drawnFrom !== 'deck'
-    || !player.drawnCard || (player.drawnCard.power !== 'selfPeek' && player.drawnCard.power !== 'opponentPeek')
+    || !player.drawnCard || !['selfPeek', 'opponentPeek', 'blindSwap'].includes(player.drawnCard.power ?? '')
     || state.turnStep !== (stage === null ? 'awaitingDrawnCardResolution' : 'resolvingPower')
     || state.pendingPower !== (stage === null ? null : player.drawnCard.power)
     || state.pendingPowerStage !== stage
@@ -20,11 +20,11 @@ function requirePeek(state, id, stage) {
   return { player, card: player.drawnCard };
 }
 
-/** Begin a held peek without discarding or advancing.
+/** Begin a supported held power without discarding or advancing.
  * @param {GameState} state @param {string} id
  */
 export function startPowerResolution(state, id) {
-  const { card } = requirePeek(state, id, null);
+  const { card } = requirePower(state, id, null);
   state.turnStep = 'resolvingPower';
   state.pendingPower = card.power;
   state.pendingPowerStage = 'awaitingChoice';
@@ -34,17 +34,34 @@ export function startPowerResolution(state, id) {
  * @param {GameState} state @param {string} id
  */
 export function usePower(state, id) {
-  const { player } = requirePeek(state, id, 'awaitingChoice');
+  const { player } = requirePower(state, id, 'awaitingChoice');
   player.drawnCardRevealed = true;
   state.pendingPowerStage = 'awaitingTargets';
 }
 
-/** Validate an occupied target before authorizing its private face.
+/** Validate all targets before authorizing a private peek or completing a blind swap.
  * The result is server-only; socket adapters must project it per recipient, never emit it raw.
  * @param {GameState} state @param {string} id @param {unknown} payload
+ * @param {() => number} [random]
  */
-export function choosePowerTargets(state, id, payload) {
-  const { card } = requirePeek(state, id, 'awaitingTargets');
+export function choosePowerTargets(state, id, payload, random = Math.random) {
+  const { player, card } = requirePower(state, id, 'awaitingTargets');
+  if (card.power === 'blindSwap') {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+      || !('first' in payload) || !('second' in payload)
+      || !payload.first || typeof payload.first !== 'object' || Array.isArray(payload.first)
+      || !payload.second || typeof payload.second !== 'object' || Array.isArray(payload.second)) {
+      throw new DomainError('INVALID_POWER_ACTION', 'Choose two cards to swap.');
+    }
+    const first = occupiedSwapSlot(state, payload.first);
+    const second = occupiedSwapSlot(state, payload.second);
+    if (first.target.playerId === second.target.playerId) {
+      throw new DomainError('SWAP_NOT_ALLOWED', 'Choose cards belonging to different players.');
+    }
+    [first.slot.card, second.slot.card] = [second.slot.card, first.slot.card];
+    finishTurn(state, player, card, random);
+    return { kind: /** @type {const} */ ('swap'), first: first.target, second: second.target };
+  }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !('peekTarget' in payload)
     || !payload.peekTarget || typeof payload.peekTarget !== 'object' || Array.isArray(payload.peekTarget)) {
     throw new DomainError('INVALID_POWER_ACTION', 'Choose a card to peek at.');
@@ -58,14 +75,24 @@ export function choosePowerTargets(state, id, payload) {
   const slot = targetPlayer.hand.find(slot => slot.handSlotId === target.handSlotId);
   if (!slot) throw new DomainError('INVALID_POWER_TARGET', 'Choose an occupied slot allowed by this power.');
   state.pendingPowerStage = 'awaitingPeekDone';
-  return { target: { playerId: targetPlayer.id, handSlotId: slot.handSlotId }, card: slot.card };
+  return { kind: /** @type {const} */ ('peek'), target: { playerId: targetPlayer.id, handSlotId: slot.handSlotId }, card: slot.card };
+}
+
+/** Resolve current occupancy without exposing or trusting client-supplied faces.
+ * @param {GameState} state @param {object} target
+ */
+function occupiedSwapSlot(state, target) {
+  const player = 'playerId' in target ? state.players.find(player => player.id === target.playerId) : null;
+  const slot = player && 'handSlotId' in target ? player.hand.find(slot => slot.handSlotId === target.handSlotId) : null;
+  if (!player || !slot) throw new DomainError('INVALID_POWER_TARGET', 'Choose occupied hand slots.');
+  return { slot, target: { playerId: player.id, handSlotId: slot.handSlotId } };
 }
 
 /** Decline before activation or during target selection; any public reveal lasts until discard.
  * @param {GameState} state @param {string} id @param {() => number} [random]
  */
 export function skipPower(state, id, random = Math.random) {
-  const { player, card } = requirePeek(state, id, state.pendingPowerStage === 'awaitingTargets' ? 'awaitingTargets' : 'awaitingChoice');
+  const { player, card } = requirePower(state, id, state.pendingPowerStage === 'awaitingTargets' ? 'awaitingTargets' : 'awaitingChoice');
   finishTurn(state, player, card, random);
 }
 
@@ -73,6 +100,7 @@ export function skipPower(state, id, random = Math.random) {
  * @param {GameState} state @param {string} id @param {() => number} [random]
  */
 export function finishPowerPeek(state, id, random = Math.random) {
-  const { player, card } = requirePeek(state, id, 'awaitingPeekDone');
+  const { player, card } = requirePower(state, id, 'awaitingPeekDone');
+  if (card.power === 'blindSwap') throw new DomainError('POWER_NOT_AVAILABLE', 'This power has no peek to finish.');
   finishTurn(state, player, card, random);
 }

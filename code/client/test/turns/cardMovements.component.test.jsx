@@ -26,11 +26,13 @@ afterEach(() => {
 
 function Piles({ movement, top = true, held = true }) {
   const board = useRef(null);
-  useCardMovements(board, movement, true);
+  useCardMovements(board, movement, true, movement?.kind === 'powerSwap' && !held);
   return <div ref={board}>
     <div className="setup-deck"><img className="setup-card" alt="Deck" /></div>
     <div className="setup-discard">{top && <img className="setup-card" alt="Discard" />}</div>
     <div className="setup-drawn">{held && <img className="setup-card" alt="Held" />}</div>
+    <div className="setup-hand__slot" data-player-id="p1" data-slot="1"><img className="setup-card" alt="First back" /></div>
+    <div className="setup-hand__slot" data-player-id="p2" data-slot="1"><img className="setup-card" alt="Second back" /></div>
   </div>;
 }
 
@@ -59,5 +61,24 @@ it('respects reduced motion while immediately updating the layout', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true }));
   const view = render(<Piles movement={{ id: 1, kind: 'draw', source: 'discard' }} top={false} />);
   expect(view.getByAltText('Held')).toBeInTheDocument();
+  expect(animate).not.toHaveBeenCalled();
+});
+
+it('exchanges two hand backs and adds discard movement without restarting the exchange', () => {
+  const movement = { id: 1, kind: 'powerSwap', first: { playerId: 'p1', handSlotId: 1 }, second: { playerId: 'p2', handSlotId: 1 } };
+  const view = render(<Piles movement={movement} />);
+  expect(animate.mock.contexts.map(image => image.alt)).toEqual(['Second back', 'First back']);
+  view.rerender(<Piles movement={movement} held={false} />);
+  expect(animate.mock.contexts.map(image => image.alt)).toEqual(['Second back', 'First back', 'Discard']);
+  expect(cancel).not.toHaveBeenCalled();
+  view.rerender(<Piles movement={movement} held={false} />);
+  expect(animate).toHaveBeenCalledTimes(3);
+  view.rerender(<Piles movement={null} held={false} />);
+  expect(cancel).toHaveBeenCalledTimes(3);
+});
+
+it('skips both power movements under reduced motion', () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true }));
+  render(<Piles held={false} movement={{ id: 1, kind: 'powerSwap', first: { playerId: 'p1', handSlotId: 1 }, second: { playerId: 'p2', handSlotId: 1 } }} />);
   expect(animate).not.toHaveBeenCalled();
 });

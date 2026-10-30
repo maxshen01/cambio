@@ -12,6 +12,27 @@ function viewing() {
   return [start, available, reveal, result].reduce(reduce, powerClientState());
 }
 
+it('Jack retains the held card until discard and preserves its exchange through turn advancement', () => {
+  let state = [start, { ...available, notice: { power: 'blindSwap' } }, reveal].reduce(reduce, powerClientState());
+  const held = state.drawnCard;
+  expect(selectGameClient(state).permissions).toMatchObject({ canChoosePowerTargets: true, canFinishPowerPeek: false });
+  expect(reduce(state, result)).toBe(state);
+  const notice = { kind: 'power', first: { playerId: 'p1', handSlotId: 1 }, second: { playerId: 'p2', handSlotId: 1 } };
+  state = reduce(state, { type: 'cardSwapReceived', notice });
+  expect(state.drawnCard).toBe(held);
+  expect(state.resolvingPower).toBe(true);
+  expect(state.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+  expect(state.powerPeekTargets).toEqual([]);
+  expect(state.powerPrompt).toBeNull();
+  const movement = state.movement;
+  expect(reduce(state, { type: 'cardSwapReceived', notice })).toBe(state);
+  state = reduce(state, { type: 'discardPileReceived', top: { cardId: 11 } });
+  expect(state).toMatchObject({ drawnCard: null, resolvingPower: false, awaitingTurn: true });
+  expect(state.movement).toBe(movement);
+  state = reduce(state, { type: 'turnChanged', playerId: 'p2' });
+  expect(state.movement).toBe(movement);
+});
+
 it('starts privately, retains the shared card and old discard, and blocks ordinary actions', () => {
   const before = powerClientState();
   const started = reduce({ ...before, turnPending: true }, start);

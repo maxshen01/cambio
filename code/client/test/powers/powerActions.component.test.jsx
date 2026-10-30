@@ -15,6 +15,36 @@ function hook(localId = 'p1') {
 }
 const commands = socket => socket.emissions.filter(entry => entry.event !== 'joinRoom');
 
+it('Jack validates current pair occupancy and ownership and locks even stale action callbacks', () => {
+  const { socket, result } = hook();
+  const actions = result.current.actions;
+  act(() => startPower(socket, 'p1', 'blindSwap'));
+  act(() => actions.usePower());
+  act(() => socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 11 }));
+  const first = { playerId: 'p2', handSlotId: 1 };
+  const second = { playerId: 'p3', handSlotId: 1 };
+  act(() => {
+    actions.choosePowerTargets(first);
+    actions.choosePowerTargets({ first, second: { ...first, handSlotId: 2 } });
+    actions.choosePowerTargets({ first, second: { ...second, handSlotId: 8 } });
+    actions.finishPowerPeek();
+  });
+  expect(commands(socket).map(e => e.event)).toEqual(['usePower']);
+  act(() => {
+    actions.choosePowerTargets({ first, second });
+    actions.choosePowerTargets({ first, second }); actions.skipPower(); actions.replaceHandCard(1);
+  });
+  expect(commands(socket).map(e => e.event)).toEqual(['usePower', 'choosePowerTargets']);
+  expect(commands(socket)[1].payload).toEqual({ first, second });
+  act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Retry' }));
+  expect(result.current.permissions.canChoosePowerTargets).toBe(true);
+  act(() => {
+    socket.receive('disconnect', 'transport close');
+    actions.choosePowerTargets({ first, second }); actions.usePower(); actions.skipPower();
+  });
+  expect(commands(socket)).toHaveLength(2);
+});
+
 it('activation and confirmation use one immediate lock and ignore duplicate reveals', () => {
   const { socket, result } = hook();
   const old = result.current.actions;
