@@ -29,6 +29,8 @@ test('IT-02 privately draws, rejects a duplicate, discards, replaces, and wraps 
   for (let turn = 0; turn < 5; turn++) {
     records.forEach(record => { record.length = 0; });
     const owner = clients[turn % 4];
+    const ordinary = gameState.deck.cards.findIndex(card => !card.power);
+    gameState.deck.cards.push(...gameState.deck.cards.splice(ordinary, 1));
     const top = gameState.deck.cards.at(-1);
     const draws = clients.map(client => nextEvent(client, 'cardDrawn'));
     owner.emit('drawCard', { source: 'deck' });
@@ -94,11 +96,11 @@ test('each turn action rejects a representative invalid request privately withou
     { target: { playerId: clients[1].id, handSlotId: 1 } }, 'INVALID_TARGET');
 });
 
-test('representative power cards discard and replace through ordinary socket events without effects', async t => {
+test('inactive powers discard immediately and self-peek cards replace without effects', async t => {
   const { clients, gameState } = await activeHarness(t);
   const seen = [];
   clients[0].onAny(event => seen.push(event));
-  for (const [power, replace] of [['selfPeek', false], ['twoPeekSwap', true]]) {
+  for (const [power, replace] of [['opponentPeek', false], ['selfPeek', true], ['twoPeekSwap', true]]) {
     const index = gameState.deck.cards.findIndex(card => card.power === power);
     const [card] = gameState.deck.cards.splice(index, 1);
     gameState.deck.cards.push(card);

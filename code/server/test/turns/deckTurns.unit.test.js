@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
+import { skipPower } from '../../src/game/powers.js';
 import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
 import { refillDeck, createDeck } from '../../src/game/deck.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
@@ -26,6 +27,8 @@ test('discard and replacement each advance exactly once clockwise, including sea
   for (const id of ['p1', 'p2', 'p3', 'p4', 'p1']) {
     assert.equal(state.turn, id);
     const player = state.players.find(player => player.id === id);
+    const ordinary = state.deck.cards.findIndex(card => !card.power);
+    state.deck.cards.push(...state.deck.cards.splice(ordinary, 1));
     drawCard(state, id, { source: 'deck' });
     const held = player.drawnCard;
     const displaced = player.hand[0].card;
@@ -47,14 +50,23 @@ test('discard and replacement each advance exactly once clockwise, including sea
   }
 });
 
-test('every power card discards or swaps without starting power resolution or changing metadata', () => {
+test('self-peek discards start resolution, other powers discard immediately, and every power replaces without effects', () => {
   for (const card of createDeck().filter(card => card.power)) {
     for (const action of ['discard', 'swap']) {
       const state = activeGame();
       state.deck.cards = [card];
       drawCard(state, 'p1', { source: 'deck' });
-      if (action === 'discard') discardDrawnCard(state, 'p1');
-      else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
+      if (action === 'discard') {
+        const result = discardDrawnCard(state, 'p1');
+        if (card.power === 'selfPeek') {
+          assert.deepEqual(result, { kind: 'powerStarted', playerId: 'p1', power: 'selfPeek' });
+          assert.equal(state.players[0].drawnCard, card);
+          assert.equal(state.discardPile.cards.length, 0);
+          assert.equal(state.turn, 'p1');
+          assert.equal(state.pendingPowerStage, 'awaitingChoice');
+          skipPower(state, 'p1');
+        } else assert.deepEqual(result, { kind: 'completed' });
+      } else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
       assert.equal(state.turn, 'p2');
       assert.equal(state.pendingPower, null);
       assert.equal(state.pendingPowerStage, null);
@@ -138,7 +150,7 @@ test('long-running deck turns repeatedly refill without losing or duplicating ca
     drawCard(state, id, { source: 'deck' }, () => 0);
     if (state.deck.cards.length >= before) refills++;
     if (turn % 2) swapDrawnCard(state, id, { target: { playerId: id, handSlotId: 1 } }, () => 0);
-    else discardDrawnCard(state, id, () => 0);
+    else if (discardDrawnCard(state, id, () => 0).kind === 'powerStarted') skipPower(state, id, () => 0);
     assert.equal(allCards(state).length, 108);
     assert.deepEqual(new Set(allCards(state)), original);
   }

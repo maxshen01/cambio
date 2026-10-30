@@ -1,20 +1,9 @@
-// Deck/discard draws and ordinary resolution rules; powers are inactive.
-import { clearDrawnCard } from './player.js';
-import { nextPlayerInSeatOrder } from './seats.js';
+// Deck/discard draws and resolution, including entry into 7/8 self-peek.
+import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
+import { startPowerResolution } from './powers.js';
 import { DomainError } from './domainError.js';
 import { refillDeck } from './deck.js';
 /** @typedef {import('./types.js').GameState} GameState */
-
-/** Validate membership and turn ownership before changing any round fields.
- * @param {GameState} state @param {string} id
- */
-function requireTurnPlayer(state, id) {
-  const player = state.players.find(player => player.id === id);
-  if (!player) throw new DomainError('NOT_IN_ROOM', 'You are not in this room.');
-  if (state.turn !== id) throw new DomainError('NOT_YOUR_TURN', 'It is not your turn.');
-  if (state.pendingMatch) throw new DomainError('MATCH_RESOLVING', 'Wait for the match to finish.');
-  return player;
-}
 
 /** Draw exactly once from the chosen pile, retaining ownership outside the hand.
  * @param {GameState} state @param {string} id @param {unknown} payload
@@ -55,30 +44,21 @@ function requireResolutionPlayer(state, id) {
   return player;
 }
 
-/** Clear the pending card and start exactly one next turn in stable clockwise seat order.
- * @param {GameState} state @param {import('./types.js').Player} player
- * @param {import('./types.js').Card} discarded @param {() => number} random
- */
-function finishTurn(state, player, discarded, random) {
-  state.discardPile.cards.push(discarded);
-  state.discardPile.topMatchStatus = 'eligible';
-  clearDrawnCard(player);
-  state.pendingPower = null;
-  state.pendingPowerStage = null;
-  refillDeck(state, random);
-  state.turn = nextPlayerInSeatOrder(state.players, player.id).id;
-  state.turnStep = 'awaitingDraw';
-}
-
-/** Discard a deck-drawn card and complete the turn, including cards whose powers are inactive.
+/** Start self-peek for a deck-drawn 7/8; other cards complete the ordinary discard.
  * @param {GameState} state @param {string} id @param {() => number} [random]
+ * @returns {{ kind: 'powerStarted', playerId: string, power: 'selfPeek' } | { kind: 'completed' }}
  */
 export function discardDrawnCard(state, id, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
   if (player.drawnFrom === 'discard') {
     throw new DomainError('MUST_SWAP_DISCARD_DRAW', 'Replace one of your hand cards with the discard draw.');
   }
+  if (player.drawnCard?.power === 'selfPeek') {
+    startPowerResolution(state, id);
+    return { kind: 'powerStarted', playerId: id, power: 'selfPeek' };
+  }
   finishTurn(state, player, /** @type {import('./types.js').Card} */ (player.drawnCard), random);
+  return { kind: 'completed' };
 }
 
 /** Replace an occupied own-hand slot facedown, then discard its displaced card.

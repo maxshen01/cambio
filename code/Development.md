@@ -40,11 +40,11 @@ The server defaults to port 3000. Open the URL Vite prints, normally `http://loc
 
 ### Environment and diagnostics
 
-| Variable | Package | Meaning |
-| --- | --- | --- |
-| `PORT` | Server | Listening port; defaults to 3000. |
-| `SOCKET_DEBUG` | Server | Set to `1` to enable routine Socket.IO diagnostics. |
-| `VITE_SOCKET_DEBUG` | Client | Set to `1` when starting Vite to enable client event diagnostics. |
+| Variable            | Package | Meaning                                                           |
+| ------------------- | ------- | ----------------------------------------------------------------- |
+| `PORT`              | Server  | Listening port; defaults to 3000.                                 |
+| `SOCKET_DEBUG`      | Server  | Set to `1` to enable routine Socket.IO diagnostics.               |
+| `VITE_SOCKET_DEBUG` | Client  | Set to `1` when starting Vite to enable client event diagnostics. |
 
 In `code/server`:
 
@@ -80,18 +80,18 @@ Use focused checks while developing. Broaden checks for changes affecting shared
 
 Run from `code/client`; scripts are defined in [package.json](client/package.json).
 
-| Command | Purpose or selection |
-| --- | --- |
-| `npm.cmd run dev` | Vite development server |
-| `npm.cmd test` | Complete client suite |
-| `npm.cmd run typecheck` | Strict JavaScript/JSX and shared public type checks; no output files |
-| `npm.cmd run build` | Production build |
-| `npm.cmd run test:lobby` | Join form, lobby, readiness, and real-socket lobby-to-deal flow |
-| `npm.cmd run test:setup` | Memorization, private faces, and departure/redeal behavior |
-| `npm.cmd run test:cards` | Artwork loading, caching, failure, and retry |
-| `npm.cmd run test:recovery` | Connection failure/loss, retry, stale callbacks, cleanup |
-| `npm.cmd run test:fast` | Unit and fake-socket component tests |
-| `npm.cmd run test:integration` | React connected to real Socket.IO servers under jsdom |
+| Command                        | Purpose or selection                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `npm.cmd run dev`              | Vite development server                                              |
+| `npm.cmd test`                 | Complete client suite                                                |
+| `npm.cmd run typecheck`        | Strict JavaScript/JSX and shared public type checks; no output files |
+| `npm.cmd run build`            | Production build                                                     |
+| `npm.cmd run test:lobby`       | Join form, lobby, readiness, and real-socket lobby-to-deal flow      |
+| `npm.cmd run test:setup`       | Memorization, private faces, and departure/redeal behavior           |
+| `npm.cmd run test:cards`       | Artwork loading, caching, failure, and retry                         |
+| `npm.cmd run test:recovery`    | Connection failure/loss, retry, stale callbacks, cleanup             |
+| `npm.cmd run test:fast`        | Unit and fake-socket component tests                                 |
+| `npm.cmd run test:integration` | React connected to real Socket.IO servers under jsdom                |
 
 Select a single file, a test name, or a feature in watch mode:
 
@@ -107,18 +107,19 @@ Combine a level and feature, for example `npm.cmd run test:fast -- test/setup/`.
 
 Run from `code/server`; scripts are defined in [package.json](server/package.json).
 
-| Command | Purpose or selection |
-| --- | --- |
-| `npm.cmd start` | Start the server using the local `.env` file |
-| `npm.cmd test` | Complete server suite, including assets |
-| `npm.cmd run typecheck` | Strict JavaScript and shared public type checks; no output files |
-| `npm.cmd run test:lobby` | Joining, display names, seats, and lobby readiness |
-| `npm.cmd run test:setup` | Dealing, memorization, and departure/redeal behavior |
-| `npm.cmd run test:cards` | Deck rules and artwork integrity |
-| `npm.cmd run test:recovery` | Unexpected handler faults and room reset |
-| `npm.cmd run test:fast` | Isolated units; no sockets or asset checks |
-| `npm.cmd run test:integration` | Composed server and real-socket tests |
-| `npm.cmd run test:assets` | Public artwork compared with design originals |
+| Command                        | Purpose or selection                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `npm.cmd start`                | Start the server using the local `.env` file                                   |
+| `npm.cmd test`                 | Complete server suite, including assets                                        |
+| `npm.cmd run typecheck`        | Strict JavaScript and shared public type checks; no output files               |
+| `npm.cmd run test:lobby`       | Joining, display names, seats, and lobby readiness                             |
+| `npm.cmd run test:setup`       | Dealing, memorization, and departure/redeal behavior                           |
+| `npm.cmd run test:powers`      | 7/8 self-peek domain and four-client socket lifecycle, privacy, and validation |
+| `npm.cmd run test:cards`       | Deck rules and artwork integrity                                               |
+| `npm.cmd run test:recovery`    | Unexpected handler faults and room reset                                       |
+| `npm.cmd run test:fast`        | Isolated units; no sockets or asset checks                                     |
+| `npm.cmd run test:integration` | Composed server and real-socket tests                                          |
+| `npm.cmd run test:assets`      | Public artwork compared with design originals                                  |
 
 Select a single file, a test name, or a feature plus test level:
 
@@ -161,17 +162,17 @@ These non-browser checks do not establish visual correctness. [Test Scenarios](.
 
 Paths in the first column are repository-relative; links resolve from this file.
 
-| Document | Owns; update when these facts change |
-| --- | --- |
-| [README.md](../README.md) | Current capabilities, limitations, temporary implementation exceptions, and capability-to-source/test mappings |
-| [project-managment/MVP.md](../project-managment/MVP.md) | Product goals, audience, scope/exclusions, and release acceptance |
-| [project-managment/Game Rules.md](../project-managment/Game%20Rules.md) | Gameplay, card visibility policy, powers, matching, scoring, turns, lifecycle |
-| [project-managment/Game Data Model.md](../project-managment/Game%20Data%20Model.md) | State ownership, field meaning, relationships, invariants; keep source JSDoc accurate |
-| [project-managment/Events Contract.md](../project-managment/Events%20Contract.md) | Events, payloads, acknowledgements, errors, recipient redaction, ordering; keep shared public types accurate |
-| [project-managment/designs/UI Rules.md](../project-managment/designs/UI%20Rules.md) | Layout, controls, accessibility, feedback, animations, screen transitions |
-| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md) | Intended acceptance sequences and manual validation procedures |
-| [code/Development.md](Development.md) | Setup, commands, dependencies, environment-variable names, diagnostics, documentation ownership |
-| [code/client/README.md](client/README.md) and [code/server/README.md](server/README.md) | Package purpose, minimal startup, entry links |
+| Document                                                                                | Owns; update when these facts change                                                                           |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [README.md](../README.md)                                                               | Current capabilities, limitations, temporary implementation exceptions, and capability-to-source/test mappings |
+| [project-managment/MVP.md](../project-managment/MVP.md)                                 | Product goals, audience, scope/exclusions, and release acceptance                                              |
+| [project-managment/Game Rules.md](../project-managment/Game%20Rules.md)                 | Gameplay, card visibility policy, powers, matching, scoring, turns, lifecycle                                  |
+| [project-managment/Game Data Model.md](../project-managment/Game%20Data%20Model.md)     | State ownership, field meaning, relationships, invariants; keep source JSDoc accurate                          |
+| [project-managment/Events Contract.md](../project-managment/Events%20Contract.md)       | Events, payloads, acknowledgements, errors, recipient redaction, ordering; keep shared public types accurate   |
+| [project-managment/designs/UI Rules.md](../project-managment/designs/UI%20Rules.md)     | Layout, controls, accessibility, feedback, animations, screen transitions                                      |
+| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md)         | Intended acceptance sequences and manual validation procedures                                                 |
+| [code/Development.md](Development.md)                                                   | Setup, commands, dependencies, environment-variable names, diagnostics, documentation ownership                |
+| [code/client/README.md](client/README.md) and [code/server/README.md](server/README.md) | Package purpose, minimal startup, entry links                                                                  |
 
 For every implementation, read the [root README](../README.md), relevant source/tests, and affected specifications. Update the root README when delivered capabilities, limitations, temporary exceptions, or coverage change; it is the only documentation update required solely for implementation progress. Change documents under `project-managment/` only when intended design changes: rules, contracts, state semantics, UI requirements, or acceptance requirements. Implementing an existing requirement does not qualify. Keep design definitions in their canonical home and record temporary implementation exceptions only in the README. MVP changes require deliberate product-scope or acceptance decisions.
 
