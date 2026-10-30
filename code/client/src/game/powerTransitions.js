@@ -27,23 +27,28 @@ export function startPower(state, notice) {
   return { ...state, ...clearedPowerState(), resolvingPower: true, turnPending: false, error: null };
 }
 
-/** Only the current drawer receives a self-peek choice.
+/** Only the current drawer receives a supported peek choice.
  * @param {GameClientState} state @param {import('../../../shared/protocol.js').PowerAvailable} notice
  * @returns {GameClientState}
  */
 export function offerPower(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || state.powerPrompt
-    || state.turnPlayerId !== state.identity?.playerId || notice.power !== 'selfPeek') return state;
-  return { ...state, powerPrompt: { power: 'selfPeek', stage: 'awaitingChoice' }, error: null };
+    || state.turnPlayerId !== state.identity?.playerId
+    || (notice.power !== 'selfPeek' && notice.power !== 'opponentPeek')) return state;
+  return { ...state, powerPrompt: { power: notice.power, stage: 'awaitingChoice' }, error: null };
 }
 
-/** A reveal changes only the existing held card; it is not another draw or movement.
+/** Activation confirms target selection once; duplicate reveals cannot release later locks.
  * @param {GameClientState} state @param {import('../../../shared/protocol.js').PowerCardRevealed} card
  * @returns {GameClientState}
  */
 export function revealPowerCard(state, card) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || card.playerId !== state.turnPlayerId) return state;
-  return { ...state, drawnCard: { playerId: card.playerId, source: 'deck', faceUp: true, cardId: card.cardId } };
+  const owner = state.turnPlayerId === state.identity?.playerId;
+  if (owner ? state.powerPrompt?.stage !== 'awaitingChoice' : state.drawnCard?.faceUp) return state;
+  return { ...state, drawnCard: { playerId: card.playerId, source: 'deck', faceUp: true, cardId: card.cardId },
+    powerPrompt: owner && state.powerPrompt ? { ...state.powerPrompt, stage: 'awaitingTargets' } : null,
+    turnPending: false, pendingPowerAction: null, error: null };
 }
 
 /** Copy only authorized temporary faces, separate from baseline hand visibility.
@@ -54,15 +59,17 @@ export function receivePowerPeek(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || !state.drawnCard?.faceUp
     || state.powerPeekTargets.length || notice.targets.length !== 1) return state;
   const owner = state.turnPlayerId === state.identity?.playerId;
-  if (owner && state.powerPrompt?.stage !== 'awaitingChoice') return state;
+  if (owner && state.powerPrompt?.stage !== 'awaitingTargets') return state;
   const target = notice.targets[0];
-  if (target.playerId !== state.turnPlayerId || !state.cards.some(card =>
+  if (owner && (state.powerPrompt?.power === 'selfPeek'
+    ? target.playerId !== state.turnPlayerId : target.playerId === state.turnPlayerId)) return state;
+  if (!state.cards.some(card =>
     card.playerId === target.playerId && card.handSlotId === target.handSlotId)) return state;
   const powerPeekTargets = notice.targets.map(({ playerId, handSlotId, ...face }) =>
     owner && face.faceUp
       ? { playerId, handSlotId, faceUp: /** @type {const} */ (true), cardId: face.cardId }
       : { playerId, handSlotId, faceUp: /** @type {const} */ (false) });
   return { ...state, powerPeekTargets,
-    powerPrompt: owner ? { power: 'selfPeek', stage: 'awaitingPeekDone' } : null,
+    powerPrompt: owner && state.powerPrompt ? { power: state.powerPrompt.power, stage: 'awaitingPeekDone' } : null,
     turnPending: false, pendingPowerAction: null, error: null };
 }

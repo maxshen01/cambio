@@ -146,7 +146,7 @@ This is an object because all event payloads are JSON objects. It contains no ca
   drawnFrom: "deck" | "discard" | null,
   turnPlayerId: string | null,
   turnStep: "awaitingDraw" | "awaitingDrawnCardResolution" | "resolvingPower" | null,
-  powerPrompt: { power: Card.power, stage: "awaitingChoice" | "awaitingPeekDone" | "awaitingSwap" } | null,
+  powerPrompt: { power: Card.power, stage: "awaitingChoice" | "awaitingTargets" | "awaitingPeekDone" | "awaitingSwap" } | null,
   matchStage: "awaitingGift" | null,
   giftPrompt: { recipientPlayerId: string } | null,
   matchingAllowed: bool,
@@ -164,10 +164,10 @@ This is a **baseline snapshot** for future resynchronization, including setup; `
 
 - Before dealing, hands are empty and `summary.isReady` represents lobby readiness. During memorization, only the recipient's own bottom two faces are visible, and only while their `summary.isReady` is false.
 - During play, hand views are facedown even during a local match flip or power peek. Snapshots replace temporary reveals with this baseline, without replaying peeked faces.
-- `turnStep` reports the underlying turn stage. `powerPrompt` is non-null only for the current power user during `"resolvingPower"`; its power is a non-null value from `Card.power`. Its stage restores use/skip, Done, or swap/skip without replaying temporary faces. Other recipients receive null.
+- `turnStep` reports the underlying turn stage. `powerPrompt` is non-null only for the current power user during `"resolvingPower"`; its power is a non-null value from `Card.power`. Its stage restores use/skip, target selection/skip, Done, or swap/skip without replaying temporary faces. Other recipients receive null.
 - `matchingAllowed` requires a discard top and a live matching phase/deadline. It is false throughout `"resolvingPower"` and after the final deadline, but may be true during `"awaitingGift"`. `matchStage` is non-null only while a gift blocks turn actions; only that winning matcher receives a non-null `giftPrompt` identifying the recipient. Neither prompt repeats card faces.
 - `finalMatchGraceActive` is true only before the server's one-second grace deadline. During grace, `turnPlayerId` and `turnStep` are null and phase remains `"finalRound"`; the deadline may expire while a gift settles. The caller's ID may be present while phase is still `"active"` during the unfinished calling turn.
-- The pending `drawnCard` remains present through power resolution. Its face is visible to the drawer, to everyone for a discard draw, and to everyone after valid power use reveals a held deck card. A black queen/king remains publicly face up through Done and the later swap/skip choice. `drawnCard` and `drawnFrom` become null on swap, completed discard, or reset; `drawnFrom` otherwise publicly identifies the pending draw source.
+- The pending `drawnCard` remains present through power resolution. Its face is visible to the drawer, to everyone for a discard draw, and to everyone after valid power activation reveals a held deck card, before target selection. A black queen/king remains publicly face up through Done and the later swap/skip choice. `drawnCard` and `drawnFrom` become null on swap, completed discard, or reset; `drawnFrom` otherwise publicly identifies the pending draw source.
 - At `roundOver`, all hands are face up and scores/winners are populated; earlier, scores are null and winners empty.
 - Never include the deck stack or count, discard count or buried cards, hidden card identifiers, or server-only discard-top match status. The [UI Rules](designs/UI%20Rules.md#board-and-cards) define the facedown deck graphic and shared display placement.
 
@@ -209,6 +209,7 @@ This index links to each event's complete definition; payloads appear only in th
 - [`powerAvailable`](#poweravailable) (Server to Player)
 - [`usePower`](#usepower) (Client to Server)
 - [`powerCardRevealed`](#powercardrevealed) (Server to All)
+- [`choosePowerTargets`](#choosepowertargets) (Client to Server)
 - [`skipPower`](#skippower) (Client to Server)
 - [`powerPeekResult`](#powerpeekresult) (Server to All)
 - [`finishPowerPeek`](#finishpowerpeek) (Client to Server)
@@ -488,11 +489,24 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | The power user chooses to use the held drawn card's pending power. |
+| Trigger | The power user clicks Use before selecting any targets. |
+| Payload | `{}` |
+| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is non-null and matches the held deck card, `pendingPowerStage === "awaitingChoice"`, and `drawnCardRevealed` is false. |
+| Server effects | Set `drawnCardRevealed` to true and `pendingPowerStage` to `"awaitingTargets"`. Retain the held card, hands, discard pile, and current turn. Do not apply a power effect or advance the turn. A rejected request changes no state. |
+| Resulting events | Send `powerCardRevealed` to all seated players. Its receipt enables target selection for the power user. No peek result, swap, discard update, or turn advancement occurs yet. |
+| Ack | None. |
+| Errors | `NOT_IN_ROOM`, `NOT_YOUR_TURN`, or `POWER_NOT_AVAILABLE` for an unavailable power, wrong phase or stage, or duplicate activation, via `error` (Server to Player). A duplicate activation sends no second reveal. |
+
+### `choosePowerTargets`
+
+| Field | Value |
+| --- | --- |
+| Direction | (Client to Server) |
+| Trigger | After activation, the power user submits the required peek targets or jack swap pair. |
 | Payload | For 7/8 or 9/10: `{ peekTarget: HandSlotRef }`. For jack: `PlayerSwap`. For black queen/king: `{ peekTargets: HandSlotRef[] }` with exactly one/two distinct targets respectively. The client does not name the power or send card faces. |
-| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is non-null, and `pendingPowerStage === "awaitingChoice"`. Every target must identify a current hand slot. A 7/8 target belongs to the sender; a 9/10 target belongs to an opponent. Black queen/king peek targets may belong to any player, including the Cambio caller. A jack's swap targets must belong to different players; neither may belong to the caller during `"finalRound"`. |
-| Server effects | After validating the action and all targets, mark the held drawn card publicly revealed. For a 7–10 or black queen/king peek, keep the held card and `pendingPower`, set `pendingPowerStage` to `"awaitingPeekDone"`, and leave `turnStep` as `"resolvingPower"`; no discard or turn advancement occurs until `finishPowerPeek`. For jack, exchange the two cards, then move the held card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. Matching remains blocked throughout power resolution. A rejected request changes no state and sends no reveal. |
-| Resulting events | Send `powerCardRevealed` to everyone first. For a 7–10 or black queen/king peek, then send recipient-specific `powerPeekResult`; the power user keeps the peeked faces visible until clicking Done. No pile update or turn advancement occurs yet. For jack, send `cardSwapped` with `kind: "power"`, `discardPileUpdated`, and turn advancement or final grace. |
+| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is non-null, and `pendingPowerStage === "awaitingTargets"`. The held drawn card is already publicly revealed. Every target must identify a current hand slot. A 7/8 target belongs to the sender; a 9/10 target belongs to an opponent. Black queen/king peek targets may belong to any player, including the Cambio caller. A jack's swap targets must belong to different players; neither may belong to the caller during `"finalRound"`. |
+| Server effects | Validate the action and all targets before applying the effect. For a 7–10 or black queen/king peek, keep the held card and `pendingPower`, set `pendingPowerStage` to `"awaitingPeekDone"`, and leave `turnStep` as `"resolvingPower"`; no discard or turn advancement occurs until `finishPowerPeek`. For jack, exchange the two cards, then move the held card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. Matching remains blocked throughout power resolution. A rejected request changes no state, preserves the public power card and target-selection stage, and sends only a requester error. |
+| Resulting events | The earlier activation already sent `powerCardRevealed`; do not send it again. For a 7–10 or black queen/king peek, send recipient-specific `powerPeekResult`; the power user keeps the peeked faces visible until clicking Done. No pile update or turn advancement occurs yet. For jack, send `cardSwapped` with `kind: "power"`, `discardPileUpdated`, and turn advancement or final grace. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM`, `NOT_YOUR_TURN`, or `POWER_NOT_AVAILABLE` for the wrong phase or stage; `INVALID_POWER_ACTION` for a payload shape that does not fit the pending power; `INVALID_TARGET_COUNT` for the wrong number of peek targets or a repeated black-king target; `INVALID_POWER_TARGET` for a missing slot or one with disallowed ownership; `SWAP_NOT_ALLOWED` for a same-player jack pair or a pair containing the Cambio caller during `"finalRound"`, via `error` (Server to Player). |
 
@@ -501,11 +515,11 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Server to All) |
-| Trigger | A `usePower` request succeeds after the server validates its targets. |
+| Trigger | A `usePower` activation succeeds, before any targets are selected. |
 | Payload | The same face-up `DrawnCardView` for every recipient, identifying the held power card without a hand-slot ID. |
-| Preconditions | `usePower` validated and captured the held drawn card before any automatic discard. For a black queen/king, `drawnCardRevealed` remains true while the swap or skip choice is pending. A rejected `usePower` does not reveal the card. |
-| Server effects | None; `usePower` authorized the public reveal before the power result. |
-| Resulting events | Clients display the card face in the shared drawn-card area below the piles. The power's `powerPeekResult` or `cardSwapped` follows; for a black queen/king, the card remains publicly face up through the later swap or skip choice. `discardPileUpdated` eventually moves the card face to the discard top and clears the drawn-card display. This event does not represent a match attempt and is not followed by `matchResult`. |
+| Preconditions | `usePower` set `drawnCardRevealed` to true and `pendingPowerStage` to `"awaitingTargets"`. The card remains publicly revealed throughout target selection and any later peek or swap/skip stage. A rejected `usePower` does not reveal the card. |
+| Server effects | None; `usePower` already authorized the public reveal independently of target validation. |
+| Resulting events | Clients display the card face in the shared drawn-card area below the piles. The power user may now select targets and send `choosePowerTargets`, or skip. No effect event follows until targets are submitted and accepted; the card stays public through any later peek or swap/skip choice. Other players receive no additional power prompt or message. `discardPileUpdated` eventually moves the card face to the discard top and clears the drawn-card display. This event does not represent a match attempt and is not followed by `matchResult`. |
 | Ack | None. |
 | Errors | None. |
 
@@ -514,10 +528,10 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | The power user declines the available power before using it, or declines the swap after finishing a black queen/king peek with `finishPowerPeek`. |
+| Trigger | The power user declines the available power before activation or during target selection, or declines the swap after finishing a black queen/king peek with `finishPowerPeek`. |
 | Payload | `{}` |
-| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, and `pendingPower` is non-null. `pendingPowerStage` is `"awaitingChoice"`, or it is `"awaitingSwap"` for a black queen/king after `finishPowerPeek`. Skipping is unavailable during `"awaitingPeekDone"`. |
-| Server effects | Move the held drawn card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. A rejected request changes no state. Skipping at `"awaitingChoice"` sends no separate public reveal; skipping at `"awaitingSwap"` leaves the earlier public reveal intact until discard. |
+| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, and `pendingPower` is non-null. `pendingPowerStage` is `"awaitingChoice"` or `"awaitingTargets"`, or it is `"awaitingSwap"` for a black queen/king after `finishPowerPeek`. Skipping is unavailable during `"awaitingPeekDone"`. |
+| Server effects | Move the held drawn card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. A rejected request changes no state. Skipping at `"awaitingChoice"` sends no separate public reveal; skipping at `"awaitingTargets"` or `"awaitingSwap"` leaves the earlier public reveal intact until discard. |
 | Resulting events | Send `discardPileUpdated`, then `turnChanged` for the next player or `finalMatchGraceStarted` after the last final turn. No separate skipped-power event is sent. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM`, `NOT_YOUR_TURN`, or `POWER_NOT_AVAILABLE` for the wrong phase, missing power, or wrong stage, via `error` (Server to Player). |
@@ -527,10 +541,10 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Server to All), with a separate payload per recipient. |
-| Trigger | A 7–10 or black queen/king `usePower` request succeeds. |
+| Trigger | A 7–10 or black queen/king `choosePowerTargets` request succeeds. |
 | Payload | `{ targets: CardView[] }` in requested order. Every recipient sees the targeted `playerId` and `handSlotId`. Only the power user receives `faceUp: true` and `cardId`; all other recipients receive `faceUp: false` with `cardId` omitted. |
 | Preconditions | The server has validated the current target slots and set `pendingPowerStage` to `"awaitingPeekDone"`. |
-| Server effects | None; `usePower` left the held card and turn pending. |
+| Server effects | None; `choosePowerTargets` left the held card and turn pending. |
 | Resulting events | `powerCardRevealed` has already shown everyone the held power card. Only the power user's client displays the authorized peeked faces and a Done button. Keep those faces visible until the user clicks Done and sends `finishPowerPeek`; do not automatically end the peek after an animation. Other clients may highlight the target slots but receive no card faces. A new `GameStateView` replaces temporary peeks with facedown baseline cards; its `powerPrompt.stage` still indicates that Done is required, but it does not repeat the peeked faces. Matching stays blocked. |
 | Ack | None. |
 | Errors | None. |

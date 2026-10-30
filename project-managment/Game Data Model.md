@@ -27,7 +27,7 @@ The exact `Power`, `Rank`, and `Suit` unions are declared in [server game types]
 - `hand` owns occupied slots: empty before dealing, initially four, then at most eight. Pending drawn cards are excluded.
 - `drawnCard` is the player's owned pending card, separate from `hand`, with no hand-slot ID. A shared display does not transfer ownership.
 - `drawnFrom` records deck or discard origin while a card is pending, otherwise null. It determines direct-discard eligibility and initial visibility.
-- `drawnCardRevealed` records a valid power-use reveal of a deck-drawn card. It starts false on every draw and clears on resolution/reset. Discard draws are public through their source without setting this flag.
+- `drawnCardRevealed` records a valid power-activation reveal of a deck-drawn card, before target selection. It starts false on every draw and clears on resolution/reset. Discard draws are public through their source without setting this flag.
 - `score` stores the final hand total, initialized/reset to 0.
 - `calledCambio` records the caller immediately, including the unfinished calling turn.
 - `connected` records connection state; disconnected players may remain represented during abort notification or in terminal results.
@@ -51,7 +51,7 @@ The exact `Power`, `Rank`, and `Suit` unions are declared in [server game types]
 - `turn` references the current player's ID; null before play, during final grace, and after completion/reset.
 - `turnStep` distinguishes `awaitingDraw`, `awaitingDrawnCardResolution`, and `resolvingPower`; null outside a live turn. A pending card alone cannot express power-stage eligibility.
 - `pendingPower` identifies the held deck card's power during resolution, otherwise null.
-- `pendingPowerStage` is `awaitingChoice` for use/skip, `awaitingPeekDone` while a peek waits for Done, or `awaitingSwap` for a black queen/king's later swap/skip; otherwise null.
+- `pendingPowerStage` is `awaitingChoice` for use/skip, `awaitingTargets` for target selection/skip after activation, `awaitingPeekDone` while a peek waits for Done, or `awaitingSwap` for a black queen/king's later swap/skip; otherwise null.
 - `pendingMatch` stores the winning matcher, recipient, and `awaitingGift` stage while a gift blocks turn actions; otherwise null. At most one gift can be pending.
 - `phase` distinguishes setup (`deal`), live play (`active`), the other players' final turns and grace (`finalRound`), completed results (`roundOver`), and abort (`gameAborted`). Abort resets back to an undealt `deal` lobby.
 - `cambioCalledBy` references the caller immediately; it can be non-null while phase remains `active` during that player's unfinished turn.
@@ -64,7 +64,7 @@ The exact `Power`, `Rank`, and `Suit` unions are declared in [server game types]
 
 - In an undealt `deal` lobby, hands are empty. During memorization, all four opening hands are dealt; `isReady` determines whether each player's own opening faces remain visible in a setup projection. [Setup and memorization](Game%20Rules.md#setup-and-memorization) defines readiness and starting play.
 - At most one player has a pending card, and that player owns the turn. `drawnCard`, `drawnFrom`, and `drawnCardRevealed` stay on that player throughout [draw and power resolution](Game%20Rules.md#turns-and-draw-resolution). Clear all three on swap, completed discard, or reset. Holding a power card through Done and a later swap/skip does not make another draw available.
-- Starting a turn sets `awaitingDraw`; a draw sets `awaitingDrawnCardResolution`; choosing direct discard of a power card sets `resolvingPower` and `awaitingChoice` without changing the current discard. A valid use sets the reveal flag before publishing the power result. A peek sets `awaitingPeekDone`; a black queen/king's Done changes only the stage to `awaitingSwap`. Completed resolution clears pending power fields and marks the new discard eligible.
+- Starting a turn sets `awaitingDraw`; a draw sets `awaitingDrawnCardResolution`; choosing direct discard of a power card sets `resolvingPower` and `awaitingChoice` without changing the current discard. A valid `usePower` activation sets the reveal flag and `awaitingTargets` before publishing `powerCardRevealed`, without applying an effect or advancing. Valid `choosePowerTargets` sets `awaitingPeekDone` for a peek or completes a jack swap; rejected targets retain the public card and target-selection stage. A black queen/king's Done changes only the stage to `awaitingSwap`. Completed resolution clears pending power fields and marks the new discard eligible.
 - `pendingMatch` suspends turn actions and advancement while preserving the underlying turn/draw state; matching can continue under the [matching rules](Game%20Rules.md#matching-gifts-and-penalties). Capacity and gift validity must be evaluated against current state, including intervening penalties.
 - [Cambio and scoring](Game%20Rules.md#cambio-final-grace-and-scoring) determine final-turn progression. During final grace, phase remains `finalRound` while `turn` and `turnStep` are null. A deadline that has passed may coexist with a pending gift; scoring waits for settlement.
 - At `roundOver`, store totals and winners, clear turn/draw/power/match state, reveal flags, and the grace deadline, and retain final hands/results. Later disconnects do not clear results.

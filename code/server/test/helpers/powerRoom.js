@@ -46,5 +46,11 @@ export async function powerRoom(t, rank = 7, lowDeck = false) {
     await prompt;
     await drain();
   }
-  return { ...room, clients, observer, records, clear, drain, draw, start, held };
+  async function activate() {
+    const events = clients.map(client => nextEvent(client, 'powerCardRevealed'));
+    clients[0].emit('usePower', {});
+    await Promise.all(events);
+    await drain();
+  }
+  return { ...room, clients, observer, records, clear, drain, draw, start, activate, held };
 }

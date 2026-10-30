@@ -15,54 +15,56 @@ function hook(localId = 'p1') {
 }
 const commands = socket => socket.emissions.filter(entry => entry.event !== 'joinRoom');
 
-it('prevents ordinary requests between power start and rerender, then sends Use only once', () => {
+it('activation and confirmation use one immediate lock and ignore duplicate reveals', () => {
   const { socket, result } = hook();
   const old = result.current.actions;
   act(() => {
     socket.receive('powerResolutionStarted', { playerId: 'p1' });
-    old.discardDrawnCard(); old.replaceHandCard(1); old.drawFromDeck();
-    old.usePower(2); old.skipPower(); old.finishPowerPeek();
+    old.usePower(); old.choosePowerTargets({ playerId: 'p1', handSlotId: 2 });
+    old.drawFromDeck(); old.replaceHandCard(1);
   });
   expect(commands(socket)).toEqual([]);
-  expect(result.current.state.powerPrompt).toBeNull();
   act(() => socket.receive('powerAvailable', { power: 'selfPeek' }));
-  act(() => {
-    result.current.actions.usePower(2);
-    result.current.actions.usePower(3);
-    result.current.actions.skipPower();
-  });
-  expect(commands(socket)).toEqual([{ event: 'usePower', payload: { peekTarget: { playerId: 'p1', handSlotId: 2 } }, ack: undefined }]);
+  act(() => { old.usePower(); old.usePower(); old.skipPower(); });
+  expect(commands(socket)).toEqual([{ event: 'usePower', payload: {}, ack: undefined }]);
+  expect(result.current.permissions.canChoosePowerTargets).toBe(false);
   act(() => socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 7 }));
-  act(() => socket.receive('powerResolutionStarted', { playerId: 'p1' }));
+  expect(result.current.permissions).toMatchObject({ canUsePower: false, canChoosePowerTargets: true, canSkipPower: true });
+  act(() => {
+    old.choosePowerTargets({ playerId: 'p1', handSlotId: 2 });
+    socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 7 });
+    old.choosePowerTargets({ playerId: 'p1', handSlotId: 3 }); old.skipPower(); old.usePower();
+  });
+  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower', 'choosePowerTargets']);
   expect(result.current.state.turnPending).toBe(true);
-  act(() => result.current.actions.usePower(1));
-  expect(commands(socket)).toHaveLength(1);
   act(() => socket.receive('powerPeekResult', peek));
   expect(result.current.permissions.canFinishPowerPeek).toBe(true);
 });
 
-it('restores Use/Skip choices after rejection and holds Skip locked until turn advancement', () => {
+it('rejected activation and target submission restore their own stages and Skip remains locked', () => {
   const { socket, result } = hook();
   act(() => startPower(socket));
-  act(() => result.current.actions.usePower(8));
-  expect(commands(socket)).toEqual([]);
-  act(() => result.current.actions.usePower(2));
+  act(() => result.current.actions.usePower());
+  act(() => socket.receive('error', { code: 'POWER_NOT_AVAILABLE', message: 'Retry activation' }));
+  expect(result.current.permissions.canUsePower).toBe(true);
+  act(() => result.current.actions.usePower());
+  act(() => socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 7 }));
+  act(() => result.current.actions.choosePowerTargets({ playerId: 'p1', handSlotId: 8 }));
+  expect(commands(socket)).toHaveLength(2);
+  act(() => result.current.actions.choosePowerTargets({ playerId: 'p1', handSlotId: 2 }));
   act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Try another card' }));
-  expect(result.current.permissions).toMatchObject({ canUsePower: true, canSkipPower: true, canReplace: false, canDiscardDrawn: false });
-  act(() => { result.current.actions.skipPower(); result.current.actions.usePower(2); result.current.actions.skipPower(); });
-  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower', 'skipPower']);
-  act(() => socket.receive('error', { code: 'POWER_NOT_AVAILABLE', message: 'Retry' }));
-  expect(result.current.permissions.canSkipPower).toBe(true);
+  expect(result.current.permissions).toMatchObject({ canUsePower: false, canChoosePowerTargets: true, canSkipPower: true, canReplace: false });
+  act(() => { result.current.actions.skipPower(); result.current.actions.skipPower(); });
+  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower', 'usePower', 'choosePowerTargets', 'skipPower']);
+  act(() => socket.receive('error', { code: 'POWER_NOT_AVAILABLE', message: 'Retry Skip' }));
   act(() => result.current.actions.skipPower());
   const old = result.current.actions;
   act(() => {
     socket.receive('discardPileUpdated', { top: { cardId: 7 } });
-    old.usePower(2); old.skipPower(); old.drawFromDeck(); old.discardDrawnCard();
+    old.usePower(); old.choosePowerTargets({ playerId: 'p1', handSlotId: 2 }); old.skipPower(); old.drawFromDeck();
   });
-  expect(commands(socket)).toHaveLength(3);
-  expect(result.current.state).toMatchObject({ drawnCard: null, resolvingPower: false, powerPrompt: null, awaitingTurn: true });
-  act(() => socket.receive('turnChanged', { playerId: 'p2' }));
-  expect(result.current.state.turnPending).toBe(false);
+  expect(commands(socket)).toHaveLength(5);
+  expect(result.current.state).toMatchObject({ drawnCard: null, powerPrompt: null, awaitingTurn: true });
 });
 
 it('keeps peeks until Done, hides during its request, restores on rejection, and erases on completion', () => {
@@ -93,7 +95,7 @@ it('gives opponents public held-card faces and facedown targets but no power com
   expect(result.current.state.drawnCard).toEqual({ playerId: 'p1', source: 'deck', faceUp: true, cardId: 7 });
   expect(result.current.view.powerPeekTargets).toEqual([{ playerId: 'p1', handSlotId: 2, faceUp: false }]);
   expect(result.current.state.powerPrompt).toBeNull();
-  act(() => { result.current.actions.usePower(2); result.current.actions.skipPower(); result.current.actions.finishPowerPeek(); });
+  act(() => { result.current.actions.choosePowerTargets({ playerId: 'p1', handSlotId: 2 }); result.current.actions.skipPower(); result.current.actions.finishPowerPeek(); });
   expect(commands(socket)).toEqual([]);
 });
 
@@ -106,7 +108,7 @@ it.each(['abort', 'deal', 'turn', 'loss'])('clears faces and blocks old actions/
     else if (boundary === 'deal') socket.receive('dealComplete', { cards });
     else if (boundary === 'turn') socket.receive('turnChanged', { playerId: 'p2' });
     else socket.disconnect();
-    old.finishPowerPeek(); old.skipPower(); old.usePower(2);
+    old.finishPowerPeek(); old.skipPower(); old.choosePowerTargets({ playerId: 'p1', handSlotId: 2 });
     startPower(socket); revealPeek(socket);
   });
   expect(commands(socket)).toEqual([]);
@@ -128,12 +130,31 @@ it('cleans all StrictMode listeners and ignores saved callbacks after unmount/so
   act(() => {
     late[0]({ playerId: 'p1' }); late[1]({ power: 'selfPeek' });
     late[2]({ playerId: 'p1', faceUp: true, cardId: 8 }); late[3](peek);
-    oldActions.usePower(2); oldActions.skipPower();
+    oldActions.choosePowerTargets({ playerId: 'p1', handSlotId: 2 }); oldActions.skipPower();
   });
   expect(rendered.result.current.state).toBe(before);
   expect(commands(socket)).toEqual([]);
   rendered.unmount();
   for (const listeners of replacement.listeners.values()) expect(listeners.size).toBe(0);
-  act(() => { late[3](peek); oldActions.usePower(2); oldActions.skipPower(); });
+  act(() => { late[3](peek); oldActions.choosePowerTargets({ playerId: 'p1', handSlotId: 2 }); oldActions.skipPower(); });
   expect(commands(socket)).toEqual([]);
+});
+
+it('opponent actions reject own/missing targets and lock all turn commands immediately', () => {
+  const { socket, result } = hook();
+  act(() => { startPower(socket, 'p1', 'opponentPeek'); socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 9 }); });
+  act(() => {
+    for (const target of [{ playerId: 'p1', handSlotId: 2 }, { playerId: 'outsider', handSlotId: 2 }, { playerId: 'p2', handSlotId: 8 }]) result.current.actions.choosePowerTargets(target);
+  });
+  expect(commands(socket)).toEqual([]);
+  const old = result.current.actions;
+  act(() => {
+    old.choosePowerTargets({ playerId: 'p3', handSlotId: 2 });
+    old.choosePowerTargets({ playerId: 'p4', handSlotId: 2 });
+    old.skipPower(); old.drawFromDeck(); old.replaceHandCard(1);
+  });
+  expect(commands(socket)).toEqual([{ event: 'choosePowerTargets', payload: { peekTarget: { playerId: 'p3', handSlotId: 2 } }, ack: undefined }]);
+  act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Retry' }));
+  act(() => old.choosePowerTargets({ playerId: 'p4', handSlotId: 2 }));
+  expect(commands(socket)[1].payload.peekTarget.playerId).toBe('p4');
 });

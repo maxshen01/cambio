@@ -81,9 +81,61 @@ it('ignores mismatched notifications and strips face IDs from facedown peek resu
 
 it('duplicate power/draw events cannot unlock pending Done or reopen a choice', () => {
   const pending = reduce(viewing(), { type: 'powerActionRequested', action: 'finishPowerPeek' });
-  for (const late of [start, available, result, {
+  for (const late of [start, available, reveal, result, {
     type: 'drawnCardReceived', card: { playerId: 'p1', source: 'deck', faceUp: false },
   }]) expect(reduce(pending, late)).toBe(pending);
   expect(selectGameClient(pending).view.powerPeekTargets).toEqual([]);
   expect(selectGameClient(pending).permissions.canFinishPowerPeek).toBe(false);
+});
+
+for (const targetId of ['p2', 'p3', 'p4']) {
+  it('opponent peek accepts ' + targetId + ' and preserves its prompt identity through Done', () => {
+    let state = reduce(reduce(powerClientState(), start), { ...available, notice: { power: 'opponentPeek' } });
+    expect(selectGameClient(state).permissions.canUsePower).toBe(true);
+    state = reduce(state, reveal);
+    const ownResult = { ...result, notice: { targets: [{ ...peek.targets[0], playerId: 'p1' }] } };
+    expect(reduce(state, ownResult)).toBe(state);
+    state = reduce(state, { ...result, notice: { targets: [{ ...peek.targets[0], playerId: targetId }] } });
+    expect(state.powerPrompt).toEqual({ power: 'opponentPeek', stage: 'awaitingPeekDone' });
+    expect(state.powerPeekTargets[0]).toMatchObject({ playerId: targetId, faceUp: true, cardId: 12 });
+    expect(state.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+    const pending = reduce(state, { type: 'powerActionRequested', action: 'finishPowerPeek' });
+    expect(selectGameClient(pending).view.powerPeekTargets).toEqual([]);
+    const retry = reduce(pending, { type: 'serverErrorReceived', error: { code: 'POWER_NOT_AVAILABLE', message: 'Retry' } });
+    expect(selectGameClient(retry).view.powerPeekTargets).toEqual(state.powerPeekTargets);
+    for (const action of [
+      { type: 'discardPileReceived', top: { cardId: 9 } },
+      { type: 'turnChanged', playerId: 'p2' },
+      { type: 'dealReceived', cards },
+      { type: 'gameAborted', notice: { reason: 'SERVER_ERROR', lobby: { players } } },
+      { type: 'connectionLost' },
+    ]) {
+      const cleared = reduce(state, action);
+      expect(cleared.powerPeekTargets).toEqual([]);
+      expect(cleared.powerPrompt).toBeNull();
+      expect(reduce(cleared, result)).toBe(cleared);
+    }
+  });
+}
+it('targeted opponent strips even unexpected face IDs and receives no prompt', () => {
+  const state = [start, reveal].reduce(reduce, powerClientState('p2'));
+  const viewed = reduce(state, { ...result, notice: { targets: [{ ...peek.targets[0], playerId: 'p2' }] } });
+  expect(viewed.powerPeekTargets).toEqual([{ playerId: 'p2', handSlotId: 2, faceUp: false }]);
+  expect(viewed.powerPrompt).toBeNull();
+});
+
+it('activation confirms target selection once, preserving piles, hands, and movement', () => {
+  const before = [start, available].reduce(reduce, powerClientState());
+  expect(reduce(before, result)).toBe(before);
+  const pending = reduce(before, { type: 'powerActionRequested', action: 'usePower' });
+  const activated = reduce(pending, reveal);
+  expect(activated.powerPrompt.stage).toBe('awaitingTargets');
+  expect(activated.turnPending).toBe(false);
+  expect(activated.cards).toBe(before.cards);
+  expect(activated.discardTop).toBe(before.discardTop);
+  expect(activated.movement).toBe(before.movement);
+  for (const action of ['choosePowerTargets', 'skipPower']) {
+    const locked = reduce(activated, { type: 'powerActionRequested', action });
+    expect(reduce(locked, reveal)).toBe(locked);
+  }
 });

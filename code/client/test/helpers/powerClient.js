@@ -1,4 +1,4 @@
-// Independent client fixtures for self-peek state and fake-socket action tests.
+// Independent client fixtures for peek state and fake-socket action tests.
 import { initialGameClientState } from '../../src/game/gameClientState.js';
 
 export const players = [1, 2, 3, 4].map(seatId => ({
@@ -28,9 +28,9 @@ export function activatePowerClient(socket, localId = 'p1') {
   socket.receive('cardDrawn', powerClientState(localId).drawnCard);
 }
 
-export function startPower(socket, localId = 'p1') {
+export function startPower(socket, localId = 'p1', power = 'selfPeek') {
   socket.receive('powerResolutionStarted', { playerId: 'p1' });
-  if (localId === 'p1') socket.receive('powerAvailable', { power: 'selfPeek' });
+  if (localId === 'p1') socket.receive('powerAvailable', { power });
 }
 
 export function revealPeek(socket) {

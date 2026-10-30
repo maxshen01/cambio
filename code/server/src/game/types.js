@@ -30,7 +30,7 @@
  * @property {string | null} turn
  * @property {'awaitingDraw' | 'awaitingDrawnCardResolution' | 'resolvingPower' | null} turnStep
  * @property {Power | null} pendingPower
- * @property {'awaitingChoice' | 'awaitingPeekDone' | 'awaitingSwap' | null} pendingPowerStage
+ * @property {'awaitingChoice' | 'awaitingTargets' | 'awaitingPeekDone' | 'awaitingSwap' | null} pendingPowerStage
  * @property {{ matcherPlayerId: string, recipientPlayerId: string, stage: 'awaitingGift' } | null} pendingMatch
  * @property {'deal' | 'active' | 'finalRound' | 'roundOver' | 'gameAborted'} phase
  * @property {string | null} cambioCalledBy

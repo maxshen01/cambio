@@ -1,4 +1,4 @@
-// Deck/discard draws and resolution, including entry into 7/8 self-peek.
+// Deck/discard draws and resolution, including entry into 7–10 peeks.
 import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
 import { startPowerResolution } from './powers.js';
 import { DomainError } from './domainError.js';
@@ -44,18 +44,18 @@ function requireResolutionPlayer(state, id) {
   return player;
 }
 
-/** Start self-peek for a deck-drawn 7/8; other cards complete the ordinary discard.
+/** Start a peek for a deck-drawn 7–10; other cards complete the ordinary discard.
  * @param {GameState} state @param {string} id @param {() => number} [random]
- * @returns {{ kind: 'powerStarted', playerId: string, power: 'selfPeek' } | { kind: 'completed' }}
+ * @returns {{ kind: 'powerStarted', playerId: string, power: 'selfPeek' | 'opponentPeek' } | { kind: 'completed' }}
  */
 export function discardDrawnCard(state, id, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
   if (player.drawnFrom === 'discard') {
     throw new DomainError('MUST_SWAP_DISCARD_DRAW', 'Replace one of your hand cards with the discard draw.');
   }
-  if (player.drawnCard?.power === 'selfPeek') {
+  if (player.drawnCard?.power === 'selfPeek' || player.drawnCard?.power === 'opponentPeek') {
     startPowerResolution(state, id);
-    return { kind: 'powerStarted', playerId: id, power: 'selfPeek' };
+    return { kind: 'powerStarted', playerId: id, power: player.drawnCard.power };
   }
   finishTurn(state, player, /** @type {import('./types.js').Card} */ (player.drawnCard), random);
   return { kind: 'completed' };

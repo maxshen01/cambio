@@ -11,8 +11,9 @@ import { useCardMovements } from '../cards/useCardMovements.js';
 /** @typedef {{ resolving: boolean, prompt: import('../game/gameClientState.js').PowerPrompt | null,
  * peekTargets: import('../../../shared/protocol.js').CardView[],
  * pendingAction: import('../game/gameClientState.js').PowerAction | null,
- * canUse: boolean, canSkip: boolean, canDone: boolean,
- * onUse: (slot: import('../../../shared/protocol.js').HandSlotId) => void,
+ * canUse: boolean, canChooseTargets: boolean, canSkip: boolean, canDone: boolean,
+ * onUse: () => void,
+ * onConfirm: (target: import('../../../shared/protocol.js').HandSlotRef) => void,
  * onSkip: () => void, onDone: () => void }} BoardPower */
 
 /** Display recipient-authorized hands and actions; empty positions reserve invisible space.
@@ -43,36 +44,39 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
   });
   const prompt = power?.resolving && drawnCard?.playerId === identity.playerId && turnPlayerId === identity.playerId
     ? power.prompt : null;
-  const [selecting, setSelecting] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState(/** @type {import('../../../shared/protocol.js').HandSlotId | null} */ (null));
-  const selected = useRef(/** @type {import('../../../shared/protocol.js').HandSlotId | null} */ (null));
-  const choosing = prompt?.stage === 'awaitingChoice';
-  const selectionMode = choosing && selecting;
+  const [selectedTarget, setSelectedTarget] = useState(/** @type {import('../../../shared/protocol.js').HandSlotRef | null} */ (null));
+  const confirming = useRef(false);
+  const selectionMode = prompt?.stage === 'awaitingTargets';
+  const targetExists = selectedTarget && cards.some(card => card.playerId === selectedTarget.playerId
+    && card.handSlotId === selectedTarget.handSlotId);
   useEffect(() => {
-    setSelecting(false);
-    setSelectedSlot(null);
-    selected.current = null;
+    setSelectedTarget(null);
+    confirming.current = false;
   }, [prompt, turnPlayerId, drawnCard?.playerId]);
   useEffect(() => {
-    if (power?.pendingAction !== 'usePower') {
-      setSelectedSlot(null);
-      selected.current = null;
+    if (power?.pendingAction !== 'choosePowerTargets') {
+      setSelectedTarget(null);
+      confirming.current = false;
     }
   }, [power?.pendingAction]);
   useEffect(() => {
-    if (selectionMode && power?.canUse && artwork.ready) {
+    if (selectionMode && power?.canChooseTargets && artwork.ready) {
       const first = board.current?.querySelector('button[data-card-action="peek"]:enabled');
       if (first instanceof HTMLButtonElement) first.focus();
     }
-  }, [selectionMode, power?.canUse, artwork.ready]);
-  /** Lock the selected outline before invoking the already-guarded client command.
-   * @param {import('../../../shared/protocol.js').HandSlotId} slot
+  }, [selectionMode, power?.canChooseTargets, artwork.ready]);
+  /** Draft selection remains local until the player confirms it.
+   * @param {import('../../../shared/protocol.js').HandSlotRef} target
    */
-  function chooseTarget(slot) {
-    if (!selectionMode || !power?.canUse || selected.current !== null) return;
-    selected.current = slot;
-    setSelectedSlot(slot);
-    power.onUse(slot);
+  function chooseTarget(target) {
+    if (!selectionMode || !power?.canChooseTargets || confirming.current) return;
+    setSelectedTarget(previous => previous?.playerId === target.playerId && previous.handSlotId === target.handSlotId ? null : target);
+  }
+  /** Keep the outline locked while the synchronous client command acquires its request lock. */
+  function confirmTarget() {
+    if (!selectionMode || !power?.canChooseTargets || !selectedTarget || !targetExists || confirming.current) return;
+    confirming.current = true;
+    power.onConfirm(selectedTarget);
   }
   useCardMovements(board, movement, artwork.ready);
   const drawer = players.find(player => player.playerId === drawnCard?.playerId);
@@ -91,20 +95,22 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
             position={getSeatPosition(player.seatId, identity.seatId)}
             isCurrentTurn={player.playerId === turnPlayerId} showReadiness={!turnPlayerId}
             artworkReady={artwork.ready}
-            actionMode={player.playerId !== identity.playerId ? 'none' : selectionMode ? 'peek'
-              : !power?.resolving && turnPlayerId ? 'replace' : 'none'}
-            canAct={selectionMode ? Boolean(power?.canUse) : canReplace}
-            selectedSlot={player.playerId === identity.playerId ? selectedSlot : null} peekTargets={targets}
-            onAction={selectionMode ? chooseTarget : onSwap} />
+            actionMode={selectionMode
+              ? ((prompt?.power === 'selfPeek' ? player.playerId === identity.playerId : player.playerId !== identity.playerId) ? 'peek' : 'none')
+              : player.playerId === identity.playerId && !power?.resolving && turnPlayerId ? 'replace' : 'none'}
+            canAct={selectionMode ? Boolean(power?.canChooseTargets) : canReplace}
+            selectedSlot={player.playerId === selectedTarget?.playerId ? selectedTarget.handSlotId : null} peekTargets={targets}
+            onAction={slot => selectionMode ? chooseTarget({ playerId: player.playerId, handSlotId: slot }) : onSwap(slot)} />
         ))}
       </ol>
       <CardPiles artworkReady={artwork.ready} drawnCard={drawnCard} discardTop={discardTop}
         highlightDrawn={Boolean(prompt)}
         drawerName={drawer?.displayName} canDraw={canDraw} canDrawDiscard={canDrawDiscard} canDiscardDrawn={canDiscardDrawn}
         onDraw={onDraw} onDrawDiscard={onDrawDiscard} onDiscard={onDiscard} />
-      {power && <PowerControls prompt={prompt} selecting={selectionMode}
-        canUse={power.canUse && artwork.ready} canSkip={power.canSkip} canDone={power.canDone}
-        onSelect={() => setSelecting(true)} onSkip={power.onSkip} onDone={power.onDone} />}
+      {power && <PowerControls prompt={prompt}
+        canUse={power.canUse && artwork.ready} canConfirm={Boolean(power.canChooseTargets && targetExists && artwork.ready)}
+        canSkip={power.canSkip} canDone={power.canDone}
+        onUse={power.onUse} onConfirm={confirmTarget} onSkip={power.onSkip} onDone={power.onDone} />}
       <GameControls canReady={canReady && artwork.ready} onReady={onReady} />
     </section>
   );

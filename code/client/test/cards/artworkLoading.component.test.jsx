@@ -48,22 +48,22 @@ async function finish(...urls) {
   });
 }
 
-it('keeps the shared held card and baseline hands visible while peek artwork loads, fails, and retries', async () => {
+it.each(['selfPeek', 'opponentPeek'])('%s keeps the shared held card and baseline hands visible while peek artwork loads, fails, and retries', async power => {
   const user = userEvent.setup();
   const boardProps = {
     ...props(), canReady: false, turnPlayerId: 'p1',
     cards: cards().map(({ playerId, handSlotId }) => ({ playerId, handSlotId, faceUp: false })),
     drawnCard: { playerId: 'p1', source: 'deck', faceUp: true, cardId: 7 },
-    power: { resolving: true, prompt: { power: 'selfPeek', stage: 'awaitingChoice' }, peekTargets: [],
-      pendingAction: null, canUse: true, canSkip: true, canDone: false,
-      onUse: vi.fn(), onSkip: vi.fn(), onDone: vi.fn() },
+    power: { resolving: true, prompt: { power, stage: 'awaitingChoice' }, peekTargets: [],
+      pendingAction: null, canUse: true, canChooseTargets: false, canSkip: true, canDone: false,
+      onUse: vi.fn(), onConfirm: vi.fn(), onSkip: vi.fn(), onDone: vi.fn() },
   };
   const view = render(<GameBoard {...boardProps} />);
   await finish(CARD_BACK_IMAGE, CARD_IMAGES[7]);
   const shared = screen.getByRole('img', { name: 'Drawn card for Player 1, face up' });
   const viewing = { ...boardProps, power: { ...boardProps.power,
-    prompt: { power: 'selfPeek', stage: 'awaitingPeekDone' }, canUse: false, canSkip: false, canDone: true,
-    peekTargets: [{ playerId: 'p1', handSlotId: 2, faceUp: true, cardId: 12 }],
+    prompt: { power, stage: 'awaitingPeekDone' }, canUse: false, canSkip: false, canDone: true,
+    peekTargets: [{ playerId: power === 'selfPeek' ? 'p1' : 'p2', handSlotId: 2, faceUp: true, cardId: 12 }],
   } };
   view.rerender(<GameBoard {...viewing} />);
   expect(screen.getByRole('status')).toHaveTextContent('Loading cards');

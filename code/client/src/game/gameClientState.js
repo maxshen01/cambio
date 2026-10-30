@@ -5,8 +5,8 @@
  * @typedef {import('../../../shared/protocol.js').LobbyError} LobbyError
  * @typedef {'connecting' | 'connected' | 'failed' | 'lost'} Connection
  * @typedef {{ code: 'CONNECTION_FAILED' | 'CONNECTION_LOST', message: string } | LobbyError} DisplayError
- * @typedef {'usePower' | 'skipPower' | 'finishPowerPeek'} PowerAction
- * @typedef {{ power: 'selfPeek', stage: 'awaitingChoice' | 'awaitingPeekDone' }} PowerPrompt
+ * @typedef {'usePower' | 'choosePowerTargets' | 'skipPower' | 'finishPowerPeek'} PowerAction
+ * @typedef {{ power: 'selfPeek' | 'opponentPeek', stage: 'awaitingChoice' | 'awaitingTargets' | 'awaitingPeekDone' }} PowerPrompt
  * @typedef {Object} GameClientState
  * @property {Connection} connection
  * @property {Identity | null} identity

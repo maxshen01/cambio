@@ -88,15 +88,24 @@ export function useGameActions({ socket, dispatch, session }) {
     logClientEvent('swapDrawnCard', 'sent');
   }
 
-  /** The held card grants the power; handSlotId selects the own-hand card to peek at.
-   * @param {import('../../../shared/protocol.js').HandSlotId} handSlotId
-   */
-  function usePower(handSlotId) {
-    const state = control.state;
-    if (!state.identity || !state.cards.some(card => card.playerId === state.identity?.playerId && card.handSlotId === handSlotId)
-      || !beginTurnRequest('canUsePower', 'usePower')) return;
-    socket.emit('usePower', { peekTarget: { playerId: state.identity.playerId, handSlotId } });
+  /** Activate first; the public reveal confirms when target selection may begin. */
+  function usePower() {
+    if (!beginTurnRequest('canUsePower', 'usePower')) return;
+    socket.emit('usePower', {});
     logClientEvent('usePower', 'sent');
+  }
+
+  /** Check current occupancy and power-specific ownership before locking the request.
+   * @param {import('../../../shared/protocol.js').HandSlotRef} target
+   */
+  function choosePowerTargets(target) {
+    const state = control.state;
+    if (!state.identity || !target || !state.powerPrompt
+      || (state.powerPrompt.power === 'selfPeek' ? target.playerId !== state.identity.playerId : target.playerId === state.identity.playerId)
+      || !state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId)
+      || !beginTurnRequest('canChoosePowerTargets', 'choosePowerTargets')) return;
+    socket.emit('choosePowerTargets', { peekTarget: { playerId: target.playerId, handSlotId: target.handSlotId } });
+    logClientEvent('choosePowerTargets', 'sent');
   }
   function skipPower() {
     if (!beginTurnRequest('canSkipPower', 'skipPower')) return;
@@ -110,5 +119,5 @@ export function useGameActions({ socket, dispatch, session }) {
   }
 
   return { joinLobby, notifyNameChanged, toggleReady, retryConnection,
-    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard, usePower, skipPower, finishPowerPeek };
+    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard, usePower, choosePowerTargets, skipPower, finishPowerPeek };
 }
