@@ -5,9 +5,10 @@ import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
  * drawnCard: import('../../../shared/protocol.js').DrawnCardView | null,
  * discardTop: import('../../../shared/protocol.js').DiscardView | null,
  * drawerName?: string, canDraw: boolean, canDrawDiscard: boolean, canDiscardDrawn: boolean,
+ * highlightDrawn?: boolean,
  * onDraw: () => void, onDrawDiscard: () => void, onDiscard: () => void }} props
  */
-export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, canDraw, canDrawDiscard, canDiscardDrawn, onDraw, onDrawDiscard, onDiscard }) {
+export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, canDraw, canDrawDiscard, canDiscardDrawn, highlightDrawn = false, onDraw, onDrawDiscard, onDiscard }) {
   return (
     <div className="setup-piles">
       <div className="setup-deck">{artworkReady && <button type="button" className="card-action"
@@ -20,7 +21,7 @@ export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, can
           <img className="setup-card" src={CARD_IMAGES[discardTop.cardId]} alt="Discard pile" draggable={false} />
         </button>}
       </div>
-      <div className="setup-drawn" aria-hidden={drawnCard ? undefined : true}>
+      <div className={`setup-drawn${highlightDrawn ? ' setup-drawn--power' : ''}`} aria-hidden={drawnCard ? undefined : true}>
         {drawnCard && artworkReady && <button type="button" className="card-action" aria-label="Discard drawn card"
           disabled={!canDiscardDrawn} onClick={onDiscard}>
           <img className="setup-card" draggable={false}

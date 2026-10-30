@@ -1,4 +1,4 @@
-// Composes joining, the lobby, memorization, and ordinary deck/discard turns.
+// Composes joining, setup, turns, and the recipient-authorized self-peek UI.
 import { JoinDialog } from './lobby/JoinDialog.jsx';
 import { LobbyScreen } from './lobby/LobbyScreen.jsx';
 import { GameBoard } from './board/GameBoard.jsx';
@@ -27,6 +27,9 @@ export function App({ socket }) {
         {stage !== 'lobby' && identity ? (
           <GameBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
             drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw}
+            power={{ resolving: state.resolvingPower, prompt: state.powerPrompt, peekTargets: view.powerPeekTargets,
+              pendingAction: state.pendingPowerAction, canUse: permissions.canUsePower, canSkip: permissions.canSkipPower,
+              canDone: permissions.canFinishPowerPeek, onUse: actions.usePower, onSkip: actions.skipPower, onDone: actions.finishPowerPeek }}
             canDrawDiscard={canDrawDiscard} canReplace={canReplace} canDiscardDrawn={canDiscardDrawn}
             onDraw={drawFromDeck} onDrawDiscard={drawFromDiscard} onDiscard={discardDrawnCard} onSwap={replaceHandCard} canReady={canReady} onReady={toggleReady} />
         ) : <LobbyScreen players={players} localSeatId={identity?.seatId}

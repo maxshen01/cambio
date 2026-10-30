@@ -7,11 +7,13 @@ const handSlots = [1, 2, 3, 4, 5, 6, 7, 8];
 /** @param {{ player: import('../../../shared/protocol.js').PlayerSummary,
  * cards: import('../../../shared/protocol.js').CardView[], position: string,
  * isCurrentTurn: boolean, showReadiness: boolean, artworkReady: boolean,
- * replacementMode: boolean, canReplaceCard: boolean,
- * onReplaceCard: (slot: import('../../../shared/protocol.js').HandSlotId) => void }} props
+ * actionMode: 'replace' | 'peek' | 'none', canAct: boolean,
+ * selectedSlot: import('../../../shared/protocol.js').HandSlotId | null,
+ * peekTargets: import('../../../shared/protocol.js').CardView[],
+ * onAction: (slot: import('../../../shared/protocol.js').HandSlotId) => void }} props
  */
 export function PlayerHand({ player, cards, position, isCurrentTurn, showReadiness, artworkReady,
-  replacementMode, canReplaceCard, onReplaceCard }) {
+  actionMode, canAct, selectedSlot, peekTargets, onAction }) {
   return (
     <li className={`setup-player setup-player--${position}${isCurrentTurn ? ' setup-player--current' : ''}`}
       aria-label={`Seat ${player.seatId}`} aria-current={isCurrentTurn ? 'true' : undefined}>
@@ -28,7 +30,9 @@ export function PlayerHand({ player, cards, position, isCurrentTurn, showReadine
           {handSlots.map(slot => (
             <HandSlot key={slot} playerId={player.playerId} slot={slot}
               card={cards.find(card => card.handSlotId === slot)} artworkReady={artworkReady}
-              replacementMode={replacementMode} canReplaceCard={canReplaceCard} onReplaceCard={onReplaceCard} />
+              actionMode={actionMode} canAct={canAct} selected={selectedSlot === slot}
+              peeked={peekTargets.some(card => card.playerId === player.playerId && card.handSlotId === slot)}
+              onAction={onAction} />
           ))}
         </div>
       </div>

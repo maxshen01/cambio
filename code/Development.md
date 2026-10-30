@@ -88,6 +88,7 @@ Run from `code/client`; scripts are defined in [package.json](client/package.jso
 | `npm.cmd run build`            | Production build                                                     |
 | `npm.cmd run test:lobby`       | Join form, lobby, readiness, and real-socket lobby-to-deal flow      |
 | `npm.cmd run test:setup`       | Memorization, private faces, and departure/redeal behavior           |
+| `npm.cmd run test:powers`      | Self-peek client state/actions, private faces, guards, and cleanup   |
 | `npm.cmd run test:cards`       | Artwork loading, caching, failure, and retry                         |
 | `npm.cmd run test:recovery`    | Connection failure/loss, retry, stale callbacks, cleanup             |
 | `npm.cmd run test:fast`        | Unit and fake-socket component tests                                 |

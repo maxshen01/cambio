@@ -10,12 +10,15 @@ export function selectGameClient(state) {
   const allReady = state.players.filter(player => player.isReady).length === 4;
   const ownTurn = connected && joined && state.stage === 'active' && state.turnPlayerId === state.identity?.playerId
     && !state.turnPending && !state.awaitingTurn;
-  const canReplace = ownTurn && state.drawnCard?.playerId === state.identity?.playerId;
-  const canDraw = ownTurn && !state.drawnCard;
+  const ownPendingCard = ownTurn && state.drawnCard?.playerId === state.identity?.playerId;
+  const canReplace = ownPendingCard && !state.resolvingPower;
+  const canDraw = ownTurn && !state.drawnCard && !state.resolvingPower;
+  const powerChoice = ownPendingCard && state.resolvingPower && state.powerPrompt?.power === 'selfPeek';
   return {
     view: {
       connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
       connectionStatus: selectConnectionStatus(state, joined),
+      powerPeekTargets: state.pendingPowerAction === 'finishPowerPeek' ? [] : state.powerPeekTargets,
     },
     permissions: {
       canJoin: connected && !state.joinPending && !state.identity,
@@ -26,6 +29,9 @@ export function selectGameClient(state) {
       canDrawDiscard: canDraw && state.discardTop !== null,
       canReplace,
       canDiscardDrawn: canReplace && state.drawnCard?.source === 'deck',
+      canUsePower: powerChoice && state.powerPrompt?.stage === 'awaitingChoice',
+      canSkipPower: powerChoice && state.powerPrompt?.stage === 'awaitingChoice',
+      canFinishPowerPeek: powerChoice && state.powerPrompt?.stage === 'awaitingPeekDone',
     },
   };
 }

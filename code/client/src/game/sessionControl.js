@@ -2,14 +2,16 @@
 /** @typedef {import('socket.io-client').Socket<import('../../../shared/protocol.js').ServerEvents, import('../../../shared/protocol.js').ClientEvents>} GameSocket */
 /** @typedef {import('react').Dispatch<import('./gameClientState.js').GameClientAction>} ClientDispatch */
 /** @typedef {{ generation: number, active: boolean, lost: boolean, connecting: boolean,
- * joinPending: boolean, readyPlayerId: string | null, turnPending: boolean }} SessionControl */
+ * joinPending: boolean, readyPlayerId: string | null, turnPending: boolean,
+ * state: import('./gameClientState.js').GameClientState, socket: GameSocket | null }} SessionControl */
 /** @typedef {import('react').RefObject<SessionControl>} SessionRef */
 
 /** The composition hook retains one control object for its entire mounted session.
+ * @param {import('./gameClientState.js').GameClientState} state
  * @returns {SessionControl}
  */
-export function createSessionControl() {
-  return { generation: 0, active: false, lost: false, connecting: false,
+export function createSessionControl(state) {
+  return { state, socket: null, generation: 0, active: false, lost: false, connecting: false,
     joinPending: false, readyPlayerId: null, turnPending: false };
 }
 

@@ -3,6 +3,7 @@ import {
   applyDeal, beginTurn, clearDisconnectedSession, confirmReadiness,
   receiveDrawnCard, resolveDiscard, resolveSwap, returnToLobby,
 } from './gameTransitions.js';
+import { clearedPowerState, startPower, offerPower, revealPowerCard, receivePowerPeek } from './powerTransitions.js';
 
 /** Lost sessions cannot be restored by late actions.
  * @param {import('./gameClientState.js').GameClientState} state
@@ -15,7 +16,7 @@ export function gameClientReducer(state, action) {
     case 'connectionEstablished':
       return { ...state, connection: 'connected', error: null };
     case 'connectionFailed':
-      return { ...state, connection: 'failed', joinPending: false, readyPending: false, turnPending: false,
+      return { ...state, ...clearedPowerState(), connection: 'failed', joinPending: false, readyPending: false, turnPending: false,
         error: { code: 'CONNECTION_FAILED', message: 'Unable to connect to the server.' } };
     case 'connectionLost':
       return clearDisconnectedSession(state);
@@ -50,13 +51,23 @@ export function gameClientReducer(state, action) {
       return resolveDiscard(state, action.top);
     case 'cardSwapReceived':
       return resolveSwap(state, action.notice);
+    case 'powerResolutionStarted':
+      return startPower(state, action.notice);
+    case 'powerAvailable':
+      return offerPower(state, action.notice);
+    case 'powerCardRevealed':
+      return revealPowerCard(state, action.card);
+    case 'powerPeekResult':
+      return receivePowerPeek(state, action.notice);
+    case 'powerActionRequested':
+      return { ...state, turnPending: true, pendingPowerAction: action.action, error: null };
     case 'readyRequested':
       return { ...state, readyPending: true, error: null };
     case 'serverErrorReceived': {
       if (state.connection !== 'connected') return state;
       const stale = action.error.code === 'INVALID_NAME' && state.joinPending
         && state.submittedNameRevision !== state.nameRevision;
-      return { ...state, joinPending: false, readyPending: false, turnPending: false,
+      return { ...state, joinPending: false, readyPending: false, turnPending: false, pendingPowerAction: null,
         error: stale ? state.error : action.error };
     }
   }

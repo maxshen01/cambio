@@ -1,4 +1,5 @@
 // Pure, atomic transitions for the server-confirmed client view.
+import { clearedPowerState } from './powerTransitions.js';
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 /** @typedef {import('../../../shared/protocol.js').CardView} CardView */
 /** @typedef {import('../../../shared/protocol.js').PlayerSummary} PlayerSummary */
@@ -29,6 +30,7 @@ export function applyDeal(state, cards) {
   return {
     ...state,
     stage: 'memorization',
+    ...clearedPowerState(),
     players: state.players.map(player => ({ ...player, isReady: false })),
     cards: cards.map(card => ({ ...card })),
     turnPlayerId: null,
@@ -76,6 +78,7 @@ export function beginTurn(state, playerId) {
   return {
     ...state,
     stage: 'active',
+    ...clearedPowerState(),
     turnPlayerId: playerId,
     cards: hideHandCards(state.cards),
     drawnCard: null,
@@ -93,7 +96,8 @@ export function beginTurn(state, playerId) {
  * @returns {GameClientState}
  */
 export function receiveDrawnCard(state, card) {
-  if (state.connection !== 'connected' || state.stage !== 'active' || card.playerId !== state.turnPlayerId) return state;
+  if (state.connection !== 'connected' || state.stage !== 'active' || card.playerId !== state.turnPlayerId
+    || state.resolvingPower) return state;
   const drawnCard = card.faceUp
     ? { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (true), cardId: card.cardId }
     : { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (false) };
@@ -121,6 +125,7 @@ export function resolveDiscard(state, top) {
   return {
     ...state,
     discardTop: top ? { cardId: top.cardId } : null,
+    ...clearedPowerState(),
     drawnCard: null,
     awaitingTurn: true,
     movementId: state.movementId + 1,
@@ -139,6 +144,7 @@ export function resolveSwap(state, notice) {
   const target = notice.target;
   return {
     ...state,
+    ...clearedPowerState(),
     drawnCard: null,
     awaitingTurn: true,
     cards: state.cards.map(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId
@@ -158,6 +164,7 @@ export function returnToLobby(state, players) {
     ...state,
     players,
     stage: 'lobby',
+    ...clearedPowerState(),
     cards: [],
     turnPlayerId: null,
     drawnCard: null,
