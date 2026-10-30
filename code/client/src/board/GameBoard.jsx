@@ -13,7 +13,7 @@ import { useCardMovements } from '../cards/useCardMovements.js';
  * pendingAction: import('../game/gameClientState.js').PowerAction | null,
  * canUse: boolean, canChooseTargets: boolean, canSkip: boolean, canDone: boolean,
  * onUse: () => void,
- * onConfirm: (target: import('../../../shared/protocol.js').HandSlotRef | import('../../../shared/protocol.js').PlayerSwap) => void,
+ * onConfirm: (target: import('../../../shared/protocol.js').HandSlotRef | import('../../../shared/protocol.js').HandSlotRef[] | import('../../../shared/protocol.js').PlayerSwap) => void,
  * onSkip: () => void, onDone: () => void }} BoardPower */
 
 /** Display recipient-authorized hands and actions; empty positions reserve invisible space.
@@ -46,17 +46,19 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
     ? power.prompt : null;
   const [selectedTargets, setSelectedTargets] = useState(/** @type {import('../../../shared/protocol.js').HandSlotRef[]} */ ([]));
   const confirming = useRef(false);
-  const selectionMode = prompt?.stage === 'awaitingTargets';
-  const blindSwap = prompt?.power === 'blindSwap';
-  const targetsValid = selectedTargets.length === (blindSwap ? 2 : 1)
+  const selectionMode = prompt?.stage === 'awaitingTargets' || prompt?.stage === 'awaitingSwap';
+  const swapMode = prompt?.power === 'blindSwap' || prompt?.stage === 'awaitingSwap';
+  const peekSwap = prompt?.power === 'onePeekSwap' || prompt?.power === 'twoPeekSwap';
+  const requiredTargets = swapMode || prompt?.power === 'twoPeekSwap' ? 2 : 1;
+  const targetsValid = selectedTargets.length === requiredTargets
     && selectedTargets.every(target => cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId))
-    && (!blindSwap || selectedTargets[0].playerId !== selectedTargets[1].playerId);
+    && (!swapMode || selectedTargets[0].playerId !== selectedTargets[1].playerId);
   useEffect(() => {
     setSelectedTargets([]);
     confirming.current = false;
   }, [prompt, turnPlayerId, drawnCard?.playerId]);
   useEffect(() => {
-    if (power?.pendingAction !== 'choosePowerTargets') {
+    if (power?.pendingAction !== 'choosePowerTargets' && power?.pendingAction !== 'choosePowerSwap') {
       setSelectedTargets([]);
       confirming.current = false;
     }
@@ -76,8 +78,8 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
       if (previous.some(ref => ref.playerId === target.playerId && ref.handSlotId === target.handSlotId)) {
         return previous.filter(ref => ref.playerId !== target.playerId || ref.handSlotId !== target.handSlotId);
       }
-      if (!blindSwap) return [target];
-      if (previous.length === 2 || previous.some(ref => ref.playerId === target.playerId)) return previous;
+      if (requiredTargets === 1) return [target];
+      if (previous.length === 2 || swapMode && previous.some(ref => ref.playerId === target.playerId)) return previous;
       return [...previous, target];
     });
   }
@@ -85,7 +87,8 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
   function confirmTarget() {
     if (!selectionMode || !power?.canChooseTargets || !targetsValid || confirming.current) return;
     confirming.current = true;
-    power.onConfirm(blindSwap ? { first: selectedTargets[0], second: selectedTargets[1] } : selectedTargets[0]);
+    power.onConfirm(swapMode ? { first: selectedTargets[0], second: selectedTargets[1] }
+      : peekSwap ? selectedTargets : selectedTargets[0]);
   }
   useCardMovements(board, movement, artwork.ready, movement?.kind === 'powerSwap' && !drawnCard);
   const drawer = players.find(player => player.playerId === drawnCard?.playerId);
@@ -105,11 +108,11 @@ export function GameBoard({ players, cards, identity, turnPlayerId, drawnCard, d
             isCurrentTurn={player.playerId === turnPlayerId} showReadiness={!turnPlayerId}
             artworkReady={artwork.ready}
             actionMode={selectionMode
-              ? (blindSwap ? 'swap' : (prompt?.power === 'selfPeek' ? player.playerId === identity.playerId : player.playerId !== identity.playerId) ? 'peek' : 'none')
+              ? (swapMode ? 'swap' : (peekSwap || (prompt?.power === 'selfPeek' ? player.playerId === identity.playerId : player.playerId !== identity.playerId)) ? 'peek' : 'none')
               : player.playerId === identity.playerId && !power?.resolving && turnPlayerId ? 'replace' : 'none'}
             canAct={selectionMode ? Boolean(power?.canChooseTargets) : canReplace}
-            selectedSlot={selectionMode ? selectedTargets.find(target => target.playerId === player.playerId)?.handSlotId ?? null : null} peekTargets={targets}
-            selectionBlocked={blindSwap && (selectedTargets.length === 2 || selectedTargets.some(target => target.playerId === player.playerId))}
+            selectedSlots={selectionMode ? selectedTargets.filter(target => target.playerId === player.playerId).map(target => target.handSlotId) : []} peekTargets={targets}
+            selectionBlocked={requiredTargets === 2 && (selectedTargets.length === 2 || swapMode && selectedTargets.some(target => target.playerId === player.playerId))}
             onAction={slot => selectionMode ? chooseTarget({ playerId: player.playerId, handSlotId: slot }) : onSwap(slot)} />
         ))}
       </ol>

@@ -12,6 +12,46 @@ function viewing() {
   return [start, available, reveal, result].reduce(reduce, powerClientState());
 }
 
+function kingViewing(localId = 'p1') {
+  return [start, { type: 'powerAvailable', notice: { power: 'twoPeekSwap' } }, reveal,
+    { type: 'powerPeekResult', notice: { targets: [
+      { playerId: 'p1', handSlotId: 1, faceUp: true, cardId: 3 },
+      { playerId: 'p1', handSlotId: 2, faceUp: true, cardId: 4 },
+    ] } }].reduce(reduce, powerClientState(localId));
+}
+
+it('king Done hides both faces, opens swap without locking, and restores only on a stage rejection', () => {
+  const viewing = kingViewing();
+  expect(viewing.powerPeekTargets).toHaveLength(2);
+  const done = reduce(viewing, { type: 'powerActionRequested', action: 'finishPowerPeek' });
+  expect(done.powerPrompt.stage).toBe('awaitingSwap');
+  expect(selectGameClient(done).view.powerPeekTargets).toEqual([]);
+  expect(done.powerPeekTargets).toBe(viewing.powerPeekTargets);
+  expect(selectGameClient(done).permissions).toMatchObject({ canChoosePowerSwap: true, canFinishPowerPeek: false, canSkipPower: true, canDraw: false });
+  const choosing = reduce(done, { type: 'powerActionRequested', action: 'choosePowerSwap' });
+  const retry = reduce(choosing, { type: 'serverErrorReceived', error: { code: 'INVALID_POWER_TARGET', message: 'Retry swap' } });
+  expect(retry.powerPrompt.stage).toBe('awaitingSwap');
+  expect(selectGameClient(retry).view.powerPeekTargets).toEqual([]);
+  const restored = reduce(choosing, { type: 'serverErrorReceived', error: { code: 'POWER_NOT_AVAILABLE', message: 'Done rejected' } });
+  expect(restored.powerPrompt.stage).toBe('awaitingPeekDone');
+  expect(selectGameClient(restored).view.powerPeekTargets).toHaveLength(2);
+  const observer = kingViewing('p2');
+  expect(observer.powerPeekTargets).toEqual(viewing.powerPeekTargets.map(({ playerId, handSlotId }) => ({ playerId, handSlotId, faceUp: false })));
+});
+
+it.each(['abort', 'disconnect', 'deal', 'turn'])('erases the post-Done private buffer on %s', boundary => {
+  const done = reduce(kingViewing(), { type: 'powerActionRequested', action: 'finishPowerPeek' });
+  const actions = {
+    abort: { type: 'gameAborted', notice: { reason: 'SERVER_ERROR', lobby: { players } } },
+    disconnect: { type: 'connectionLost' },
+    deal: { type: 'dealReceived', cards },
+    turn: { type: 'turnChanged', playerId: 'p2' },
+  };
+  const reset = reduce(done, actions[boundary]);
+  expect(reset.powerPeekTargets).toEqual([]);
+  expect(reset.powerPrompt).toBeNull();
+});
+
 it('Jack retains the held card until discard and preserves its exchange through turn advancement', () => {
   let state = [start, { ...available, notice: { power: 'blindSwap' } }, reveal].reduce(reduce, powerClientState());
   const held = state.drawnCard;

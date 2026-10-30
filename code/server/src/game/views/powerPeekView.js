@@ -4,8 +4,7 @@
  * @returns {import('../../../../shared/protocol.js').PowerPeekResult}
  */
 export function toPowerPeekResult(result, powerUserId, recipientId) {
-  const { playerId, handSlotId } = result.target;
-  return { targets: [recipientId === powerUserId
-    ? { playerId, handSlotId, faceUp: true, cardId: result.card.cardId }
-    : { playerId, handSlotId, faceUp: false }] };
+  return { targets: result.targets.map(({ target: { playerId, handSlotId }, card }) => recipientId === powerUserId
+    ? { playerId, handSlotId, faceUp: true, cardId: card.cardId }
+    : { playerId, handSlotId, faceUp: false }) };
 }

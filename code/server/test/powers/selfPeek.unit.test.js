@@ -56,8 +56,8 @@ for (const rank of [7, 8, 9, 10]) {
     started.players[0].drawnCardRevealed = true;
     assert.deepEqual(state, started);
     assert.equal(player.drawnCard, held);
-    assert.deepEqual(result, { kind: 'peek', target, card: peeked });
-    assert.equal(result.card, peeked);
+    assert.deepEqual(result, { kind: 'peek', targets: [{ target, card: peeked }] });
+    assert.equal(result.targets[0].card, peeked);
     assert.equal(allCards(state).length, 108);
     // No timer or subsequent action is required to keep the peek pending.
     rejectsUnchanged(state, () => skipPower(state, 'p1'), 'POWER_NOT_AVAILABLE');
@@ -130,7 +130,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
       state => { state.players[0].drawnFrom = 'discard'; },
       state => { state.players[0].drawnFrom = null; },
       state => { state.players[0].drawnCard = null; },
-      state => { state.players[0].drawnCard = { ...state.players[0].drawnCard, power: 'onePeekSwap' }; },
+      state => { state.players[0].drawnCard = { ...state.players[0].drawnCard, power: null }; },
       state => { state.turnStep = 'awaitingDraw'; },
     ]) {
       const state = fixture();
@@ -138,7 +138,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
       rejectsUnchanged(state, () => action(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     }
   }
-  for (const rank of [1, 12, 13]) {
+  for (const rank of [1]) {
     const state = drawnPower(rank);
     rejectsUnchanged(state, () => startPowerResolution(state, 'p1'), 'POWER_NOT_AVAILABLE');
   }
@@ -181,7 +181,7 @@ test('Use distinguishes malformed actions from invalid own-hand targets after ac
   const slot = state.players[0].hand.pop();
   rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: { playerId: 'p1', handSlotId: slot.handSlotId } }), 'INVALID_POWER_TARGET');
   const result = choosePowerTargets(state, 'p1', { peekTarget: target, cardId: 999, power: 'blindSwap' });
-  assert.equal(result.card, state.players[0].hand[1].card);
+  assert.equal(result.targets[0].card, state.players[0].hand[1].card);
 });
 
 test('ordinary actions cannot draw, discard, or replace during any power stage', () => {
@@ -201,8 +201,8 @@ test('peek targets use stable occupied slot IDs, including later columns', () =>
   hand.reverse();
   const expected = hand.find(slot => slot.handSlotId === 8).card;
   const result = choosePowerTargets(state, 'p1', { peekTarget: { playerId: 'p1', handSlotId: 8 } });
-  assert.deepEqual(result.target, { playerId: 'p1', handSlotId: 8 });
-  assert.equal(result.card, expected);
+  assert.deepEqual(result.targets[0].target, { playerId: 'p1', handSlotId: 8 });
+  assert.equal(result.targets[0].card, expected);
 });
 
 for (const rank of [7, 9, 10]) {
@@ -272,7 +272,7 @@ for (const rank of [9, 10]) {
       hand.reverse();
       rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: { playerId: opponent, handSlotId: 1 } }), 'INVALID_POWER_TARGET');
       const target = { playerId: opponent, handSlotId: 8 };
-      assert.equal(choosePowerTargets(state, 'p1', { peekTarget: target }).card, hand.find(slot => slot.handSlotId === 8).card);
+      assert.equal(choosePowerTargets(state, 'p1', { peekTarget: target }).targets[0].card, hand.find(slot => slot.handSlotId === 8).card);
       rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: target }), 'POWER_NOT_AVAILABLE');
       rejectsUnchanged(state, () => skipPower(state, 'p1'), 'POWER_NOT_AVAILABLE');
       rejectsUnchanged(state, () => drawCard(state, 'p1', { source: 'deck' }), 'DRAW_NOT_AVAILABLE');

@@ -34,7 +34,7 @@ export function startPower(state, notice) {
 export function offerPower(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || state.powerPrompt
     || state.turnPlayerId !== state.identity?.playerId
-    || (notice.power !== 'selfPeek' && notice.power !== 'opponentPeek' && notice.power !== 'blindSwap')) return state;
+    || !['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap'].includes(notice.power)) return state;
   return { ...state, powerPrompt: { power: notice.power, stage: 'awaitingChoice' }, error: null };
 }
 
@@ -57,14 +57,17 @@ export function revealPowerCard(state, card) {
  */
 export function receivePowerPeek(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || !state.drawnCard?.faceUp
-    || state.powerPeekTargets.length || notice.targets.length !== 1) return state;
+    || state.powerPeekTargets.length || notice.targets.length < 1 || notice.targets.length > 2) return state;
   const owner = state.turnPlayerId === state.identity?.playerId;
   if (owner && (state.powerPrompt?.stage !== 'awaitingTargets' || state.powerPrompt.power === 'blindSwap')) return state;
-  const target = notice.targets[0];
-  if (owner && (state.powerPrompt?.power === 'selfPeek'
-    ? target.playerId !== state.turnPlayerId : target.playerId === state.turnPlayerId)) return state;
-  if (!state.cards.some(card =>
-    card.playerId === target.playerId && card.handSlotId === target.handSlotId)) return state;
+  if (owner && notice.targets.length !== (state.powerPrompt?.power === 'twoPeekSwap' ? 2 : 1)) return state;
+  if (notice.targets.length === 2 && notice.targets[0].playerId === notice.targets[1].playerId
+    && notice.targets[0].handSlotId === notice.targets[1].handSlotId) return state;
+  for (const target of notice.targets) {
+    if (owner && (state.powerPrompt?.power === 'selfPeek' && target.playerId !== state.turnPlayerId
+      || state.powerPrompt?.power === 'opponentPeek' && target.playerId === state.turnPlayerId)) return state;
+    if (!state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId)) return state;
+  }
   const powerPeekTargets = notice.targets.map(({ playerId, handSlotId, ...face }) =>
     owner && face.faceUp
       ? { playerId, handSlotId, faceUp: /** @type {const} */ (true), cardId: face.cardId }

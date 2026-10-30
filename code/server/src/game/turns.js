@@ -1,4 +1,4 @@
-// Deck/discard draws and resolution, including entry into 7–10 peeks.
+// Deck/discard draws and resolution, including entry into all card powers.
 import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
 import { startPowerResolution } from './powers.js';
 import { DomainError } from './domainError.js';
@@ -44,16 +44,16 @@ function requireResolutionPlayer(state, id) {
   return player;
 }
 
-/** Start a peek for a deck-drawn 7–10; other cards complete the ordinary discard.
+/** Start any deck-drawn power before discard; other cards complete the ordinary discard.
  * @param {GameState} state @param {string} id @param {() => number} [random]
- * @returns {{ kind: 'powerStarted', playerId: string, power: 'selfPeek' | 'opponentPeek' | 'blindSwap' } | { kind: 'completed' }}
+ * @returns {{ kind: 'powerStarted', playerId: string, power: NonNullable<import('./types.js').Power> } | { kind: 'completed' }}
  */
 export function discardDrawnCard(state, id, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
   if (player.drawnFrom === 'discard') {
     throw new DomainError('MUST_SWAP_DISCARD_DRAW', 'Replace one of your hand cards with the discard draw.');
   }
-  if (player.drawnCard?.power === 'selfPeek' || player.drawnCard?.power === 'opponentPeek' || player.drawnCard?.power === 'blindSwap') {
+  if (player.drawnCard?.power) {
     startPowerResolution(state, id);
     return { kind: 'powerStarted', playerId: id, power: player.drawnCard.power };
   }

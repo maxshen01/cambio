@@ -96,11 +96,11 @@ test('each turn action rejects a representative invalid request privately withou
     { target: { playerId: clients[1].id, handSlotId: 1 } }, 'INVALID_TARGET');
 });
 
-test('inactive powers discard immediately and power cards replace without effects', async t => {
+test('non-power cards discard immediately and power cards replace without effects', async t => {
   const { clients, gameState } = await activeHarness(t);
   const seen = [];
   clients[0].onAny(event => seen.push(event));
-  for (const [power, replace] of [['onePeekSwap', false], ['blindSwap', true], ['selfPeek', true], ['opponentPeek', true], ['twoPeekSwap', true]]) {
+  for (const [power, replace] of [[null, false], ['onePeekSwap', true], ['blindSwap', true], ['selfPeek', true], ['opponentPeek', true], ['twoPeekSwap', true]]) {
     const index = gameState.deck.cards.findIndex(card => card.power === power);
     const [card] = gameState.deck.cards.splice(index, 1);
     gameState.deck.cards.push(card);

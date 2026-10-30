@@ -1,6 +1,6 @@
 // Adapts turns, peeks, and blind swaps to authorized views and ordered notifications.
 import { drawCard, discardDrawnCard, swapDrawnCard } from '../../game/turns.js';
-import { usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../game/powers.js';
+import { usePower, choosePowerTargets, skipPower, finishPowerPeek, choosePowerSwap } from '../../game/powers.js';
 import { toDrawnCardView } from '../../game/views/drawnCardView.js';
 import { toPowerPeekResult } from '../../game/views/powerPeekView.js';
 import { PLAYER_ROOM } from '../rooms.js';
@@ -69,9 +69,15 @@ export function registerTurns(io, socket, state, run, random = Math.random) {
     logSocket('info', socket.id, 'skipPower', 'accepted');
   }));
   socket.on('finishPowerPeek', () => run(socket, 'finishPowerPeek', () => {
-    finishPowerPeek(state, socket.id, random);
-    publishResolution();
+    const result = finishPowerPeek(state, socket.id, random);
+    if (result.completed) publishResolution();
     logSocket('info', socket.id, 'finishPowerPeek', 'accepted');
+  }));
+  socket.on('choosePowerSwap', payload => run(socket, 'choosePowerSwap', () => {
+    const result = choosePowerSwap(state, socket.id, payload, random);
+    io.to(PLAYER_ROOM).emit('cardSwapped', { kind: 'power', first: result.first, second: result.second });
+    publishResolution();
+    logSocket('info', socket.id, 'choosePowerSwap', 'accepted');
   }));
   socket.on('swapDrawnCard', payload => run(socket, 'swapDrawnCard', () => {
     const handSlotId = swapDrawnCard(state, socket.id, payload, random);

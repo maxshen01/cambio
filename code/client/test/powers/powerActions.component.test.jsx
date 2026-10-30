@@ -15,6 +15,38 @@ function hook(localId = 'p1') {
 }
 const commands = socket => socket.emissions.filter(entry => entry.event !== 'joinRoom');
 
+it('sends Done before a post-peek swap in the same burst and guards stale callbacks', () => {
+  const { socket, result } = hook();
+  const actions = result.current.actions;
+  act(() => startPower(socket, 'p1', 'twoPeekSwap'));
+  act(() => actions.usePower());
+  act(() => socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 13 }));
+  const targets = [{ playerId: 'p1', handSlotId: 1 }, { playerId: 'p1', handSlotId: 2 }];
+  act(() => {
+    actions.choosePowerTargets([targets[0]]);
+    actions.choosePowerTargets([targets[0], targets[0]]);
+    actions.choosePowerSwap({ first: targets[0], second: { playerId: 'p2', handSlotId: 1 } });
+  });
+  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower']);
+  act(() => actions.choosePowerTargets(targets));
+  act(() => socket.receive('powerPeekResult', { targets: targets.map((ref, index) => ({ ...ref, faceUp: true, cardId: index + 2 })) }));
+  act(() => actions.skipPower());
+  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower', 'choosePowerTargets']);
+  const pair = { first: { playerId: 'p2', handSlotId: 1 }, second: { playerId: 'p3', handSlotId: 1 } };
+  act(() => {
+    actions.finishPowerPeek(); actions.finishPowerPeek(); actions.usePower();
+    actions.choosePowerSwap(pair); actions.choosePowerSwap(pair); actions.skipPower();
+  });
+  expect(commands(socket).map(entry => entry.event)).toEqual(['usePower', 'choosePowerTargets', 'finishPowerPeek', 'choosePowerSwap']);
+  act(() => socket.receive('error', { code: 'SWAP_NOT_ALLOWED', message: 'Retry' }));
+  expect(result.current.permissions).toMatchObject({ canChoosePowerSwap: true, canFinishPowerPeek: false });
+  act(() => {
+    socket.receive('disconnect', 'transport close');
+    actions.choosePowerSwap(pair); actions.finishPowerPeek(); actions.skipPower();
+  });
+  expect(commands(socket)).toHaveLength(4);
+});
+
 it('Jack validates current pair occupancy and ownership and locks even stale action callbacks', () => {
   const { socket, result } = hook();
   const actions = result.current.actions;

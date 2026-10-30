@@ -21,12 +21,12 @@
  * @typedef {{ playerId: string } & ({ faceUp: true, cardId: number } | { faceUp: false, cardId?: never })} DrawnCardView
  * @typedef {DrawnCardView & { source: 'deck' | 'discard' }} CardDrawnNotice
  * @typedef {{ cards: CardView[] }} DealComplete
- * @typedef {{ peekTarget: HandSlotRef } | PlayerSwap} ChoosePowerTargetsRequest
+ * @typedef {{ peekTarget: HandSlotRef } | { peekTargets: HandSlotRef[] } | PlayerSwap} ChoosePowerTargetsRequest
  * @typedef {{ playerId: string }} PowerResolutionStarted
- * @typedef {{ power: 'selfPeek' | 'opponentPeek' | 'blindSwap' }} PowerAvailable
+ * @typedef {{ power: 'selfPeek' | 'opponentPeek' | 'blindSwap' | 'onePeekSwap' | 'twoPeekSwap' }} PowerAvailable
  * @typedef {{ playerId: string, faceUp: true, cardId: number }} PowerCardRevealed
  * @typedef {{ targets: CardView[] }} PowerPeekResult
- * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING' | 'POWER_NOT_AVAILABLE' | 'INVALID_POWER_ACTION' | 'INVALID_POWER_TARGET' | 'SWAP_NOT_ALLOWED'} LobbyErrorCode
+ * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING' | 'POWER_NOT_AVAILABLE' | 'INVALID_POWER_ACTION' | 'INVALID_POWER_TARGET' | 'SWAP_NOT_ALLOWED' | 'INVALID_TARGET_COUNT'} LobbyErrorCode
  * @typedef {{ code: LobbyErrorCode, message: string }} LobbyError
  * @typedef {Object} ClientEvents
  * @property {(payload: JoinRequest, ack?: (identity: JoinAck) => void) => void} joinRoom
@@ -37,6 +37,7 @@
  * @property {(payload: DrawnSwapRequest) => void} swapDrawnCard
  * @property {(payload: Record<string, never>) => void} usePower
  * @property {(payload: ChoosePowerTargetsRequest) => void} choosePowerTargets
+ * @property {(payload: PlayerSwap) => void} choosePowerSwap
  * @property {(payload: Record<string, never>) => void} skipPower
  * @property {(payload: Record<string, never>) => void} finishPowerPeek
  * @typedef {Object} ServerEvents

@@ -96,11 +96,15 @@ export function useGameActions({ socket, dispatch, session }) {
   }
 
   /** Check current occupancy and power-specific ownership before locking the request.
-   * @param {import('../../../shared/protocol.js').HandSlotRef | import('../../../shared/protocol.js').PlayerSwap} target
+   * @param {import('../../../shared/protocol.js').HandSlotRef | import('../../../shared/protocol.js').HandSlotRef[] | import('../../../shared/protocol.js').PlayerSwap} target
    */
   function choosePowerTargets(target) {
     const state = control.state;
     if (!state.identity || !target || !state.powerPrompt) return;
+    if (state.powerPrompt.stage === 'awaitingSwap') {
+      if ('first' in target) choosePowerSwap(target);
+      return;
+    }
     /** @type {import('../../../shared/protocol.js').ChoosePowerTargetsRequest} */
     let payload;
     const occupied = (/** @type {import('../../../shared/protocol.js').HandSlotRef} */ ref) => ref
@@ -112,6 +116,11 @@ export function useGameActions({ socket, dispatch, session }) {
         first: { playerId: target.first.playerId, handSlotId: target.first.handSlotId },
         second: { playerId: target.second.playerId, handSlotId: target.second.handSlotId },
       };
+    } else if (state.powerPrompt.power === 'onePeekSwap' || state.powerPrompt.power === 'twoPeekSwap') {
+      const count = state.powerPrompt.power === 'onePeekSwap' ? 1 : 2;
+      if (!Array.isArray(target) || target.length !== count || !target.every(occupied)
+        || (count === 2 && target[0].playerId === target[1].playerId && target[0].handSlotId === target[1].handSlotId)) return;
+      payload = { peekTargets: target.map(ref => ({ playerId: ref.playerId, handSlotId: ref.handSlotId })) };
     } else {
       if (!('playerId' in target) || !occupied(target)
         || (state.powerPrompt.power === 'selfPeek' ? target.playerId !== state.identity.playerId : target.playerId === state.identity.playerId)) return;
@@ -120,6 +129,20 @@ export function useGameActions({ socket, dispatch, session }) {
     if (!beginTurnRequest('canChoosePowerTargets', 'choosePowerTargets')) return;
     socket.emit('choosePowerTargets', payload);
     logClientEvent('choosePowerTargets', 'sent');
+  }
+  /** Submit the optional post-peek exchange using the same immediate request lock.
+   * @param {import('../../../shared/protocol.js').PlayerSwap} pair
+   */
+  function choosePowerSwap(pair) {
+    const state = control.state;
+    const targets = pair && [pair.first, pair.second];
+    if (!targets || targets.some(ref => !ref || !state.cards.some(card => card.playerId === ref.playerId && card.handSlotId === ref.handSlotId))
+      || pair.first.playerId === pair.second.playerId || !beginTurnRequest('canChoosePowerSwap', 'choosePowerSwap')) return;
+    socket.emit('choosePowerSwap', {
+      first: { playerId: pair.first.playerId, handSlotId: pair.first.handSlotId },
+      second: { playerId: pair.second.playerId, handSlotId: pair.second.handSlotId },
+    });
+    logClientEvent('choosePowerSwap', 'sent');
   }
   function skipPower() {
     if (!beginTurnRequest('canSkipPower', 'skipPower')) return;
@@ -133,5 +156,5 @@ export function useGameActions({ socket, dispatch, session }) {
   }
 
   return { joinLobby, notifyNameChanged, toggleReady, retryConnection,
-    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard, usePower, choosePowerTargets, skipPower, finishPowerPeek };
+    drawFromDeck, drawFromDiscard, discardDrawnCard, replaceHandCard, usePower, choosePowerTargets, choosePowerSwap, skipPower, finishPowerPeek };
 }

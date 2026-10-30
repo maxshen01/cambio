@@ -60,6 +60,12 @@ export function gameClientReducer(state, action) {
     case 'powerPeekResult':
       return receivePowerPeek(state, action.notice);
     case 'powerActionRequested':
+      if (action.action === 'finishPowerPeek' && state.powerPrompt?.stage === 'awaitingPeekDone'
+        && (state.powerPrompt.power === 'onePeekSwap' || state.powerPrompt.power === 'twoPeekSwap')) {
+        // Done has no success event. Open swap locally and retain hidden faces only for rollback.
+        return { ...state, powerPrompt: { ...state.powerPrompt, stage: 'awaitingSwap' },
+          turnPending: false, pendingPowerAction: 'finishPowerPeek', error: null };
+      }
       return { ...state, turnPending: true, pendingPowerAction: action.action, error: null };
     case 'readyRequested':
       return { ...state, readyPending: true, error: null };
@@ -67,7 +73,10 @@ export function gameClientReducer(state, action) {
       if (state.connection !== 'connected') return state;
       const stale = action.error.code === 'INVALID_NAME' && state.joinPending
         && state.submittedNameRevision !== state.nameRevision;
+      const restorePeek = state.powerPrompt?.stage === 'awaitingSwap' && state.powerPeekTargets.length > 0
+        && (state.pendingPowerAction === 'finishPowerPeek' || action.error.code === 'POWER_NOT_AVAILABLE');
       return { ...state, joinPending: false, readyPending: false, turnPending: false, pendingPowerAction: null,
+        powerPrompt: restorePeek && state.powerPrompt ? { ...state.powerPrompt, stage: 'awaitingPeekDone' } : state.powerPrompt,
         error: stale ? state.error : action.error };
     }
   }

@@ -28,7 +28,7 @@ export function App({ socket }) {
           <GameBoard players={players} cards={cards} identity={identity} turnPlayerId={turnPlayerId}
             drawnCard={drawnCard} discardTop={discardTop} movement={movement} canDraw={canDraw}
             power={{ resolving: state.resolvingPower, prompt: state.powerPrompt, peekTargets: view.powerPeekTargets,
-              pendingAction: state.pendingPowerAction, canUse: permissions.canUsePower, canChooseTargets: permissions.canChoosePowerTargets,
+              pendingAction: state.pendingPowerAction, canUse: permissions.canUsePower, canChooseTargets: permissions.canChoosePowerTargets || permissions.canChoosePowerSwap,
               canSkip: permissions.canSkipPower, canDone: permissions.canFinishPowerPeek,
               onUse: actions.usePower, onConfirm: actions.choosePowerTargets, onSkip: actions.skipPower, onDone: actions.finishPowerPeek }}
             canDrawDiscard={canDrawDiscard} canReplace={canReplace} canDiscardDrawn={canDiscardDrawn}
