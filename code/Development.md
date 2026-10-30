@@ -24,6 +24,22 @@ Create `code/server/.env` locally if it is missing; an empty file is sufficient 
 
 ## Running locally
 
+### Development deck ordering
+
+For predictable manual card draws, add this to `code/server/.env` and run `npm.cmd run dev` from `code/server`:
+
+```dotenv
+PLAYTEST_TOP_CARDS=jack,7,queen_of_spades
+```
+
+The list specifies the first deck draws **after the 16 opening hand cards are dealt**, first entry first. It reapplies on every fresh deal, including after a replacement or aborted game. The starter remains random, and ordinary discard draws and deck refills still apply.
+
+Use comma-separated ranks (`ace`, `2`–`10`, `jack`, `queen`, `king`, `joker`) or exact faces such as `jack_of_hearts`, `7_of_clubs`, `black_joker`, or `red_joker`. Names are case-insensitive and surrounding whitespace is ignored. Bare ranks accept any available suit; repeated entries reserve separate physical cards. Exact faces are reserved first so a bare rank cannot consume a later exact request. The deck still contains its original 108 cards.
+
+Missing or blank configuration uses normal shuffling. Invalid entries, unavailable quantities, and lists longer than 92 cards stop development startup with an error. Restart the server after editing `.env`. The ordinary `npm.cmd start` command ignores this setting, and development playtesting mode refuses to start with `NODE_ENV=production`. No client controls expose deck configuration.
+
+### Server and client startup
+
 In `code/server`:
 
 ```powershell

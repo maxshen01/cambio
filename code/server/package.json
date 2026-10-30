@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env src/index.js",
+    "dev": "node --env-file=.env src/index.js --playtest",
     "test": "node --test --test-reporter ./test/helpers/reporter.js \"test/**/*.test.js\"",
     "typecheck": "tsc -p tsconfig.json",
     "test:lobby": "node --test --test-reporter ./test/helpers/reporter.js \"test/lobby/**/*.test.js\"",

@@ -58,6 +58,8 @@ IT-01, IT-02, IT-03, and IT-11, plus deck replacement, have non-browser coverage
 
 ## Running and validating
 
+For manual playtesting, the server's `npm.cmd run dev` command supports `PLAYTEST_TOP_CARDS` in its local `.env`: an ordered list of ranks or exact faces for the first deck draws after dealing. It preserves all physical cards and reapplies on fresh deals. Normal startup ignores the setting; production playtesting is blocked. See [development deck ordering](code/Development.md#development-deck-ordering) for syntax and usage. This helper has no automated unit/integration coverage.
+
 Use [Development](code/Development.md) for installation, environment setup, [local startup](code/Development.md#running-locally), [focused checks](code/Development.md#commands-and-checks), diagnostics, and the [pre-merge gate](code/Development.md#pre-merge-gate). See the [server](code/server/README.md) and [client](code/client/README.md) entry guides for package-specific links.
 
 The current user-performed manual checkpoint takes approximately four minutes:

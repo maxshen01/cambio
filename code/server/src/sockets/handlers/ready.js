@@ -10,8 +10,9 @@ import { logSocket } from '../log.js';
  * @param {import('../../game/types.js').GameState} gameState
  * @param {import('../types.js').GameBoundary} run
  * @param {() => number} [random]
+ * @param {(cards: import('../../game/types.js').Card[]) => void} [prepareDeck]
  */
-export function registerReady(io, socket, gameState, run, random = Math.random) {
+export function registerReady(io, socket, gameState, run, random = Math.random, prepareDeck) {
   /** @param {'ready' | 'unready'} event */
   function changeReady(event) {
     run(socket, event, () => {
@@ -24,7 +25,7 @@ export function registerReady(io, socket, gameState, run, random = Math.random) 
       logSocket('info', socket.id, event, 'accepted', {
         readyCount: gameState.players.filter(player => player.isReady).length,
       });
-      if (event === 'ready' && dealIfReady(gameState, random)) {
+      if (event === 'ready' && dealIfReady(gameState, random, prepareDeck)) {
         for (const player of gameState.players) {
           io.sockets.sockets.get(player.id)?.emit('dealComplete', toDealView(gameState, player.id));
         }
