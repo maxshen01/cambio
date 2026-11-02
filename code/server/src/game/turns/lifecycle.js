@@ -1,9 +1,9 @@
 // Shared ownership checks and completion for ordinary turns and powers.
-import { clearDrawnCard } from './player.js';
-import { nextPlayerInSeatOrder } from './seats.js';
-import { DomainError } from './domainError.js';
-import { refillDeck } from './deck.js';
-/** @typedef {import('./types.js').GameState} GameState */
+import { clearDrawnCard } from '../player.js';
+import { nextPlayerInSeatOrder } from '../seats.js';
+import { DomainError } from '../domainError.js';
+import { refillDeck } from '../deck.js';
+/** @typedef {import('../types.js').GameState} GameState */
 
 /** Validate membership, turn ownership, and settlement before changing round fields.
  * @param {GameState} state @param {string} id
@@ -17,8 +17,8 @@ export function requireTurnPlayer(state, id) {
 }
 
 /** Complete a validated resolution, retry refill, and advance once by stable seat order.
- * @param {GameState} state @param {import('./types.js').Player} player
- * @param {import('./types.js').Card} discarded @param {() => number} random
+ * @param {GameState} state @param {import('../types.js').Player} player
+ * @param {import('../types.js').Card} discarded @param {() => number} random
  */
 export function finishTurn(state, player, discarded, random) {
   state.discardPile.cards.push(discarded);

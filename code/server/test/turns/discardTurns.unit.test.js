@@ -1,7 +1,7 @@
 // Covers public pending draws, mandatory replacement, and discard/refill invariants.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
 import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
 

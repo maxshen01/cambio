@@ -1,9 +1,9 @@
 // Deck/discard draws and resolution, including entry into all card powers.
-import { requireTurnPlayer, finishTurn } from './turnLifecycle.js';
+import { requireTurnPlayer, finishTurn } from './lifecycle.js';
 import { startPowerResolution } from './powers.js';
-import { DomainError } from './domainError.js';
-import { refillDeck } from './deck.js';
-/** @typedef {import('./types.js').GameState} GameState */
+import { DomainError } from '../domainError.js';
+import { refillDeck } from '../deck.js';
+/** @typedef {import('../types.js').GameState} GameState */
 
 /** Draw exactly once from the chosen pile, retaining ownership outside the hand.
  * @param {GameState} state @param {string} id @param {unknown} payload
@@ -46,7 +46,7 @@ function requireResolutionPlayer(state, id) {
 
 /** Start any deck-drawn power before discard; other cards complete the ordinary discard.
  * @param {GameState} state @param {string} id @param {() => number} [random]
- * @returns {{ kind: 'powerStarted', playerId: string, power: NonNullable<import('./types.js').Power> } | { kind: 'completed' }}
+ * @returns {{ kind: 'powerStarted', playerId: string, power: NonNullable<import('../types.js').Power> } | { kind: 'completed' }}
  */
 export function discardDrawnCard(state, id, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
@@ -57,14 +57,14 @@ export function discardDrawnCard(state, id, random = Math.random) {
     startPowerResolution(state, id);
     return { kind: 'powerStarted', playerId: id, power: player.drawnCard.power };
   }
-  finishTurn(state, player, /** @type {import('./types.js').Card} */ (player.drawnCard), random);
+  finishTurn(state, player, /** @type {import('../types.js').Card} */ (player.drawnCard), random);
   return { kind: 'completed' };
 }
 
 /** Replace an occupied own-hand slot facedown, then discard its displaced card.
  * @param {GameState} state @param {string} id @param {unknown} payload
  * @param {() => number} [random]
- * @returns {import('./types.js').HandSlot['handSlotId']}
+ * @returns {import('../types.js').HandSlot['handSlotId']}
  */
 export function swapDrawnCard(state, id, payload, random = Math.random) {
   const player = requireResolutionPlayer(state, id);
@@ -74,7 +74,7 @@ export function swapDrawnCard(state, id, payload, random = Math.random) {
   const slot = player.hand.find(slot => slot.handSlotId === target.handSlotId);
   if (!slot) throw new DomainError('INVALID_TARGET', 'Choose one of your occupied hand slots.');
   const displaced = slot.card;
-  slot.card = /** @type {import('./types.js').Card} */ (player.drawnCard);
+  slot.card = /** @type {import('../types.js').Card} */ (player.drawnCard);
   finishTurn(state, player, displaced, random);
   return slot.handSlotId;
 }

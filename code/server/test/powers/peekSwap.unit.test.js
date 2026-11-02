@@ -1,8 +1,8 @@
 // Two-stage powers retain the held card until a separate swap or skip completes.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { drawCard, discardDrawnCard } from '../../src/game/turns.js';
-import { choosePowerTargets, finishPowerPeek, choosePowerSwap, skipPower, usePower } from '../../src/game/powers.js';
+import { drawCard, discardDrawnCard } from '../../src/game/turns/actions.js';
+import { choosePowerTargets, finishPowerPeek, choosePowerSwap, skipPower, usePower } from '../../src/game/turns/powers.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
 
 const ref = (playerId, handSlotId = 1) => ({ playerId, handSlotId });

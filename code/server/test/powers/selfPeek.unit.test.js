@@ -1,8 +1,8 @@
 // Exercises self/opponent-peek domain stages independently of socket notifications.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { startPowerResolution, usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../src/game/powers.js';
-import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
+import { startPowerResolution, usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../src/game/turns/powers.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
 
 const target = { playerId: 'p1', handSlotId: 2 };

@@ -1,8 +1,8 @@
 // Jack resolution validates both positions before exchanging hidden cards.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
-import { usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../src/game/powers.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
+import { usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../src/game/turns/powers.js';
 import { activeGame, allCards } from '../helpers/activeGame.js';
 
 const ref = (playerId, handSlotId = 1) => ({ playerId, handSlotId });
