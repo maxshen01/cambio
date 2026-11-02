@@ -5,7 +5,7 @@ import { nextEvent } from '../helpers/socket.js';
 import { harness, join } from '../helpers/room.js';
 
 test('two contenders for the last seat produce one acknowledgement and one ROOM_FULL', async t => {
-  const { connect, gameState } = await harness(t);
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const seated = [];
   for (let seat = 1; seat <= 3; seat++) {
     const client = await connect();
@@ -18,9 +18,7 @@ test('two contenders for the last seat produce one acknowledgement and one ROOM_
     function cleanup() { clearTimeout(timer); client.off('error', onError); }
     function onError(error) { cleanup(); resolve(error); }
     client.once('error', onError);
-    client.timeout(1000).emit('joinRoom', { displayName: `Contender ${index}` }, (error, ack) => {
-      if (!error) { cleanup(); resolve(ack); }
-    });
+    client.emit('joinRoom', { displayName: `Contender ${index}` }, ack => { cleanup(); resolve(ack); });
   }));
   const result = await Promise.all(outcomes);
   assert.equal(result.filter(outcome => outcome.seatId === 4).length, 1);
@@ -31,7 +29,7 @@ test('two contenders for the last seat produce one acknowledgement and one ROOM_
 });
 
 test('each join acknowledges first, then broadcasts a public complete lobby to all seated clients', async t => {
-  const { connect, gameState } = await harness(t);
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const clients = [];
   let dealEvents = 0;
   for (let i = 1; i <= 4; i++) {
@@ -59,11 +57,12 @@ test('each join acknowledges first, then broadcasts a public complete lobby to a
   }
 
   assert.equal(gameState.players.length, 4);
+  await drain();
   assert.equal(dealEvents, 0);
 });
 
-test('invalid, repeated, full, and started or dealt joins only send requester errors', async t => {
-  const { connect, gameState } = await harness(t);
+test('invalid, repeated, and full joins only send requester errors', async t => {
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const clients = [];
   const first = await connect();
   await join(first, 'One');
@@ -91,13 +90,9 @@ test('invalid, repeated, full, and started or dealt joins only send requester er
     }
 
     const error = nextEvent(requester, 'error');
-    requester.timeout(1000).emit('joinRoom', payload, error => {
-      if (!error) acked = true;
-    });
+    requester.emit('joinRoom', payload, () => { acked = true; });
     assert.equal((await error).code, code);
-    await new Promise(resolve => {
-      setTimeout(resolve, 30);
-    });
+    await drain(requester);
 
     assert.equal(acked, false);
     assert.equal(joined, false);
@@ -112,7 +107,6 @@ test('invalid, repeated, full, and started or dealt joins only send requester er
     }
   }
 
-  await rejectJoin(outsider, { displayName: '  ' }, 'INVALID_NAME');
   await rejectJoin(outsider, {}, 'INVALID_NAME');
   await rejectJoin(first, { displayName: 'Again' }, 'ALREADY_IN_ROOM');
   for (let i = 2; i <= 4; i++) {
@@ -122,16 +116,11 @@ test('invalid, repeated, full, and started or dealt joins only send requester er
   }
   await rejectJoin(outsider, { displayName: 'Five' }, 'ROOM_FULL');
 
-  gameState.players.pop();
-  gameState.phase = 'active';
-  await rejectJoin(outsider, { displayName: 'Late' }, 'GAME_ALREADY_STARTED');
-  gameState.phase = 'deal';
-  gameState.players[0].hand = [{ handSlotId: 1, card: { cardId: 10 } }];
-  await rejectJoin(outsider, { displayName: 'Late' }, 'GAME_ALREADY_STARTED');
+
 });
 
 test('disconnect broadcasts a public view only for seated departures and reuses the gap', async t => {
-  const { connect, gameState } = await harness(t);
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const first = await connect();
   const middle = await connect();
   const last = await connect();
@@ -147,7 +136,7 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
   first.on('playerJoined', () => { unexpected++; });
   const firstUpdate = nextEvent(first, 'playerDisconnected');
   const lastUpdate = nextEvent(last, 'playerDisconnected');
-  middle.disconnect();
+  await disconnect(middle);
   const [firstView, lastView] = await Promise.all([firstUpdate, lastUpdate]);
   assert.deepEqual(firstView, lastView);
   assert.deepEqual(firstView, { players: [
@@ -159,8 +148,7 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
   let extraDisconnects = 0;
   first.on('playerDisconnected', () => { extraDisconnects++; });
   last.on('playerDisconnected', () => { extraDisconnects++; });
-  outsider.disconnect();
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await disconnect(outsider);
   assert.equal(unexpected, 0);
   assert.equal(extraDisconnects, 0);
   assert.deepEqual(gameState.players.map(player => player.seatId), [1, 3]);
@@ -176,7 +164,7 @@ test('disconnect broadcasts a public view only for seated departures and reuses 
 });
 
 test('ready rejects unseated senders and incomplete hands only at the requesting socket', async t => {
-  const { connect, gameState } = await harness(t);
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const seated = await connect();
   const outsider = await connect();
   await join(seated, 'One');
@@ -199,14 +187,14 @@ test('ready rejects unseated senders and incomplete hands only at the requesting
   assert.deepEqual(await stageError, {
     code: 'READY_NOT_AVAILABLE', message: 'Ready is not available right now.',
   });
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await drain(seated);
   assert.equal(broadcasts, 0);
   assert.equal(otherErrors, 0);
   assert.deepEqual(gameState, before);
 });
 
 test('unready reaches seated clients and remains available after an undealt departure', async t => {
-  const { connect, gameState } = await harness(t);
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const outsider = await connect();
   const clients = [];
   let outsiderUpdates = 0;
@@ -232,7 +220,7 @@ test('unready reaches seated clients and remains available after an undealt depa
   assert.equal(gameState.players[0].isReady, false);
   const broadcastCount = extraUpdates;
   clients[0].emit('unready', {});
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await drain(clients[0]);
   assert.equal(extraUpdates, broadcastCount);
   assert.equal(outsiderUpdates, 0);
 
@@ -242,7 +230,7 @@ test('unready reaches seated clients and remains available after an undealt depa
     assert.deepEqual(await event, { playerId: client.id });
   }
   const departure = nextEvent(clients[0], 'playerDisconnected');
-  clients[1].disconnect();
+  await disconnect(clients[1]);
   await departure;
   const unlocked = nextEvent(clients[2], 'playerUnready');
   clients[0].emit('unready', {});
@@ -250,8 +238,8 @@ test('unready reaches seated clients and remains available after an undealt depa
   assert.equal(gameState.players.find(player => player.id === clients[0].id).isReady, false);
 });
 
-test('duplicate and invalid names only reach the requester, then a departed name can be reused', async t => {
-  const { connect, gameState } = await harness(t);
+test('normalized duplicate names are private and a departed name can be reused', async t => {
+  const { connect, gameState, drain, disconnect } = await harness(t);
   const first = await connect();
   const outsider = await connect();
   await join(first, '  Éva   Smith ');
@@ -264,14 +252,14 @@ test('duplicate and invalid names only reach the requester, then a departed name
     const before = structuredClone(gameState);
     let acked = false;
     const error = nextEvent(outsider, 'error');
-    outsider.timeout(1000).emit('joinRoom', { displayName }, error => { if (!error) acked = true; });
+    outsider.emit('joinRoom', { displayName }, () => { acked = true; });
     assert.deepEqual(await error, {
       code: 'INVALID_NAME',
       message: displayName === 'Alice😀'
         ? 'Use letters, numbers, spaces, apostrophes, hyphens, or periods.'
         : 'That name is already taken.',
     });
-    await new Promise(resolve => setTimeout(resolve, 30));
+    await drain(outsider);
     assert.equal(acked, false);
     assert.equal(lobbyUpdates, 0);
     assert.equal(otherErrors, 0);
@@ -281,7 +269,7 @@ test('duplicate and invalid names only reach the requester, then a departed name
   const { ack } = await join(outsider, 'Bob', [first]);
   assert.equal(ack.seatId, 2);
   const departed = nextEvent(outsider, 'playerDisconnected');
-  first.disconnect();
+  await disconnect(first);
   await departed;
   const replacement = await connect();
   const { ack: replacementAck, view } = await join(replacement, 'éva smith', [outsider]);

@@ -5,7 +5,7 @@ import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/
 import { skipPower } from '../../src/game/turns/powers.js';
 import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
 import { refillDeck, createDeck } from '../../src/game/deck.js';
-import { activeGame, allCards } from '../helpers/activeGame.js';
+import { activeGame, drawnPower, allCards, rejectsUnchanged as reject } from '../helpers/activeGame.js';
 
 test('one deck draw stays outside the hand and only its owner sees its face', () => {
   const state = activeGame();
@@ -50,38 +50,42 @@ test('discard and replacement each advance exactly once clockwise, including sea
   }
 });
 
-test('all power discards start resolution, non-power discards complete immediately, and every power replaces without effects', () => {
-  for (const card of createDeck().filter(card => card.power)) {
-    for (const action of ['discard', 'swap']) {
+test('ordinary and red face cards discard immediately without a power', () => {
+  for (const [rank, suit] of [[1, 'clubs'], [12, 'hearts'], [13, 'diamonds']]) {
+    const state = drawnPower(rank, 'p1', suit);
+    const held = state.players[0].drawnCard;
+    assert.deepEqual(discardDrawnCard(state, 'p1'), { kind: 'completed' });
+    assert.equal(state.discardPile.cards.at(-1), held);
+    assert.equal(state.pendingPower, null);
+    assert.equal(state.turn, 'p2');
+  }
+});
+
+for (const power of ['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap']) {
+  for (const action of ['discard', 'swap']) {
+    test(`${power}: deck ${action} only activates a directly discarded power`, () => {
       const state = activeGame();
-      state.deck.cards = [card];
+      const index = state.deck.cards.findIndex(card => card.power === power);
+      const [card] = state.deck.cards.splice(index, 1);
+      state.deck.cards.push(card);
       drawCard(state, 'p1', { source: 'deck' });
       if (action === 'discard') {
-        const result = discardDrawnCard(state, 'p1');
-        if (card.power) {
-          assert.deepEqual(result, { kind: 'powerStarted', playerId: 'p1', power: card.power });
-          assert.equal(state.players[0].drawnCard, card);
-          assert.equal(state.discardPile.cards.length, 0);
-          assert.equal(state.turn, 'p1');
-          assert.equal(state.pendingPowerStage, 'awaitingChoice');
-          skipPower(state, 'p1');
-        } else assert.deepEqual(result, { kind: 'completed' });
+        assert.deepEqual(discardDrawnCard(state, 'p1'), { kind: 'powerStarted', playerId: 'p1', power });
+        assert.equal(state.players[0].drawnCard, card);
+        assert.equal(state.discardPile.cards.length, 0);
+        assert.equal(state.turn, 'p1');
+        assert.equal(state.pendingPowerStage, 'awaitingChoice');
+        skipPower(state, 'p1');
       } else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
       assert.equal(state.turn, 'p2');
       assert.equal(state.pendingPower, null);
       assert.equal(state.pendingPowerStage, null);
-      assert.ok(card.power);
       assert.equal(action === 'discard' ? state.discardPile.cards.at(-1) : state.players[0].hand[1].card, card);
-    }
+    });
   }
-});
+}
 
 test('invalid draws and resolutions leave the entire state unchanged', () => {
-  const reject = (state, action, code) => {
-    const before = structuredClone(state);
-    assert.throws(action, { code });
-    assert.deepEqual(state, before);
-  };
   const state = activeGame();
   reject(state, () => drawCard(state, 'outsider', { source: 'deck' }), 'NOT_IN_ROOM');
   reject(state, () => drawCard(state, 'p2', { source: 'deck' }), 'NOT_YOUR_TURN');
@@ -112,9 +116,10 @@ test('invalid draws and resolutions leave the entire state unchanged', () => {
   reject(state, () => drawCard(state, 'p1', { source: 'deck' }), 'DECK_EMPTY');
 });
 
-test('refill uses the low-deck threshold, preserves both top pairs, and conserves physical cards', () => {
+test('refill uses the low-deck threshold, preserves both top pairs, and conserves physical cards', t => {
   for (const deckCount of [0, 1, 2, 3]) {
     for (const discardCount of [0, 1, 2, 3, 6]) {
+      t.diagnostic(`deck=${deckCount}, discard=${discardCount}`);
       const state = activeGame();
       const cards = state.deck.cards;
       state.deck.cards = cards.slice(0, deckCount);

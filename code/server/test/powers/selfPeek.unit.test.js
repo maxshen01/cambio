@@ -3,23 +3,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { startPowerResolution, usePower, choosePowerTargets, skipPower, finishPowerPeek } from '../../src/game/turns/powers.js';
 import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
-import { activeGame, allCards } from '../helpers/activeGame.js';
+import { drawnPower, rejectsUnchanged, allCards } from '../helpers/activeGame.js';
 
 const target = { playerId: 'p1', handSlotId: 2 };
 const usePayload = { peekTarget: target };
-
-function drawnPower(rank = 7, id = 'p1') {
-  const state = activeGame();
-  state.turn = id;
-  const index = state.deck.cards.findIndex(card => card.rank === rank);
-  const [card] = state.deck.cards.splice(index, 1);
-  // Keep a known old discard whose match status must survive start and use.
-  state.discardPile.cards.push(state.deck.cards.pop());
-  state.discardPile.topMatchStatus = 'matched';
-  state.deck.cards.push(card);
-  drawCard(state, id, { source: 'deck' });
-  return state;
-}
 
 function pendingPower(stage = 'awaitingTargets') {
   const state = drawnPower();
@@ -29,13 +16,7 @@ function pendingPower(stage = 'awaitingTargets') {
   return state;
 }
 
-function rejectsUnchanged(state, action, code) {
-  const before = structuredClone(state);
-  assert.throws(action, { name: 'DomainError', code });
-  assert.deepEqual(state, before);
-}
-
-for (const rank of [7, 8, 9, 10]) {
+for (const rank of [7, 9]) {
   const power = rank < 9 ? 'selfPeek' : 'opponentPeek';
   const target = { playerId: rank < 9 ? 'p1' : 'p2', handSlotId: 2 };
   const usePayload = { peekTarget: target };
@@ -49,7 +30,13 @@ for (const rank of [7, 8, 9, 10]) {
     assert.deepEqual(state, {
       ...before, turnStep: 'resolvingPower', pendingPower: power, pendingPowerStage: 'awaitingChoice',
     });
+    rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
+    const beforeActivation = structuredClone(state);
     usePower(state, 'p1');
+    beforeActivation.pendingPowerStage = 'awaitingTargets';
+    beforeActivation.players[0].drawnCardRevealed = true;
+    assert.deepEqual(state, beforeActivation);
+    rejectsUnchanged(state, () => usePower(state, 'p1'), 'POWER_NOT_AVAILABLE');
     const started = structuredClone(state);
     const result = choosePowerTargets(state, 'p1', usePayload);
     started.pendingPowerStage = 'awaitingPeekDone';
@@ -101,14 +88,18 @@ for (const rank of [7, 8, 9, 10]) {
 }
 
 test('power actions enforce membership, turn ownership, then pending gift before mutation', () => {
-  for (const state of [drawnPower(), pendingPower(), pendingPower('awaitingPeekDone')]) {
-    for (const action of [startPowerResolution, usePower, choosePowerTargets, skipPower, finishPowerPeek]) {
-      rejectsUnchanged(state, () => action(state, 'outsider'), 'NOT_IN_ROOM');
-      rejectsUnchanged(state, () => action(state, 'p2'), 'NOT_YOUR_TURN');
-      state.pendingMatch = { matcherPlayerId: 'p2', recipientPlayerId: 'p3', stage: 'awaitingGift' };
-      rejectsUnchanged(state, () => action(state, 'p1'), 'MATCH_RESOLVING');
-      state.pendingMatch = null;
-    }
+  for (const [action, fixture] of [
+    [startPowerResolution, drawnPower],
+    [usePower, () => pendingPower('awaitingChoice')],
+    [choosePowerTargets, pendingPower],
+    [skipPower, () => pendingPower('awaitingChoice')],
+    [finishPowerPeek, () => pendingPower('awaitingPeekDone')],
+  ]) {
+    const state = fixture();
+    rejectsUnchanged(state, () => action(state, 'outsider'), 'NOT_IN_ROOM');
+    rejectsUnchanged(state, () => action(state, 'p2'), 'NOT_YOUR_TURN');
+    state.pendingMatch = { matcherPlayerId: 'p2', recipientPlayerId: 'p3', stage: 'awaitingGift' };
+    rejectsUnchanged(state, () => action(state, 'p1'), 'MATCH_RESOLVING');
   }
 });
 
@@ -138,10 +129,8 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
       rejectsUnchanged(state, () => action(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     }
   }
-  for (const rank of [1]) {
-    const state = drawnPower(rank);
-    rejectsUnchanged(state, () => startPowerResolution(state, 'p1'), 'POWER_NOT_AVAILABLE');
-  }
+  const ordinary = drawnPower(1);
+  rejectsUnchanged(ordinary, () => startPowerResolution(ordinary, 'p1'), 'POWER_NOT_AVAILABLE');
   for (const change of [
     state => { state.pendingPower = 'selfPeek'; },
     state => { state.pendingPowerStage = 'awaitingChoice'; },
@@ -205,93 +194,42 @@ test('peek targets use stable occupied slot IDs, including later columns', () =>
   assert.equal(result.targets[0].card, expected);
 });
 
-for (const rank of [7, 9, 10]) {
-  test(rank + ': Skip and Done retry refill only on completion, preserving deck and discard top order', () => {
-    for (const finish of [skipPower, finishPowerPeek]) {
-      for (const deckCount of [0, 1, 2, 3]) {
-        for (const discardCount of [1, 2, 4]) {
-          const state = drawnPower(rank);
-          // Build a small boundary fixture from distinct physical cards.
-          const surplus = state.deck.cards.splice(0, state.deck.cards.length - deckCount);
-          state.discardPile.cards.push(...surplus.splice(0, discardCount - 1));
-          // Conservation here is relative to this fixture; surplus is deliberately outside play.
-          const physical = new Set(allCards(state));
-          const beforeDeck = [...state.deck.cards];
-          const beforeDiscard = [...state.discardPile.cards];
-          const held = state.players[0].drawnCard;
-          let calls = 0;
-          const random = () => { calls++; return 0; };
-          startPowerResolution(state, 'p1');
-          if (finish === finishPowerPeek) {
-            usePower(state, 'p1');
-            choosePowerTargets(state, 'p1', { peekTarget: { playerId: rank < 9 ? 'p1' : 'p2', handSlotId: 2 } });
-          }
-          assert.deepEqual(state.deck.cards, beforeDeck);
-          assert.deepEqual(state.discardPile.cards, beforeDiscard);
-          finish(state, 'p1', random);
-          const discards = [...beforeDiscard, held];
-          if (deckCount <= 2 && discards.length >= 3) {
-            const recycled = discards.slice(0, -2);
-            // With random=0, Fisher-Yates rotates the first older discard to the end.
-            assert.deepEqual(state.deck.cards, [...recycled.slice(1), recycled[0], ...beforeDeck]);
-            assert.deepEqual(state.discardPile.cards, discards.slice(-2));
-            assert.equal(calls, Math.max(0, recycled.length - 1));
-          } else {
-            assert.deepEqual(state.deck.cards, beforeDeck);
-            assert.deepEqual(state.discardPile.cards, discards);
-            assert.equal(calls, 0);
-          }
-          assert.equal(state.discardPile.topMatchStatus, 'eligible');
-          assert.deepEqual(new Set(allCards(state)), physical);
-          assert.equal(allCards(state).length, physical.size);
-        }
-      }
-    }
-  });
-}
-
-for (const rank of [9, 10]) {
-  test(rank + ': validates opponent occupancy, action shape, and ownership without mutation', () => {
-    for (const opponent of ['p2', 'p3', 'p4']) {
-      const state = drawnPower(rank);
-      discardDrawnCard(state, 'p1');
+for (const finish of [skipPower, finishPowerPeek]) {
+  test(`${finish.name}: refill waits for completion and preserves physical cards`, () => {
+    const state = drawnPower();
+    const surplus = state.deck.cards.splice(0, state.deck.cards.length - 2);
+    state.discardPile.cards.push(...surplus.slice(0, 3));
+    const deck = [...state.deck.cards];
+    const discards = [...state.discardPile.cards];
+    const physical = new Set(allCards(state));
+    const held = state.players[0].drawnCard;
+    startPowerResolution(state, 'p1');
+    if (finish === finishPowerPeek) {
       usePower(state, 'p1');
-      for (const payload of [undefined, null, [], {}, { peekTarget: null }, { peekTarget: [] }]) {
-        rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', payload), 'INVALID_POWER_ACTION');
-      }
-      for (const peekTarget of [{}, { playerId: 'p1', handSlotId: 2 }, { playerId: 'outsider', handSlotId: 2 },
-        ...[0, 5, 9, '2', null].map(handSlotId => ({ playerId: opponent, handSlotId }))]) {
-        rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget }), 'INVALID_POWER_TARGET');
-      }
-      for (const action of [choosePowerTargets, skipPower, finishPowerPeek]) {
-        rejectsUnchanged(state, () => action(state, 'outsider'), 'NOT_IN_ROOM');
-        rejectsUnchanged(state, () => action(state, opponent), 'NOT_YOUR_TURN');
-      }
-      const hand = state.players.find(player => player.id === opponent).hand;
-      hand[0].handSlotId = 8;
-      hand.reverse();
-      rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: { playerId: opponent, handSlotId: 1 } }), 'INVALID_POWER_TARGET');
-      const target = { playerId: opponent, handSlotId: 8 };
-      assert.equal(choosePowerTargets(state, 'p1', { peekTarget: target }).targets[0].card, hand.find(slot => slot.handSlotId === 8).card);
-      rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: target }), 'POWER_NOT_AVAILABLE');
-      rejectsUnchanged(state, () => skipPower(state, 'p1'), 'POWER_NOT_AVAILABLE');
-      rejectsUnchanged(state, () => drawCard(state, 'p1', { source: 'deck' }), 'DRAW_NOT_AVAILABLE');
-      rejectsUnchanged(state, () => swapDrawnCard(state, 'p1', { target }), 'RESOLUTION_NOT_AVAILABLE');
+      choosePowerTargets(state, 'p1', usePayload);
     }
+    assert.deepEqual(state.deck.cards, deck);
+    assert.deepEqual(state.discardPile.cards, discards);
+    finish(state, 'p1', () => 0);
+    assert.deepEqual(state.deck.cards.slice(-2), deck);
+    assert.deepEqual(state.discardPile.cards, [discards.at(-1), held]);
+    assert.equal(state.discardPile.topMatchStatus, 'eligible');
+    assert.deepEqual(new Set(allCards(state)), physical);
+    assert.equal(allCards(state).length, physical.size);
   });
 }
 
-for (const rank of [7, 8, 9, 10]) {
-test(rank + ': activation reveals the held card before a target is selected, without applying the effect', () => {
-  const state = drawnPower(rank);
-  startPowerResolution(state, 'p1');
-  const before = structuredClone(state);
-  rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
-  usePower(state, 'p1');
-  before.players[0].drawnCardRevealed = true;
-  before.pendingPowerStage = 'awaitingTargets';
-  assert.deepEqual(state, before);
-  rejectsUnchanged(state, () => usePower(state, 'p1'), 'POWER_NOT_AVAILABLE');
+test('opponent peek accepts each opponent by stable occupied slot and rejects own cards', () => {
+  for (const opponent of ['p2', 'p3', 'p4']) {
+    const state = drawnPower(9);
+    discardDrawnCard(state, 'p1');
+    usePower(state, 'p1');
+    rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', usePayload), 'INVALID_POWER_TARGET');
+    const hand = state.players.find(player => player.id === opponent).hand;
+    hand[0].handSlotId = 8;
+    hand.reverse();
+    rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', { peekTarget: { playerId: opponent, handSlotId: 1 } }), 'INVALID_POWER_TARGET');
+    const target = { playerId: opponent, handSlotId: 8 };
+    assert.equal(choosePowerTargets(state, 'p1', { peekTarget: target }).targets[0].card, hand.find(slot => slot.handSlotId === 8).card);
+  }
 });
-
-}

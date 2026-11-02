@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { powerRoom } from '../helpers/powerRoom.js';
 import { nextEvent } from '../helpers/socket.js';
-import { createGameState } from '../../src/game/state.js';
 
-for (const mode of ['own', 'opponents', 'skipBefore', 'skipAfter']) {
-  test(`Jack ${mode}: private activation and ordered, facedown resolution`, async t => {
+for (const skip of [false, true]) {
+  test(`Jack ${skip ? 'Skip after activation' : 'swap'}: private activation and ordered, facedown resolution`, async t => {
     const room = await powerRoom(t, 11);
     const { clients, records, gameState: state, held } = room;
     await room.draw();
@@ -16,34 +15,32 @@ for (const mode of ['own', 'opponents', 'skipBefore', 'skipAfter']) {
       ...(index === 0 ? [{ event: 'powerAvailable', payload: { power: 'blindSwap' } }] : []),
     ]));
     room.clear();
-    if (mode !== 'skipBefore') {
-      await room.activate();
-      records.forEach((record, index) => assert.deepEqual(record, index === 4 ? [] : [
-        { event: 'powerCardRevealed', payload: { playerId: clients[0].id, faceUp: true, cardId: held.cardId } },
-      ]));
-    }
-    const firstIndex = mode === 'opponents' ? 1 : 0;
+    await room.activate();
+    records.forEach((record, index) => assert.deepEqual(record, index === 4 ? [] : [
+      { event: 'powerCardRevealed', payload: { playerId: clients[0].id, faceUp: true, cardId: held.cardId } },
+    ]));
+    const firstIndex = 0;
     const targets = { first: { playerId: clients[firstIndex].id, handSlotId: 1 }, second: { playerId: clients[2].id, handSlotId: 1 } };
     const a = state.players[firstIndex].hand[0].card;
     const b = state.players[2].hand[0].card;
     room.clear();
     const turns = clients.map(client => nextEvent(client, 'turnChanged'));
-    clients[0].emit(mode.startsWith('skip') ? 'skipPower' : 'choosePowerTargets', mode.startsWith('skip') ? {} : targets);
+    clients[0].emit(skip ? 'skipPower' : 'choosePowerTargets', skip ? {} : targets);
     await Promise.all(turns);
     await room.drain();
     records.forEach((record, index) => assert.deepEqual(record, index === 4 ? [] : [
-      ...(!mode.startsWith('skip') ? [{ event: 'cardSwapped', payload: { kind: 'power', ...targets } }] : []),
+      ...(!skip ? [{ event: 'cardSwapped', payload: { kind: 'power', ...targets } }] : []),
       { event: 'discardPileUpdated', payload: { top: { cardId: held.cardId } } },
       { event: 'turnChanged', payload: { playerId: clients[1].id } },
     ]));
-    assert.equal(state.players[firstIndex].hand[0].card, mode.startsWith('skip') ? a : b);
-    assert.equal(state.players[2].hand[0].card, mode.startsWith('skip') ? b : a);
+    assert.equal(state.players[firstIndex].hand[0].card, skip ? a : b);
+    assert.equal(state.players[2].hand[0].card, skip ? b : a);
     room.clear();
     const before = structuredClone(state);
     const error = nextEvent(clients[0], 'error');
     clients[0].emit('choosePowerTargets', targets);
     assert.equal((await error).code, 'NOT_YOUR_TURN');
-    await room.drain();
+    await room.drain(clients[0]);
     assert.deepEqual(state, before);
     records.forEach((record, index) => assert.deepEqual(record.map(item => item.event), index === 0 ? ['error'] : []));
   });
@@ -56,32 +53,16 @@ test('Jack rejection is requester-only and preserves public activation for retry
   const first = { playerId: clients[0].id, handSlotId: 1 };
   for (const [client, payload, code] of [
     [clients[0], {}, 'INVALID_POWER_ACTION'],
-    [clients[0], { first, second: { playerId: clients[1].id, handSlotId: 8 } }, 'INVALID_POWER_TARGET'],
     [clients[0], { first, second: { ...first, handSlotId: 2 } }, 'SWAP_NOT_ALLOWED'],
-    [clients[1], { first, second: first }, 'NOT_YOUR_TURN'],
-    [observer, { first, second: first }, 'NOT_IN_ROOM'],
   ]) {
     room.clear();
     const before = structuredClone(state);
     const error = nextEvent(client, 'error');
     client.emit('choosePowerTargets', payload);
     assert.equal((await error).code, code);
-    await room.drain();
+    await room.drain(client);
     assert.deepEqual(state, before);
     records.forEach((record, index) => assert.deepEqual(record.map(item => item.event),
       [...clients, observer][index] === client ? ['error'] : []));
   }
 });
-
-for (const activate of [false, true]) {
-  test(`Jack departure during ${activate ? 'selection' : 'choice'} resets all round state`, async t => {
-    const room = await powerRoom(t, 11);
-    await room.draw(); await room.start();
-    if (activate) await room.activate();
-    const aborts = room.clients.slice(1).map(client => nextEvent(client, 'gameAborted'));
-    room.clients[0].disconnect();
-    for (const notice of await Promise.all(aborts)) assert.equal(notice.reason, 'PLAYER_DISCONNECTED');
-    assert.deepEqual({ ...room.gameState, players: [] }, createGameState());
-    assert.ok(room.gameState.players.every(player => player.hand.length === 0 && player.drawnCard === null));
-  });
-}

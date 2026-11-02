@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { io as connectClient } from 'socket.io-client';
 import { createServer } from '../../src/server.js';
 import { createGameState } from '../../src/game/state.js';
-import { nextEvent } from './socket.js';
+import { nextEvent, barrier } from './socket.js';
+import { activeGame } from './activeGame.js';
+import { PLAYER_ROOM } from '../../src/sockets/rooms.js';
 
 // Creates a fresh server per test; callers may inject a game state for their feature.
 export async function harness(t, gameState = createGameState(), options = {}) {
@@ -35,10 +37,37 @@ export async function harness(t, gameState = createGameState(), options = {}) {
     const connected = nextEvent(client, 'connect', 'connect_error');
     client.connect();
     await connected;
+    // Test-only synchronization; production handlers are unchanged.
+    io.sockets.sockets.get(client.id).on('testBarrier', ack => ack());
     return client;
   }
 
-  return { connect, gameState, io };
+  async function drain(sender) {
+    if (sender) await barrier(sender);
+    await Promise.all(clients.filter(client => client.connected).map(barrier));
+  }
+
+  async function disconnect(client) {
+    const completed = nextEvent(io.sockets.sockets.get(client.id), 'disconnect');
+    client.disconnect();
+    await completed;
+    await drain();
+  }
+
+  return { connect, gameState, io, drain, disconnect };
+}
+
+// Isolated active play bypasses lobby requests while retaining real transport/membership.
+export async function activeHarness(t, options = {}) {
+  const room = await harness(t, undefined, options);
+  const clients = [];
+  for (let seat = 1; seat <= 4; seat++) {
+    const client = await room.connect();
+    await room.io.sockets.sockets.get(client.id).join(PLAYER_ROOM);
+    clients.push(client);
+  }
+  Object.assign(room.gameState, activeGame(clients.map(client => client.id)));
+  return { ...room, clients };
 }
 
 // Joins a client while checking acknowledgement order and every recipient's view.

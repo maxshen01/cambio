@@ -131,7 +131,7 @@ Run from `code/server`; scripts are defined in [package.json](server/package.jso
 | `npm.cmd run typecheck`        | Strict JavaScript and shared public type checks; no output files               |
 | `npm.cmd run test:lobby`       | Joining, display names, seats, and lobby readiness                             |
 | `npm.cmd run test:setup`       | Dealing, memorization, and departure/redeal behavior                           |
-| `npm.cmd run test:powers`      | 7/8 self-peek domain and four-client socket lifecycle, privacy, and validation |
+| `npm.cmd run test:powers`      | All five powers: domain rules and representative four-client socket contracts |
 | `npm.cmd run test:cards`       | Deck rules and artwork integrity                                               |
 | `npm.cmd run test:recovery`    | Unexpected handler faults and room reset                                       |
 | `npm.cmd run test:fast`        | Isolated units; no sockets or asset checks                                     |
@@ -152,7 +152,9 @@ Keep Node runner options **before file paths**. Use the direct commands for name
 
 Keep tests in `test/<feature>/`: client `.unit.test.js`, `.component.test.jsx`, and `.integration.test.js(x)`; server `.unit.test.js`, `.integration.test.js`, and `.asset.test.js`. Put helpers in `test/helpers/`, outside discovery. Group cross-feature scenarios under their primary behavior while retaining representative transitions. Keep current scenario-to-test mappings in the [root README](../README.md#source-and-coverage-map). Run server-owned artwork integrity checks with `test:assets`.
 
-The [room harness](server/test/helpers/room.js) creates a fresh server per test, supports injected game state, bounds socket/acknowledgement/event waits, and tears down connections. `dealtHarness` exercises the real setup transition. New features need independent fixtures rather than replaying lobby scenarios. For example, powers belong in `test/powers/` with feature-specific fake sockets or injected state and a matching feature script; retain representative transition tests and avoid empty future suites.
+The [room harness](server/test/helpers/room.js) creates a fresh server per test, supports injected game state, bounds socket/acknowledgement/event waits, and tears down connections. `activeHarness` creates four real connections with explicit player-room membership and injected active state; use it for isolated turn/power cases. `dealtHarness` exercises real joins and lobby-to-deal transitions. Keep rule combinations in units and socket scenarios focused on handler wiring, recipient privacy, ordered events, and representative recovery. Powers belong in `test/powers/`; their controlled draw/actions build on the shared active fixture.
+
+Use `drain(sender)` after requests before asserting absent or requester-only events: it first acknowledges processing on the initiating connection, then drains every connected recipient. Use the harness `disconnect(client)` to wait for server-side departure handling before draining survivors; a survivor acknowledgment alone does not order another connection's departure. These bounded barriers are installed only by tests. The [socket helpers](server/test/helpers/socket.js) also provide event recording with test-owned listener cleanup. Do not use fixed sleeps to prove the absence of messages. Shared domain fixtures in `activeGame.js` select existing physical cards and acting players and assert immutable rejections. Test expectations must remain independent of production power definitions.
 
 Both type checks use strict TypeScript `checkJs` without emitting files. The [client config](client/tsconfig.json) includes browser JavaScript/JSX and shared public definitions; the [server config](server/tsconfig.json) includes server JavaScript and those shared definitions. Authoritative game-state types remain server-only.
 

@@ -3,13 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
 import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
-import { activeGame, allCards } from '../helpers/activeGame.js';
-
-function reject(state, action, code) {
-  const before = structuredClone(state);
-  assert.throws(action, { code });
-  assert.deepEqual(state, before);
-}
+import { activeGame, allCards, rejectsUnchanged as reject } from '../helpers/activeGame.js';
 
 test('discard draws expose an older top or empty pile, remain public, and require own replacement', () => {
   for (const count of [1, 2]) {
@@ -97,11 +91,11 @@ test('discard draws retry low-deck refill while preserving the exposed top and p
   }
 });
 
-test('every discard-drawn power card replaces normally without effects or metadata changes', () => {
-  for (const index of activeGame().deck.cards.flatMap((card, index) => card.power ? [index] : [])) {
+test('each discard-drawn power replaces without activation or metadata changes', () => {
+  for (const power of ['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap']) {
     const state = activeGame();
+    const index = state.deck.cards.findIndex(card => card.power === power);
     const [card] = state.deck.cards.splice(index, 1);
-    const power = card.power;
     state.discardPile.cards.push(card);
     drawCard(state, 'p1', { source: 'discard' });
     reject(state, () => discardDrawnCard(state, 'p1'), 'MUST_SWAP_DISCARD_DRAW');
