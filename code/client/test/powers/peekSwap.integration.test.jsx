@@ -39,11 +39,11 @@ it('four boards peek two king targets, close them with Done, then swap a differe
     await waitFor(() => expect(query(0).getByRole('button', { name: 'Draw from deck' })).toBeEnabled());
     await user.click(query(0).getByRole('button', { name: 'Draw from deck' }));
     await query(0).findByRole('img', { name: 'Drawn card for Player 1, face up' });
-    await user.click(query(0).getByRole('button', { name: 'Discard drawn card' }));
+
     await user.click(await query(0).findByRole('button', { name: 'Use', exact: true }));
-    await query(0).findByRole('button', { name: 'Confirm selection' });
+    await waitFor(() => expect(hand(0, 1).getByRole('button', { name: 'Peek at slot 1' })).toBeEnabled());
     for (const slot of [1, 2]) await user.click(hand(0, 1).getByRole('button', { name: `Peek at slot ${slot}` }));
-    await user.click(query(0).getByRole('button', { name: 'Confirm selection' }));
+
     await query(0).findByRole('button', { name: 'Done' });
     expect(hand(0, 1).getAllByRole('img', { name: /face up/ })).toHaveLength(2);
     for (let viewer = 1; viewer < 4; viewer++) {
@@ -53,13 +53,13 @@ it('four boards peek two king targets, close them with Done, then swap a differe
     }
     await user.click(query(0).getByRole('button', { name: 'Done' }));
     expect(hand(0, 1).queryByRole('img', { name: /face up/ })).not.toBeInTheDocument();
-    for (const seat of [2, 3]) await user.click(hand(0, seat).getByRole('button', { name: 'Swap slot 1' }));
-    // Selection sends no swap, and Done does not advance or discard.
+    // Done does not advance or discard; the second fresh card click submits the swap.
     expect(gameState.pendingPowerStage).toBe('awaitingSwap');
     expect(gameState.turn).toBe(sockets[0].id);
     for (let viewer = 0; viewer < 4; viewer++) expect(query(viewer).getByRole('img', { name: 'Drawn card for Player 1, face up' })).toBeVisible();
     const [a, b] = [gameState.players[1].hand[0].card, gameState.players[2].hand[0].card];
-    await user.click(query(0).getByRole('button', { name: 'Confirm selection' }));
+    for (const seat of [2, 3]) await user.click(hand(0, seat).getByRole('button', { name: 'Swap slot 1' }));
+
     for (let viewer = 0; viewer < 4; viewer++) {
       await waitFor(() => expect(query(viewer).getByRole('listitem', { name: 'Seat 2' })).toHaveAttribute('aria-current', 'true'));
       expect(query(viewer).queryByRole('img', { name: /Drawn card/ })).not.toBeInTheDocument();

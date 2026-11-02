@@ -56,7 +56,7 @@ it.each(['selfPeek', 'opponentPeek'])('%s keeps the shared held card and baselin
     drawnCard: { playerId: 'p1', source: 'deck', faceUp: true, cardId: 7 },
     power: { resolving: true, prompt: { power, stage: 'awaitingChoice' }, peekTargets: [],
       pendingAction: null, canUse: true, canChooseTargets: false, canSkip: true, canDone: false,
-      onUse: vi.fn(), onConfirm: vi.fn(), onSkip: vi.fn(), onDone: vi.fn() },
+      onUse: vi.fn(), onChooseTargets: vi.fn(), onSkip: vi.fn(), onDone: vi.fn() },
   };
   const view = render(<GameBoard {...boardProps} />);
   await finish(CARD_BACK_IMAGE, CARD_IMAGES[7]);

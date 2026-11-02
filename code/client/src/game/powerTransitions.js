@@ -24,7 +24,8 @@ function hasPendingDeckCard(state) {
  */
 export function startPower(state, notice) {
   if (!hasPendingDeckCard(state) || state.resolvingPower || notice.playerId !== state.turnPlayerId) return state;
-  return { ...state, ...clearedPowerState(), resolvingPower: true, turnPending: false, error: null };
+  return { ...state, ...clearedPowerState(), powerPrompt: state.powerPrompt,
+    resolvingPower: true, turnPending: false, error: null };
 }
 
 /** Only the current drawer receives a supported power choice.
@@ -32,7 +33,7 @@ export function startPower(state, notice) {
  * @returns {GameClientState}
  */
 export function offerPower(state, notice) {
-  if (!hasPendingDeckCard(state) || !state.resolvingPower || state.powerPrompt
+  if (!hasPendingDeckCard(state) || state.powerPrompt
     || state.turnPlayerId !== state.identity?.playerId
     || !['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap'].includes(notice.power)) return state;
   return { ...state, powerPrompt: { power: notice.power, stage: 'awaitingChoice' }, error: null };

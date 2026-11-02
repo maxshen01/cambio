@@ -18,7 +18,7 @@
  * @property {boolean} turnPending A turn action has been sent and is awaiting its response.
  * @property {boolean} awaitingTurn Resolution arrived; wait for turnChanged before enabling actions.
  * @property {boolean} resolvingPower Public resolution interval, including before the private prompt.
- * @property {PowerPrompt | null} powerPrompt Owner-only choices for the current held power.
+ * @property {PowerPrompt | null} powerPrompt Owner-only offer before activation, then choices during resolution.
  * @property {import('../../../shared/protocol.js').CardView[]} powerPeekTargets Authorized buffer; use the selector for visibility while Done is pending.
  * @property {PowerAction | null} pendingPowerAction
  * @property {number} movementId

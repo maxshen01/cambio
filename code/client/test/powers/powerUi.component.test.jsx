@@ -23,10 +23,53 @@ const powerRequests = socket => socket.emissions.filter(entry => ['usePower', 'c
 const own = () => within(screen.getByRole('listitem', { name: 'Seat 1' }));
 const slot = id => own().getByRole('img', { name: `Slot ${id}, face down` }).closest('[data-slot]');
 const activate = socket => act(() => socket.receive('powerCardRevealed', { playerId: 'p1', faceUp: true, cardId: 7 }));
-const confirm = () => screen.getByRole('button', { name: 'Confirm selection' });
 const held = () => screen.getByRole('img', { name: 'Drawn card for Player 1, face up' });
 
-it('Use waits for public activation; card clicks edit a draft and only confirmation submits it', async () => {
+async function offeredBoard() {
+  const socket = new FakeSocket();
+  render(<StrictMode><App socket={socket} /></StrictMode>);
+  const user = userEvent.setup();
+  await user.type(screen.getByRole('textbox'), 'Player');
+  await user.click(screen.getByRole('button', { name: 'Join lobby' }));
+  act(() => {
+    activatePowerClient(socket);
+    socket.receive('powerAvailable', { power: 'selfPeek' });
+  });
+  expect(await screen.findByRole('button', { name: 'Use', exact: true })).toBeEnabled();
+  return { socket, user };
+}
+
+it('offers a drawn power before resolution, activates from the card, and immediately submits a target', async () => {
+  const { socket, user } = await offeredBoard();
+  expect(own().getByRole('button', { name: 'Replace slot 1 with drawn card' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: 'Use drawn card power' }));
+  expect(powerRequests(socket)).toEqual([{ event: 'usePower', payload: {}, ack: undefined }]);
+  act(() => {
+    socket.receive('powerResolutionStarted', { playerId: 'p1' });
+    activate(socket);
+  });
+  expect(screen.queryByRole('button', { name: 'Confirm selection' })).not.toBeInTheDocument();
+  const target = own().getByRole('button', { name: 'Peek at slot 2' });
+  fireEvent.click(target); fireEvent.click(target);
+  expect(powerRequests(socket)[1]).toMatchObject({ event: 'choosePowerTargets', payload: { peekTarget: { playerId: 'p1', handSlotId: 2 } } });
+  expect(powerRequests(socket)).toHaveLength(2);
+});
+
+it.each(['skip', 'replace'])('offers a power while allowing %s before activation', async action => {
+  const { socket, user } = await offeredBoard();
+  if (action === 'skip') await user.click(screen.getByRole('button', { name: "Don't use" }));
+  else await user.click(own().getByRole('button', { name: 'Replace slot 1 with drawn card' }));
+  expect(socket.emissions.filter(entry => ['usePower', 'discardDrawnCard'].includes(entry.event))).toEqual([]);
+  const event = action === 'skip' ? 'skipPower' : 'swapDrawnCard';
+  const payload = action === 'skip' ? {} : { target: { playerId: 'p1', handSlotId: 1 } };
+  expect(socket.emissions.filter(entry => entry.event === event)).toMatchObject([{ event, payload }]);
+  expect(screen.getByRole('button', { name: 'Use', exact: true })).toBeDisabled();
+  act(() => socket.receive('error', { code: 'POWER_NOT_AVAILABLE', message: 'Retry choice' }));
+  expect(screen.getByRole('button', { name: 'Use', exact: true })).toBeEnabled();
+  expect(own().getByRole('button', { name: 'Replace slot 1 with drawn card' })).toBeEnabled();
+});
+
+it('Use waits for public activation and the first legal target submits immediately', async () => {
   const { socket, user } = await board();
   const shared = held();
   expect(shared.closest('.setup-drawn')).toHaveClass('setup-drawn--power');
@@ -35,27 +78,14 @@ it('Use waits for public activation; card clicks edit a draft and only confirmat
   expect(screen.getByRole('button', { name: 'Use', exact: true })).toBeDisabled();
   expect(screen.queryByRole('button', { name: /Peek at slot/ })).not.toBeInTheDocument();
   activate(socket);
-  expect(confirm()).toBeDisabled();
   const targets = own().getAllByRole('button', { name: /Peek at slot/ });
   expect(targets).toHaveLength(4);
   expect(targets[0]).toHaveFocus();
   expect(within(screen.getByRole('listitem', { name: 'Seat 2' })).queryByRole('button')).not.toBeInTheDocument();
-  await user.click(targets[1]);
-  expect(slot(2)).toHaveClass('setup-hand__slot--selected');
-  expect(confirm()).toBeEnabled();
-  await user.click(targets[1]);
-  expect(slot(2)).not.toHaveClass('setup-hand__slot--selected');
-  expect(confirm()).toBeDisabled();
-  await user.click(targets[2]);
-  await user.click(targets[1]);
-  expect(slot(2)).toHaveClass('setup-hand__slot--selected');
-  expect(slot(3)).not.toHaveClass('setup-hand__slot--selected');
-  expect(powerRequests(socket)).toHaveLength(1);
-  fireEvent.click(confirm()); fireEvent.click(confirm()); fireEvent.click(targets[2]);
+  fireEvent.click(targets[1]); fireEvent.click(targets[1]); fireEvent.click(targets[2]);
   expect(powerRequests(socket)).toHaveLength(2);
   expect(powerRequests(socket)[1]).toMatchObject({ event: 'choosePowerTargets', payload: { peekTarget: { playerId: 'p1', handSlotId: 2 } } });
   expect(slot(2)).toHaveClass('setup-hand__slot--selected');
-  expect(confirm()).toBeDisabled();
   expect(screen.getByRole('button', { name: "Don't use" })).toBeDisabled();
   expect(own().queryByRole('img', { name: /face up/ })).not.toBeInTheDocument();
   act(() => revealPeek(socket));
@@ -100,10 +130,8 @@ it('restores rejected activation and clears rejected targets without hiding the 
   await user.click(screen.getByRole('button', { name: 'Use', exact: true }));
   activate(socket);
   await user.click(own().getByRole('button', { name: 'Peek at slot 2' }));
-  await user.click(confirm());
   act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Choose again' }));
   expect(slot(2)).not.toHaveClass('setup-hand__slot--selected');
-  expect(confirm()).toBeDisabled();
   expect(own().getByRole('button', { name: 'Peek at slot 1' })).toBeEnabled();
   expect(held()).toHaveAttribute('src', CARD_IMAGES[7]);
   await user.click(screen.getByRole('button', { name: "Don't use" }));
@@ -115,16 +143,14 @@ it('restores rejected activation and clears rejected targets without hiding the 
   expect(screen.queryByRole('button', { name: 'Confirm selection' })).not.toBeInTheDocument();
 });
 
-it('provides keyboard Use, target selection, confirmation, and Done', async () => {
+it('provides keyboard Use, automatic target submission, and Done', async () => {
   const { socket, user } = await board();
   screen.getByRole('button', { name: 'Use', exact: true }).focus();
   await user.keyboard('{Enter}');
   activate(socket);
   expect(own().getByRole('button', { name: 'Peek at slot 1' })).toHaveFocus();
   await user.keyboard(' ');
-  expect(powerRequests(socket)).toHaveLength(1);
-  confirm().focus();
-  await user.keyboard('{Enter}');
+  expect(powerRequests(socket)).toHaveLength(2);
   expect(powerRequests(socket)[1].payload.peekTarget.handSlotId).toBe(1);
   act(() => socket.receive('powerPeekResult', { targets: [{ playerId: 'p1', handSlotId: 1, faceUp: true, cardId: 12 }] }));
   expect(screen.getByRole('button', { name: 'Done' })).toHaveFocus();
@@ -159,7 +185,7 @@ it.each(['abort', 'deal', 'loss'])('clears power controls and temporary faces on
   expect(screen.queryByRole('img', { name: /Drawn card/ })).not.toBeInTheDocument();
 });
 
-it('opponent selection changes across players without sharing outlines and can retry confirmation', async () => {
+it('opponent selection locks immediately without sharing outlines and retries after rejection', async () => {
   const { socket, user } = await board('p1', 'opponentPeek');
   await user.click(screen.getByRole('button', { name: 'Use', exact: true }));
   activate(socket);
@@ -170,15 +196,13 @@ it('opponent selection changes across players without sharing outlines and can r
   expect(hand(2).getByRole('button', { name: 'Peek at slot 1' })).toHaveFocus();
   await user.keyboard('{Enter}');
   await user.click(hand(3).getByRole('button', { name: 'Peek at slot 1' }));
-  expect(targetSlot(2)).not.toHaveClass('setup-hand__slot--selected');
-  expect(targetSlot(3)).toHaveClass('setup-hand__slot--selected');
+  expect(targetSlot(2)).toHaveClass('setup-hand__slot--selected');
+  expect(targetSlot(3)).not.toHaveClass('setup-hand__slot--selected');
   expect(targetSlot(4)).not.toHaveClass('setup-hand__slot--selected');
-  expect(powerRequests(socket)).toHaveLength(1);
-  await user.click(confirm());
+  expect(powerRequests(socket)).toHaveLength(2);
   act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Choose again' }));
   expect(targetSlot(3)).not.toHaveClass('setup-hand__slot--selected');
   await user.click(hand(4).getByRole('button', { name: 'Peek at slot 1' }));
-  await user.click(confirm());
   expect(powerRequests(socket)[2].payload).toEqual({ peekTarget: { playerId: 'p4', handSlotId: 1 } });
   act(() => socket.receive('powerPeekResult', { targets: [{ playerId: 'p4', handSlotId: 1, faceUp: true, cardId: 12 }] }));
   expect(hand(4).getByRole('img', { name: 'Slot 1, face up' })).toHaveAttribute('src', CARD_IMAGES[12]);

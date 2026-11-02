@@ -28,6 +28,9 @@ export function registerTurns(io, socket, state, run, random = Math.random) {
                     .get(recipient.id)
                     ?.emit("cardDrawn", toDrawnCardView(player, recipient.id));
             }
+            if (player.drawnFrom === "deck" && player.drawnCard?.power) {
+                socket.emit("powerAvailable", { power: player.drawnCard.power });
+            }
             if (player.drawnFrom === "discard") publishDiscardPile();
             logSocket("info", socket.id, "drawCard", "accepted", {
                 source: player.drawnFrom === "discard" ? "discard" : "deck",
@@ -66,7 +69,8 @@ export function registerTurns(io, socket, state, run, random = Math.random) {
     );
     socket.on("usePower", () =>
         run(socket, "usePower", () => {
-            usePower(state, socket.id);
+            const started = usePower(state, socket.id);
+            if (started) io.to(PLAYER_ROOM).emit("powerResolutionStarted", { playerId: socket.id });
             const player = state.players.find(
                 (player) => player.id === socket.id,
             );

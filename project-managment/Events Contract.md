@@ -383,7 +383,7 @@ This index links to each event's complete definition; payloads appear only in th
 | Payload | `{ source: "deck" \| "discard" }` |
 | Preconditions | The sender is seated and holds the current turn during `"active"` or `"finalRound"`. The turn is awaiting its one draw, with no drawn card or other action pending. The chosen source contains a card; the discard source is unavailable while the pile is empty, including on the first turn. |
 | Server effects | Remove exactly one card from the chosen source, set the sender's `drawnCard` and `drawnFrom`, reset `drawnCardRevealed` to false, and set `turnStep` to `"awaitingDrawnCardResolution"`. Drawing the discard top sets `discardPile.topMatchStatus` to `"exposed"` for the newly exposed older card, or null for an empty pile. Apply the [deck-refill rule](Game%20Rules.md#setup-and-memorization), including its low-deck retry condition. A rejected request changes no state. |
-| Resulting events | Send `cardDrawn` (Server to All) with recipient-specific redaction. For a discard draw, then send `discardPileUpdated` (Server to All) with the newly exposed top or `null`. A deck draw sends no pile update; a refill has no separate client event. |
+| Resulting events | Send recipient-specific `cardDrawn` to all seated players. For a powered deck draw, then send owner-only `powerAvailable` without starting resolution. For a discard draw, send `discardPileUpdated` with the older top or `null`. A deck draw sends no pile update; refill has no separate event. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM` for an unseated sender; `INVALID_DRAW_SOURCE` for an unknown source; `DRAW_NOT_AVAILABLE` outside play, after this turn's draw, or while another action is unresolved; `NOT_YOUR_TURN` for a different seated player; `DISCARD_EMPTY` or `DECK_EMPTY` if the chosen source has no card, via `error` (Server to Player). |
 
@@ -463,11 +463,11 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Server to All) |
-| Trigger | `discardDrawnCard` succeeds for a deck-drawn card with a power. |
+| Trigger | Direct `usePower` starts resolution, or the retained `discardDrawnCard` path starts a powered deck discard. |
 | Payload | `PlayerNotice` identifying the turn holder, without the drawn card's face or power. |
-| Preconditions | `turnStep === "resolvingPower"`, the drawn card is still held, and `pendingPowerStage === "awaitingChoice"`. |
-| Server effects | None; `discardDrawnCard` already started power resolution. |
-| Resulting events | All clients disable match attempts until `discardPileUpdated` announces that the held power card has been discarded. The server rejects attempts during this interval even if a previous discard top remains visible. Send `powerAvailable` to the turn holder next. |
+| Preconditions | The powered deck card remains held and `turnStep === "resolvingPower"`. Stage is `awaitingTargets` after direct activation or `awaitingChoice` after discard-start. |
+| Server effects | None; the triggering action already started resolution. |
+| Resulting events | Clients block matching and ordinary drawn-card actions through resolution. Direct activation next sends `powerCardRevealed`; discard-start next sends owner-only `powerAvailable`. |
 | Ack | None. |
 | Errors | None. |
 
@@ -476,11 +476,11 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Server to Player) |
-| Trigger | The turn holder chooses to discard a deck-drawn 7–10, jack, black queen, or black king, starting its power before discard. |
+| Trigger | A powered deck draw succeeds, or the retained `discardDrawnCard` path starts its power. |
 | Payload | `{ power: Card.power }`; the non-null enum value from the held drawn card. |
-| Preconditions | `turnStep === "resolvingPower"`, `pendingPower` is non-null, and `pendingPowerStage === "awaitingChoice"`. |
-| Server effects | None; `discardDrawnCard` already stored the pending power and stage. |
-| Resulting events | Send to the power user after `powerResolutionStarted`. Their client offers `usePower` or `skipPower`. The reserved `GameStateView` shape retains the prompt for possible future state sync. Other players receive no power prompt or drawn-card face until a valid `usePower` reveals the card. |
+| Preconditions | The turn holder has a private powered deck card, either at `awaitingDrawnCardResolution` with null pending-power fields, or at `resolvingPower` / `awaitingChoice` with the matching pending power. |
+| Server effects | None. An offer after draw leaves replacement available and does not populate pending-power fields. |
+| Resulting events | Send only to the owner, after `cardDrawn` for an immediate offer or after `powerResolutionStarted` for the retained discard-start path. Show Use/Don't use automatically. Other players receive no prompt or private face. A pre-resolution offer is client display state; the reserved `GameStateView` shape does not establish implemented snapshot synchronization. |
 | Ack | None. |
 | Errors | None. |
 
@@ -489,11 +489,11 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | The power user clicks Use before selecting any targets. |
+| Trigger | The owner clicks Use or the held power card before selecting targets. |
 | Payload | `{}` |
-| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is non-null and matches the held deck card, `pendingPowerStage === "awaitingChoice"`, and `drawnCardRevealed` is false. |
-| Server effects | Set `drawnCardRevealed` to true and `pendingPowerStage` to `"awaitingTargets"`. Retain the held card, hands, discard pile, and current turn. Do not apply a power effect or advance the turn. A rejected request changes no state. |
-| Resulting events | Send `powerCardRevealed` to all seated players. Its receipt enables target selection for the power user. No peek result, swap, discard update, or turn advancement occurs yet. |
+| Preconditions | The sender is seated and holds the turn during live play with a private powered deck draw. Either `turnStep === "awaitingDrawnCardResolution"` with null pending-power fields, or `turnStep === "resolvingPower"` with the matching `pendingPower` and `pendingPowerStage === "awaitingChoice"`. |
+| Server effects | Validate before mutation. Enter `resolvingPower`, retain the held power in `pendingPower`, set `drawnCardRevealed` to true and `pendingPowerStage` to `"awaitingTargets"`. Retain hands, piles, and turn; activation applies no effect. Rejections change no state. |
+| Resulting events | When activating directly from a draw, send `powerResolutionStarted` to seated players, then `powerCardRevealed`. For an already-started power, send only `powerCardRevealed`. Do not resend `powerAvailable`. Selection becomes available only after the reveal; no effect, discard, or advancement occurs yet. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM`, `NOT_YOUR_TURN`, or `POWER_NOT_AVAILABLE` for an unavailable power, wrong phase or stage, or duplicate activation, via `error` (Server to Player). A duplicate activation sends no second reveal. |
 
@@ -502,7 +502,7 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | After activation, the power user submits the required peek targets or jack swap pair. |
+| Trigger | After activation, clicking the final required valid target immediately submits the peek or jack swap pair, without confirmation. |
 | Payload | For 7/8 or 9/10: `{ peekTarget: HandSlotRef }`. For jack: `PlayerSwap`. For black queen/king: `{ peekTargets: HandSlotRef[] }` with exactly one/two distinct targets respectively. The client does not name the power or send card faces. |
 | Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is non-null, and `pendingPowerStage === "awaitingTargets"`. The held drawn card is already publicly revealed. Every target must identify a current hand slot. A 7/8 target belongs to the sender; a 9/10 target belongs to an opponent. Black queen/king peek targets may belong to any player, including the Cambio caller. A jack's swap targets must belong to different players; neither may belong to the caller during `"finalRound"`. |
 | Server effects | Validate the action and all targets before applying the effect. For a 7–10 or black queen/king peek, keep the held card and `pendingPower`, set `pendingPowerStage` to `"awaitingPeekDone"`, and leave `turnStep` as `"resolvingPower"`; no discard or turn advancement occurs until `finishPowerPeek`. For jack, exchange the two cards, then move the held card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. Matching remains blocked throughout power resolution. A rejected request changes no state, preserves the public power card and target-selection stage, and sends only a requester error. |
@@ -530,8 +530,8 @@ This index links to each event's complete definition; payloads appear only in th
 | Direction | (Client to Server) |
 | Trigger | The power user declines the available power before activation or during target selection, or declines the swap after finishing a black queen/king peek with `finishPowerPeek`. |
 | Payload | `{}` |
-| Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, and `pendingPower` is non-null. `pendingPowerStage` is `"awaitingChoice"` or `"awaitingTargets"`, or it is `"awaitingSwap"` for a black queen/king after `finishPowerPeek`. Skipping is unavailable during `"awaitingPeekDone"`. |
-| Server effects | Move the held drawn card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. A rejected request changes no state. Skipping at `"awaitingChoice"` sends no separate public reveal; skipping at `"awaitingTargets"` or `"awaitingSwap"` leaves the earlier public reveal intact until discard. |
+| Preconditions | The seated turn holder has a powered deck card during live play, either offered at `awaitingDrawnCardResolution` with null pending-power fields and a private held card, or resolving at `awaitingChoice`, `awaitingTargets`, or (queen/king only) `awaitingSwap`. Skipping is unavailable during `awaitingPeekDone`. |
+| Server effects | Validate before mutation. Discard the held card, mark the new top eligible, clear drawn-card and pending-power fields, and complete the turn. Skipping an offer or `awaitingChoice` sends no separate reveal. Later skips retain the earlier reveal until discard. Rejections change no state. |
 | Resulting events | Send `discardPileUpdated`, then `turnChanged` for the next player or `finalMatchGraceStarted` after the last final turn. No separate skipped-power event is sent. |
 | Ack | None. |
 | Errors | `NOT_IN_ROOM`, `NOT_YOUR_TURN`, or `POWER_NOT_AVAILABLE` for the wrong phase, missing power, or wrong stage, via `error` (Server to Player). |
@@ -567,7 +567,7 @@ This index links to each event's complete definition; payloads appear only in th
 | Field | Value |
 | --- | --- |
 | Direction | (Client to Server) |
-| Trigger | After completing a black queen/king peek with `finishPowerPeek`, the power user chooses two slots to swap. |
+| Trigger | After Done, the second valid fresh swap-card click immediately submits the pair, without confirmation. |
 | Payload | `PlayerSwap`. The pair need not include a peeked slot. |
 | Preconditions | The sender is seated, holds the turn during `"active"` or `"finalRound"`, `turnStep === "resolvingPower"`, `pendingPower` is a black queen/king power, and `pendingPowerStage === "awaitingSwap"`. Both slots still exist when this request is processed and belong to different players. During `"finalRound"`, neither slot may belong to the Cambio caller. Two opponents' cards may be swapped. |
 | Server effects | Exchange the cards in the referenced slots, then move the held drawn card to the discard top, mark it `"eligible"`, clear `drawnCard`, `drawnFrom`, `drawnCardRevealed`, `pendingPower`, and `pendingPowerStage`, and complete the turn. No match can remove a target slot between the peek and swap because matching is blocked throughout power resolution. A rejected swap leaves the held card, its public reveal, and pending power intact so the player can choose again or skip. |

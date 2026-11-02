@@ -42,11 +42,11 @@ it('four boards complete own/opponent and opponent/opponent blind swaps, then Sk
       gameState.deck.cards.push(held);
       await user.click(query(owner).getByRole('button', { name: 'Draw from deck' }));
       await query(owner).findByRole('img', { name: `Drawn card for Player ${owner + 1}, face up` });
-      await user.click(query(owner).getByRole('button', { name: 'Discard drawn card' }));
+
       await query(owner).findByRole('button', { name: 'Use', exact: true });
       if (owner !== 2) {
         await user.click(query(owner).getByRole('button', { name: 'Use', exact: true }));
-        await query(owner).findByRole('button', { name: 'Confirm selection' });
+        await waitFor(() => expect(query(owner).getAllByRole('button', { name: /^(Peek at|Swap) slot/ })[0]).toBeEnabled());
         for (let viewer = 0; viewer < 4; viewer++) {
           const image = await query(viewer).findByRole('img', { name: `Drawn card for Player ${owner + 1}, face up` });
           expect(image).toHaveAttribute('src', CARD_IMAGES[held.cardId]);
@@ -61,12 +61,10 @@ it('four boards complete own/opponent and opponent/opponent blind swaps, then Sk
           const hand = within(query(owner).getByRole('listitem', { name: `Seat ${seat}` }));
           await user.click(hand.getByRole('button', { name: 'Swap slot 1' }));
         }
-        expect(views[owner].container.querySelectorAll('.setup-hand__slot--selected')).toHaveLength(2);
         for (let viewer = 0; viewer < 4; viewer++) {
           if (viewer !== owner) expect(views[viewer].container.querySelector('.setup-hand__slot--selected')).toBeNull();
         }
-        expect(gameState.players[0].hand[0].card).toBe(a);
-        await user.click(query(owner).getByRole('button', { name: 'Confirm selection' }));
+
         await waitFor(() => expect(gameState.players[0].hand[0].card).toBe(b));
         expect(gameState.players[2].hand[0].card).toBe(a);
       } else await user.click(query(owner).getByRole('button', { name: "Don't use" }));

@@ -8,7 +8,7 @@ import { activeGame } from '../../../server/test/helpers/activeGame.js';
 import { App } from '../../src/App.jsx';
 import { CARD_BACK_IMAGE, CARD_IMAGES } from '../../../shared/cardCatalog.js';
 
-it.each([7, 8, 9, 10])('%s: four boards activate, confirm a peek, and Skip with private faces', async rank => {
+it.each([7, 8, 9, 10])('%s: four boards activate, immediately select a peek, and Skip with private faces', async rank => {
   const { httpServer, io, gameState } = createServer();
   await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve));
   const sockets = [];
@@ -43,14 +43,14 @@ it.each([7, 8, 9, 10])('%s: four boards activate, confirm a peek, and Skip with 
       gameState.deck.cards.push(held);
       await user.click(query(owner).getByRole('button', { name: 'Draw from deck' }));
       await query(owner).findByRole('img', { name: `Drawn card for Player ${owner + 1}, face up` });
-      await user.click(query(owner).getByRole('button', { name: 'Discard drawn card' }));
+
       await query(owner).findByRole('button', { name: 'Use', exact: true });
       if (owner === 0) {
         const targetSeat = rank < 9 ? 1 : 2;
         const target = gameState.players[targetSeat - 1].hand[1].card;
-        await user.click(query(owner).getByRole('button', { name: 'Use', exact: true }));
-        await query(owner).findByRole('button', { name: 'Confirm selection' });
-        expect(query(owner).getByRole('button', { name: 'Confirm selection' })).toBeDisabled();
+        await user.click(query(owner).getByRole('button', { name: 'Use drawn card power' }));
+        await waitFor(() => expect(query(owner).getAllByRole('button', { name: /^(Peek at|Swap) slot/ })[0]).toBeEnabled());
+
         for (let index = 0; index < 4; index++) {
           const image = await query(index).findByRole('img', { name: 'Drawn card for Player 1, face up' });
           expect(image).toHaveAttribute('src', CARD_IMAGES[held.cardId]);
@@ -59,10 +59,8 @@ it.each([7, 8, 9, 10])('%s: four boards activate, confirm a peek, and Skip with 
         expect(gameState.pendingPowerStage).toBe('awaitingTargets');
         const targetHand = within(query(owner).getByRole('listitem', { name: 'Seat ' + targetSeat }));
         await user.click(targetHand.getByRole('button', { name: 'Peek at slot 2' }));
-        expect(gameState.pendingPowerStage).toBe('awaitingTargets');
-        expect(targetHand.getByRole('img', { name: 'Slot 2, face down' })).toBeVisible();
         for (let index = 1; index < 4; index++) expect(views[index].container.querySelector('.setup-hand__slot--selected')).toBeNull();
-        await user.click(query(owner).getByRole('button', { name: 'Confirm selection' }));
+
         await query(owner).findByRole('button', { name: 'Done' });
         for (let index = 0; index < 4; index++) {
           const hand = within(query(index).getByRole('listitem', { name: 'Seat ' + targetSeat }));
@@ -82,7 +80,7 @@ it.each([7, 8, 9, 10])('%s: four boards activate, confirm a peek, and Skip with 
       } else {
         if (owner === 1) {
           await user.click(query(owner).getByRole('button', { name: 'Use', exact: true }));
-          await query(owner).findByRole('button', { name: 'Confirm selection' });
+          await waitFor(() => expect(query(owner).getAllByRole('button', { name: /^(Peek at|Swap) slot/ })[0]).toBeEnabled());
           for (let index = 0; index < 4; index++) await query(index).findByRole('img', { name: 'Drawn card for Player 2, face up' });
         }
         await user.click(query(owner).getByRole('button', { name: "Don't use" }));

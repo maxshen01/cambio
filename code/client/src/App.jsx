@@ -30,7 +30,7 @@ export function App({ socket }) {
             power={{ resolving: state.resolvingPower, prompt: state.powerPrompt, peekTargets: view.powerPeekTargets,
               pendingAction: state.pendingPowerAction, canUse: permissions.canUsePower, canChooseTargets: permissions.canChoosePowerTargets || permissions.canChoosePowerSwap,
               canSkip: permissions.canSkipPower, canDone: permissions.canFinishPowerPeek,
-              onUse: actions.usePower, onConfirm: actions.choosePowerTargets, onSkip: actions.skipPower, onDone: actions.finishPowerPeek }}
+              onUse: actions.usePower, onChooseTargets: actions.choosePowerTargets, onSkip: actions.skipPower, onDone: actions.finishPowerPeek }}
             canDrawDiscard={canDrawDiscard} canReplace={canReplace} canDiscardDrawn={canDiscardDrawn}
             onDraw={drawFromDeck} onDrawDiscard={drawFromDiscard} onDiscard={discardDrawnCard} onSwap={replaceHandCard} canReady={canReady} onReady={toggleReady} />
         ) : <LobbyScreen players={players} localSeatId={identity?.seatId}

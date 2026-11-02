@@ -12,6 +12,17 @@ function viewing() {
   return [start, available, reveal, result].reduce(reduce, powerClientState());
 }
 
+it('offers before resolution without blocking replacement, and preserves the offer through activation', () => {
+  const offered = reduce(powerClientState(), available);
+  expect(offered.resolvingPower).toBe(false);
+  expect(selectGameClient(offered).permissions).toMatchObject({ canUsePower: true, canSkipPower: true, canReplace: true, canDiscardDrawn: false });
+  const started = reduce(offered, start);
+  expect(started.powerPrompt).toBe(offered.powerPrompt);
+  expect(selectGameClient(started).permissions.canReplace).toBe(false);
+  expect(reduce(started, reveal).powerPrompt.stage).toBe('awaitingTargets');
+  expect(reduce(powerClientState('p2'), available).powerPrompt).toBeNull();
+});
+
 function kingViewing(localId = 'p1') {
   return [start, { type: 'powerAvailable', notice: { power: 'twoPeekSwap' } }, reveal,
     { type: 'powerPeekResult', notice: { targets: [
@@ -134,7 +145,7 @@ it.each([
 
 it('ignores mismatched notifications and strips face IDs from facedown peek results', () => {
   const before = powerClientState();
-  for (const action of [available, reveal, result, { ...start, notice: { playerId: 'p2' } }]) expect(reduce(before, action)).toBe(before);
+  for (const action of [reveal, result, { ...start, notice: { playerId: 'p2' } }]) expect(reduce(before, action)).toBe(before);
   const prompted = [start, available, reveal].reduce(reduce, before);
   const hidden = reduce(prompted, { type: 'powerPeekResult', notice: { targets: [{ ...peek.targets[0], faceUp: false }] } });
   expect(hidden.powerPeekTargets).toEqual([{ playerId: 'p1', handSlotId: 2, faceUp: false }]);

@@ -1,4 +1,4 @@
-// Blind selection stays local until confirmation and never reveals exchanged faces.
+// Blind swaps submit on the second valid card and never reveal exchanged faces.
 import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -22,37 +22,29 @@ async function board() {
 }
 const hand = seat => within(screen.getByRole('listitem', { name: `Seat ${seat}` }));
 const target = (seat, slot = 1) => hand(seat).getByRole('button', { name: `Swap slot ${slot}` });
-const confirm = () => screen.getByRole('button', { name: 'Confirm selection' });
 const selections = () => document.querySelectorAll('.setup-hand__slot--selected');
 
-it('selects only a different-player pair, supports deselection, and locks confirmation immediately', async () => {
+it('selects only a different-player pair, supports first-card deselection, and submits once', async () => {
   const { socket, user } = await board();
   expect(target(1)).toHaveFocus();
-  expect(confirm()).toBeDisabled();
   await user.keyboard('{Enter}');
   expect(target(1)).toHaveAttribute('aria-pressed', 'true');
   expect(target(1, 2)).toBeDisabled();
-  expect(confirm()).toBeDisabled();
-  await user.click(target(2));
-  expect(selections()).toHaveLength(2);
-  expect(confirm()).toBeEnabled();
-  expect(target(3)).toBeDisabled();
+  expect(socket.emissions.filter(e => e.event === 'choosePowerTargets')).toHaveLength(0);
   await user.click(target(1));
-  expect(selections()).toHaveLength(1);
-  await user.click(target(3));
-  confirm().focus();
+  expect(selections()).toHaveLength(0);
+  await user.click(target(2));
+  target(3).focus();
   await user.keyboard(' ');
-  fireEvent.click(confirm());
-  fireEvent.click(target(2));
+  fireEvent.click(target(3)); fireEvent.click(target(1));
   expect(socket.emissions.filter(e => e.event === 'choosePowerTargets')).toEqual([
     { event: 'choosePowerTargets', payload: { first: { playerId: 'p2', handSlotId: 1 }, second: { playerId: 'p3', handSlotId: 1 } }, ack: undefined },
   ]);
   expect(selections()).toHaveLength(2);
-  expect(confirm()).toBeDisabled();
+  expect(target(1)).toBeDisabled();
   expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
   act(() => socket.receive('error', { code: 'INVALID_POWER_TARGET', message: 'Choose again' }));
   expect(selections()).toHaveLength(0);
-  expect(confirm()).toBeDisabled();
   expect(target(1)).toBeEnabled();
   expect(screen.getByRole('img', { name: /Drawn card for Player 1/ })).toBeVisible();
 });
@@ -61,7 +53,6 @@ it('retains the held Jack through the swap result, keeps hands hidden, and clear
   const { socket, user } = await board();
   await user.click(target(1));
   await user.click(target(2));
-  await user.click(confirm());
   act(() => socket.receive('cardSwapped', { kind: 'power', first: { playerId: 'p1', handSlotId: 1 }, second: { playerId: 'p2', handSlotId: 1 } }));
   expect(screen.getByRole('img', { name: /Drawn card for Player 1/ })).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Confirm selection' })).not.toBeInTheDocument();

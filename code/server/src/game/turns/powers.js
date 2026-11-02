@@ -102,13 +102,17 @@ export function startPowerResolution(state, id) {
   state.pendingPowerStage = 'awaitingChoice';
 }
 
-/** Reveal the held power before selecting targets, without applying its effect.
+/** Activate an offered or already-started power; report whether public resolution starts now.
  * @param {GameState} state @param {string} id
  */
 export function usePower(state, id) {
-  const { player } = requirePendingPower(state, id, ['awaitingChoice']);
+  const started = state.turnStep === 'awaitingDrawnCardResolution';
+  const { player, card } = started ? requirePowerStart(state, id) : requirePendingPower(state, id, ['awaitingChoice']);
+  state.turnStep = 'resolvingPower';
+  state.pendingPower = card.power;
   player.drawnCardRevealed = true;
   state.pendingPowerStage = 'awaitingTargets';
+  return started;
 }
 
 /** Validate targets, then authorize a private peek or complete an immediate swap.
@@ -240,7 +244,8 @@ function requirePostPeekSwap(definition) {
  * @param {GameState} state @param {string} id @param {() => number} [random]
  */
 export function skipPower(state, id, random = Math.random) {
-  const { player, card, definition } = requirePendingPower(state, id, ['awaitingChoice', 'awaitingTargets', 'awaitingSwap']);
+  const { player, card, definition } = state.turnStep === 'awaitingDrawnCardResolution'
+    ? requirePowerStart(state, id) : requirePendingPower(state, id, ['awaitingChoice', 'awaitingTargets', 'awaitingSwap']);
   if (state.pendingPowerStage === 'awaitingSwap') requirePostPeekSwap(definition);
   finishTurn(state, player, card, random);
 }

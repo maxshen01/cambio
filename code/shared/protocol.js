@@ -23,7 +23,7 @@
  * @typedef {{ cards: CardView[] }} DealComplete
  * @typedef {{ peekTarget: HandSlotRef } | { peekTargets: HandSlotRef[] } | PlayerSwap} ChoosePowerTargetsRequest
  * @typedef {{ playerId: string }} PowerResolutionStarted
- * @typedef {{ power: 'selfPeek' | 'opponentPeek' | 'blindSwap' | 'onePeekSwap' | 'twoPeekSwap' }} PowerAvailable
+ * @typedef {{ power: 'selfPeek' | 'opponentPeek' | 'blindSwap' | 'onePeekSwap' | 'twoPeekSwap' }} PowerAvailable Owner-only offer after a powered deck draw, or after the legacy discard-start path.
  * @typedef {{ playerId: string, faceUp: true, cardId: number }} PowerCardRevealed
  * @typedef {{ targets: CardView[] }} PowerPeekResult
  * @typedef {'ALREADY_IN_ROOM' | 'INVALID_NAME' | 'GAME_ALREADY_STARTED' | 'ROOM_FULL' | 'NOT_IN_ROOM' | 'READY_NOT_AVAILABLE' | 'NOT_YOUR_TURN' | 'INVALID_DRAW_SOURCE' | 'DRAW_NOT_AVAILABLE' | 'DECK_EMPTY' | 'DISCARD_EMPTY' | 'MUST_SWAP_DISCARD_DRAW' | 'RESOLUTION_NOT_AVAILABLE' | 'NO_DRAWN_CARD' | 'INVALID_TARGET' | 'MATCH_RESOLVING' | 'POWER_NOT_AVAILABLE' | 'INVALID_POWER_ACTION' | 'INVALID_POWER_TARGET' | 'SWAP_NOT_ALLOWED' | 'INVALID_TARGET_COUNT'} LobbyErrorCode

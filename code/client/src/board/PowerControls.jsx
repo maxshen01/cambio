@@ -2,9 +2,9 @@
 import { useEffect, useId, useRef } from 'react';
 
 /** @param {{ prompt: import('../game/gameClientState.js').PowerPrompt | null,
- * canUse: boolean, canConfirm: boolean, canSkip: boolean, canDone: boolean,
- * onUse: () => void, onConfirm: () => void, onSkip: () => void, onDone: () => void }} props */
-export function PowerControls({ prompt, canUse, canConfirm, canSkip, canDone, onUse, onConfirm, onSkip, onDone }) {
+ * canUse: boolean, canSkip: boolean, canDone: boolean,
+ * onUse: () => void, onSkip: () => void, onDone: () => void }} props */
+export function PowerControls({ prompt, canUse, canSkip, canDone, onUse, onSkip, onDone }) {
   const descriptionId = useId();
   const done = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const viewing = prompt?.stage === 'awaitingPeekDone';
@@ -24,14 +24,13 @@ export function PowerControls({ prompt, canUse, canConfirm, canSkip, canDone, on
       <p id={descriptionId}>{swapping ? 'Swap two cards belonging to different players without looking at them. Choose your card and an opponent’s, or two opponents’ cards.'
         : peekSwap ? `Look at ${count} from any hand until you choose Done. Then swap any legal pair, or choose Don't use.`
         : `${opponent ? "Look at one opponent's card." : 'Look at one of your own cards.'} It stays visible until you choose Done.`}</p>
-      {selecting && !viewing && <p>{swapping ? 'Choose two cards, then confirm. Select a highlighted card again to deselect it.'
-        : peekSwap ? `Choose ${count}, then confirm. Select a highlighted card again to deselect it.` : opponent ? "Choose one of your opponents' cards." : 'Choose one of your cards.'}</p>}
+      {prompt.stage === 'awaitingChoice' && <p>Click the drawn card or Use to activate. Choose Don't use to discard it without using the power.</p>}
+      {selecting && !viewing && <p>{swapping ? 'Choose two cards from different players. The second click submits the swap. Select the first card again to deselect it.'
+        : peekSwap ? `Choose ${count}. The last required click submits the peek.` : opponent ? "Click one of your opponents' cards to peek immediately." : 'Click one of your cards to peek immediately.'}</p>}
     </aside>
     <div className="power-controls" role="group" aria-label={`${label} actions`} aria-describedby={descriptionId}>
       {viewing ? <button ref={done} type="button" disabled={!canDone} onClick={onDone}>Done</button> : <>
-        <button type="button" disabled={selecting ? !canConfirm : !canUse} onClick={selecting ? onConfirm : onUse}>
-          {selecting ? 'Confirm selection' : 'Use'}
-        </button>
+        {!selecting && <button type="button" disabled={!canUse} onClick={onUse}>Use</button>}
         <button type="button" disabled={!canSkip} onClick={onSkip}>Don't use</button>
       </>}
     </div>
