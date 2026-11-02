@@ -1,10 +1,36 @@
 // Power display stages and private peek buffers; baseline hand cards remain unchanged.
+import { getPowerDefinition, isValidPowerSelection, sameSlot } from './powerPolicy.js';
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 
 /** Fresh fields erase every retained peek identity when resolution ends or a round resets. */
 export function clearedPowerState() {
   return { resolvingPower: false, powerPrompt: null,
     powerPeekTargets: /** @type {import('../../../shared/protocol.js').CardView[]} */ ([]), pendingPowerAction: null };
+}
+
+/** Done opens an optional swap locally because the protocol has no success event.
+ * @param {GameClientState} state @param {import('./gameClientState.js').PowerAction} action
+ * @returns {GameClientState}
+ */
+export function requestPowerAction(state, action) {
+  if (action === 'finishPowerPeek' && state.powerPrompt?.stage === 'awaitingPeekDone'
+    && getPowerDefinition(state.powerPrompt.power)?.postPeekSwap) {
+    return { ...state, powerPrompt: { ...state.powerPrompt, stage: 'awaitingSwap' },
+      turnPending: false, pendingPowerAction: action, error: null };
+  }
+  return { ...state, turnPending: true, pendingPowerAction: action, error: null };
+}
+
+/** Release a rejected power request and restore retained peek faces only for Done rollback.
+ * General errors and non-power request cleanup remain owned by the main reducer.
+ * @param {GameClientState} state @param {import('../../../shared/protocol.js').LobbyError} error
+ * @returns {Pick<GameClientState, 'powerPrompt' | 'pendingPowerAction'>}
+ */
+export function rejectPowerAction(state, error) {
+  const restorePeek = state.powerPrompt?.stage === 'awaitingSwap' && state.powerPeekTargets.length > 0
+    && (state.pendingPowerAction === 'finishPowerPeek' || error.code === 'POWER_NOT_AVAILABLE');
+  return { pendingPowerAction: null,
+    powerPrompt: restorePeek && state.powerPrompt ? { ...state.powerPrompt, stage: 'awaitingPeekDone' } : state.powerPrompt };
 }
 
 /** A power notice belongs to a live held deck card, never an empty or reset board.
@@ -35,7 +61,7 @@ export function startPower(state, notice) {
 export function offerPower(state, notice) {
   if (!hasPendingDeckCard(state) || state.powerPrompt
     || state.turnPlayerId !== state.identity?.playerId
-    || !['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap'].includes(notice.power)) return state;
+    || !getPowerDefinition(notice.power)) return state;
   return { ...state, powerPrompt: { power: notice.power, stage: 'awaitingChoice' }, error: null };
 }
 
@@ -60,15 +86,12 @@ export function receivePowerPeek(state, notice) {
   if (!hasPendingDeckCard(state) || !state.resolvingPower || !state.drawnCard?.faceUp
     || state.powerPeekTargets.length || notice.targets.length < 1 || notice.targets.length > 2) return state;
   const owner = state.turnPlayerId === state.identity?.playerId;
-  if (owner && (state.powerPrompt?.stage !== 'awaitingTargets' || state.powerPrompt.power === 'blindSwap')) return state;
-  if (owner && notice.targets.length !== (state.powerPrompt?.power === 'twoPeekSwap' ? 2 : 1)) return state;
-  if (notice.targets.length === 2 && notice.targets[0].playerId === notice.targets[1].playerId
-    && notice.targets[0].handSlotId === notice.targets[1].handSlotId) return state;
-  for (const target of notice.targets) {
-    if (owner && (state.powerPrompt?.power === 'selfPeek' && target.playerId !== state.turnPlayerId
-      || state.powerPrompt?.power === 'opponentPeek' && target.playerId === state.turnPlayerId)) return state;
-    if (!state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId)) return state;
-  }
+  const policy = getPowerDefinition(state.powerPrompt?.power)?.initial;
+  if (owner && (state.powerPrompt?.stage !== 'awaitingTargets' || policy?.kind !== 'peek'
+    || !isValidPowerSelection(policy, notice.targets, state.cards, state.turnPlayerId ?? ''))) return state;
+  // Observers have no private prompt, so validate only public slot references.
+  if (!owner && (notice.targets.length === 2 && sameSlot(notice.targets[0], notice.targets[1])
+    || notice.targets.some(target => !state.cards.some(card => sameSlot(card, target))))) return state;
   const powerPeekTargets = notice.targets.map(({ playerId, handSlotId, ...face }) =>
     owner && face.faceUp
       ? { playerId, handSlotId, faceUp: /** @type {const} */ (true), cardId: face.cardId }

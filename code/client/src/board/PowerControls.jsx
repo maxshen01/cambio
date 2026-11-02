@@ -1,5 +1,6 @@
 // Owner-only power choices and persistent instructions; server state decides the stage.
 import { useEffect, useId, useRef } from 'react';
+import { getPowerDefinition, getPowerSelectionPolicy } from '../game/powerPolicy.js';
 
 /** @param {{ prompt: import('../game/gameClientState.js').PowerPrompt | null,
  * canUse: boolean, canSkip: boolean, canDone: boolean,
@@ -9,12 +10,13 @@ export function PowerControls({ prompt, canUse, canSkip, canDone, onUse, onSkip,
   const done = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const viewing = prompt?.stage === 'awaitingPeekDone';
   const selecting = prompt?.stage === 'awaitingTargets' || prompt?.stage === 'awaitingSwap';
-  const opponent = prompt?.power === 'opponentPeek';
-  const blindSwap = prompt?.power === 'blindSwap';
-  const peekSwap = prompt?.power === 'onePeekSwap' || prompt?.power === 'twoPeekSwap';
-  const swapping = blindSwap || prompt?.stage === 'awaitingSwap';
-  const count = prompt?.power === 'twoPeekSwap' ? 'two distinct cards' : 'one card';
-  const label = peekSwap ? (prompt?.power === 'twoPeekSwap' ? 'Black king' : 'Black queen') : blindSwap ? 'Blind-swap' : opponent ? 'Opponent-peek' : 'Self-peek';
+  const definition = getPowerDefinition(prompt?.power);
+  const opponent = definition?.initial.ownership === 'opponent';
+  const blindSwap = definition?.initial.kind === 'swap';
+  const peekSwap = Boolean(definition?.postPeekSwap);
+  const swapping = getPowerSelectionPolicy(prompt)?.kind === 'swap';
+  const count = definition?.initial.count === 2 ? 'two distinct cards' : 'one card';
+  const label = peekSwap ? (definition?.initial.count === 2 ? 'Black king' : 'Black queen') : blindSwap ? 'Blind-swap' : opponent ? 'Opponent-peek' : 'Self-peek';
   useEffect(() => {
     if (viewing && canDone) done.current?.focus();
   }, [viewing, canDone]);

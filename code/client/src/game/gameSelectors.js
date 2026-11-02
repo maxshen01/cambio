@@ -1,4 +1,5 @@
 // Derives membership and action eligibility rather than storing duplicate flags.
+import { getPowerDefinition } from './powerPolicy.js';
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 /** Single eligibility calculation used by rendering and request guards.
  * @param {GameClientState} state
@@ -15,7 +16,8 @@ export function selectGameClient(state) {
   const canDraw = ownTurn && !state.drawnCard && !state.resolvingPower;
   const powerChoice = ownPendingCard && state.drawnCard?.source === 'deck'
     && Boolean(state.powerPrompt);
-  const peekSwap = state.powerPrompt?.power === 'onePeekSwap' || state.powerPrompt?.power === 'twoPeekSwap';
+  const definition = getPowerDefinition(state.powerPrompt?.power);
+  const peekSwap = Boolean(definition?.postPeekSwap);
   return {
     view: {
       connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
@@ -36,7 +38,7 @@ export function selectGameClient(state) {
       canChoosePowerSwap: powerChoice && peekSwap && state.powerPrompt?.stage === 'awaitingSwap',
       canSkipPower: powerChoice && (state.powerPrompt?.stage === 'awaitingChoice' || state.powerPrompt?.stage === 'awaitingTargets'
         || peekSwap && state.powerPrompt?.stage === 'awaitingSwap'),
-      canFinishPowerPeek: powerChoice && state.powerPrompt?.power !== 'blindSwap' && state.powerPrompt?.stage === 'awaitingPeekDone',
+      canFinishPowerPeek: powerChoice && definition?.initial.kind === 'peek' && state.powerPrompt?.stage === 'awaitingPeekDone',
     },
   };
 }

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { checkDisplayName } from '../../../shared/displayName.js';
 import { logClientEvent } from '../socket/log.js';
 import { selectGameClient } from './gameSelectors.js';
+import { getPowerDefinition, getPowerSelectionPolicy, isValidPowerSelection } from './powerPolicy.js';
 
 /** Commands share the same session locks used by incoming confirmations and cleanup.
  * @param {{ socket: import('./sessionControl.js').GameSocket,
@@ -107,23 +108,20 @@ export function useGameActions({ socket, dispatch, session }) {
     }
     /** @type {import('../../../shared/protocol.js').ChoosePowerTargetsRequest} */
     let payload;
-    const occupied = (/** @type {import('../../../shared/protocol.js').HandSlotRef} */ ref) => ref
-      && state.cards.some(card => card.playerId === ref.playerId && card.handSlotId === ref.handSlotId);
-    if (state.powerPrompt.power === 'blindSwap') {
-      if (!('first' in target) || !occupied(target.first) || !occupied(target.second)
-        || target.first.playerId === target.second.playerId) return;
+    const definition = getPowerDefinition(state.powerPrompt.power);
+    const policy = getPowerSelectionPolicy(state.powerPrompt);
+    if (!definition || !policy) return;
+    if (policy.kind === 'swap') {
+      if (!('first' in target) || !isValidPowerSelection(policy, [target.first, target.second], state.cards, state.identity.playerId)) return;
       payload = {
         first: { playerId: target.first.playerId, handSlotId: target.first.handSlotId },
         second: { playerId: target.second.playerId, handSlotId: target.second.handSlotId },
       };
-    } else if (state.powerPrompt.power === 'onePeekSwap' || state.powerPrompt.power === 'twoPeekSwap') {
-      const count = state.powerPrompt.power === 'onePeekSwap' ? 1 : 2;
-      if (!Array.isArray(target) || target.length !== count || !target.every(occupied)
-        || (count === 2 && target[0].playerId === target[1].playerId && target[0].handSlotId === target[1].handSlotId)) return;
+    } else if (definition.postPeekSwap) {
+      if (!Array.isArray(target) || !isValidPowerSelection(policy, target, state.cards, state.identity.playerId)) return;
       payload = { peekTargets: target.map(ref => ({ playerId: ref.playerId, handSlotId: ref.handSlotId })) };
     } else {
-      if (!('playerId' in target) || !occupied(target)
-        || (state.powerPrompt.power === 'selfPeek' ? target.playerId !== state.identity.playerId : target.playerId === state.identity.playerId)) return;
+      if (!('playerId' in target) || !isValidPowerSelection(policy, [target], state.cards, state.identity.playerId)) return;
       payload = { peekTarget: { playerId: target.playerId, handSlotId: target.handSlotId } };
     }
     if (!beginTurnRequest('canChoosePowerTargets', 'choosePowerTargets')) return;
@@ -136,8 +134,8 @@ export function useGameActions({ socket, dispatch, session }) {
   function choosePowerSwap(pair) {
     const state = control.state;
     const targets = pair && [pair.first, pair.second];
-    if (!targets || targets.some(ref => !ref || !state.cards.some(card => card.playerId === ref.playerId && card.handSlotId === ref.handSlotId))
-      || pair.first.playerId === pair.second.playerId || !beginTurnRequest('canChoosePowerSwap', 'choosePowerSwap')) return;
+    if (!targets || !state.identity || !isValidPowerSelection(getPowerSelectionPolicy(state.powerPrompt), targets, state.cards, state.identity.playerId)
+      || !beginTurnRequest('canChoosePowerSwap', 'choosePowerSwap')) return;
     socket.emit('choosePowerSwap', {
       first: { playerId: pair.first.playerId, handSlotId: pair.first.handSlotId },
       second: { playerId: pair.second.playerId, handSlotId: pair.second.handSlotId },

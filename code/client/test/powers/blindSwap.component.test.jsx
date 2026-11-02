@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { App } from '../../src/App.jsx';
 import { FakeSocket } from '../helpers/fakeSocket.js';
-import { activatePowerClient, startPower } from '../helpers/powerClient.js';
+import { activatePowerClient, startPower, cards } from '../helpers/powerClient.js';
 
 async function board() {
   const socket = new FakeSocket();
@@ -23,6 +23,31 @@ async function board() {
 const hand = seat => within(screen.getByRole('listitem', { name: `Seat ${seat}` }));
 const target = (seat, slot = 1) => hand(seat).getByRole('button', { name: `Swap slot ${slot}` });
 const selections = () => document.querySelectorAll('.setup-hand__slot--selected');
+
+it('handles deselection and a complete pair in one event burst before rendering', async () => {
+  const { socket } = await board();
+  const first = target(1), second = target(2), third = target(3);
+  act(() => {
+    fireEvent.click(first); fireEvent.click(first);
+    fireEvent.click(second); fireEvent.click(third); fireEvent.click(first);
+  });
+  expect(socket.emissions.filter(e => e.event === 'choosePowerTargets')).toMatchObject([
+    { payload: { first: { playerId: 'p2', handSlotId: 1 }, second: { playerId: 'p3', handSlotId: 1 } } },
+  ]);
+  expect(selections()).toHaveLength(2);
+});
+
+it.each(['deal', 'turn'])('clears a partial selection without submitting on %s', async boundary => {
+  const { socket, user } = await board();
+  await user.click(target(1));
+  expect(selections()).toHaveLength(1);
+  act(() => {
+    if (boundary === 'deal') socket.receive('dealComplete', { cards });
+    else socket.receive('turnChanged', { playerId: 'p2' });
+  });
+  expect(selections()).toHaveLength(0);
+  expect(socket.emissions.filter(e => e.event === 'choosePowerTargets')).toHaveLength(0);
+});
 
 it('selects only a different-player pair, supports first-card deselection, and submits once', async () => {
   const { socket, user } = await board();
