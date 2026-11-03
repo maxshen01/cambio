@@ -5,9 +5,11 @@ import { CARD_IMAGES, CARD_BACK_IMAGE } from '../../../shared/cardCatalog.js';
  * drawnCard: import('../../../shared/protocol.js').DrawnCardView | null,
  * discardTop: import('../../../shared/protocol.js').DiscardView | null,
  * drawerName?: string, canDraw: boolean, canDrawDiscard: boolean, canDiscardDrawn: boolean,
+ * highlightDrawn?: boolean,
+ * canUsePower?: boolean, onUsePower?: () => void,
  * onDraw: () => void, onDrawDiscard: () => void, onDiscard: () => void }} props
  */
-export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, canDraw, canDrawDiscard, canDiscardDrawn, onDraw, onDrawDiscard, onDiscard }) {
+export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, canDraw, canDrawDiscard, canDiscardDrawn, highlightDrawn = false, canUsePower = false, onUsePower, onDraw, onDrawDiscard, onDiscard }) {
   return (
     <div className="setup-piles">
       <div className="setup-deck">{artworkReady && <button type="button" className="card-action"
@@ -20,9 +22,9 @@ export function CardPiles({ artworkReady, drawnCard, discardTop, drawerName, can
           <img className="setup-card" src={CARD_IMAGES[discardTop.cardId]} alt="Discard pile" draggable={false} />
         </button>}
       </div>
-      <div className="setup-drawn" aria-hidden={drawnCard ? undefined : true}>
-        {drawnCard && artworkReady && <button type="button" className="card-action" aria-label="Discard drawn card"
-          disabled={!canDiscardDrawn} onClick={onDiscard}>
+      <div className={`setup-drawn${highlightDrawn ? ' setup-drawn--power' : ''}`} aria-hidden={drawnCard ? undefined : true}>
+        {drawnCard && artworkReady && <button type="button" className="card-action" aria-label={highlightDrawn ? 'Use drawn card power' : 'Discard drawn card'}
+          disabled={highlightDrawn ? !canUsePower : !canDiscardDrawn} onClick={highlightDrawn ? onUsePower : onDiscard}>
           <img className="setup-card" draggable={false}
             src={drawnCard.faceUp ? CARD_IMAGES[drawnCard.cardId] : CARD_BACK_IMAGE}
             alt={`Drawn card for ${drawerName ?? 'player'}, face ${drawnCard.faceUp ? 'up' : 'down'}`} />

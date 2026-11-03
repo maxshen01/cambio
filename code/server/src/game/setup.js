@@ -43,9 +43,10 @@ export function unreadyPlayer(state, id) {
  * Call only after broadcasting the fourth lobby playerReady notice.
  * @param {GameState} state
  * @param {() => number} [random]
+ * @param {(cards: import('./types.js').Card[]) => void} [prepareDeck] Optional development ordering before dealing.
  * @returns {boolean}
  */
-export function dealIfReady(state, random = Math.random) {
+export function dealIfReady(state, random = Math.random, prepareDeck) {
   if (!isUndealtLobby(state) || state.players.length !== 4
     || !state.players.every(player => player.connected && player.isReady)
     || !SEATS.every(seat => state.players.some(player => player.seatId === seat))) {
@@ -53,6 +54,7 @@ export function dealIfReady(state, random = Math.random) {
   }
 
   const cards = shuffleDeck(createDeck(), random);
+  prepareDeck?.(cards);
   const players = playersInSeatOrder(state.players);
   resetSetup(state, players);
   state.deck.cards = cards;

@@ -1,10 +1,11 @@
 // Pure, atomic transitions for the server-confirmed client view.
+import { clearedPowerState } from './powerTransitions.js';
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 /** @typedef {import('../../../shared/protocol.js').CardView} CardView */
 /** @typedef {import('../../../shared/protocol.js').PlayerSummary} PlayerSummary */
 /** @typedef {import('../../../shared/protocol.js').CardDrawnNotice} CardDrawnNotice */
 /** @typedef {import('../../../shared/protocol.js').DiscardView} DiscardView */
-/** @typedef {import('../../../shared/protocol.js').DrawnSwapNotice} DrawnSwapNotice */
+/** @typedef {import('../../../shared/protocol.js').CardSwapNotice} CardSwapNotice */
 
 /** Remove face identities rather than merely hiding their images.
  * @param {CardView[]} cards @returns {CardView[]}
@@ -29,6 +30,7 @@ export function applyDeal(state, cards) {
   return {
     ...state,
     stage: 'memorization',
+    ...clearedPowerState(),
     players: state.players.map(player => ({ ...player, isReady: false })),
     cards: cards.map(card => ({ ...card })),
     turnPlayerId: null,
@@ -76,6 +78,7 @@ export function beginTurn(state, playerId) {
   return {
     ...state,
     stage: 'active',
+    ...clearedPowerState(),
     turnPlayerId: playerId,
     cards: hideHandCards(state.cards),
     drawnCard: null,
@@ -93,7 +96,8 @@ export function beginTurn(state, playerId) {
  * @returns {GameClientState}
  */
 export function receiveDrawnCard(state, card) {
-  if (state.connection !== 'connected' || state.stage !== 'active' || card.playerId !== state.turnPlayerId) return state;
+  if (state.connection !== 'connected' || state.stage !== 'active' || card.playerId !== state.turnPlayerId
+    || state.resolvingPower) return state;
   const drawnCard = card.faceUp
     ? { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (true), cardId: card.cardId }
     : { playerId: card.playerId, source: card.source, faceUp: /** @type {const} */ (false) };
@@ -121,24 +125,43 @@ export function resolveDiscard(state, top) {
   return {
     ...state,
     discardTop: top ? { cardId: top.cardId } : null,
+    ...clearedPowerState(),
     drawnCard: null,
     awaitingTurn: true,
     movementId: state.movementId + 1,
-    movement: state.movement?.kind === 'swap' ? { ...state.movement, id: state.movementId + 1 }
+    movement: state.movement?.kind === 'powerSwap' ? state.movement
+      : state.movement?.kind === 'swap' ? { ...state.movement, id: state.movementId + 1 }
       : { id: state.movementId + 1, kind: 'discard' },
   };
 }
 
 /** Keep the replacement facedown; the following pile event supplies the displaced face.
  * @param {GameClientState} state
- * @param {DrawnSwapNotice} notice
+ * @param {CardSwapNotice} notice
  * @returns {GameClientState}
  */
 export function resolveSwap(state, notice) {
   if (state.connection !== 'connected' || state.stage !== 'active') return state;
+  if (notice.kind === 'power') {
+    if (!state.resolvingPower || !state.drawnCard?.faceUp || state.awaitingTurn) return state;
+    const targets = [notice.first, notice.second];
+    if (notice.first.playerId === notice.second.playerId || targets.some(target =>
+      !state.cards.some(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId))) return state;
+    return {
+      ...state,
+      powerPrompt: null, powerPeekTargets: [], pendingPowerAction: null,
+      // Keep the held power and public resolution block until discardPileUpdated.
+      turnPending: true, awaitingTurn: true,
+      cards: state.cards.map(card => targets.some(target => card.playerId === target.playerId && card.handSlotId === target.handSlotId)
+        ? hideHandCard(card) : card),
+      movementId: state.movementId + 1,
+      movement: { id: state.movementId + 1, kind: 'powerSwap', first: { ...notice.first }, second: { ...notice.second } },
+    };
+  }
   const target = notice.target;
   return {
     ...state,
+    ...clearedPowerState(),
     drawnCard: null,
     awaitingTurn: true,
     cards: state.cards.map(card => card.playerId === target.playerId && card.handSlotId === target.handSlotId
@@ -158,6 +181,7 @@ export function returnToLobby(state, players) {
     ...state,
     players,
     stage: 'lobby',
+    ...clearedPowerState(),
     cards: [],
     turnPlayerId: null,
     drawnCard: null,

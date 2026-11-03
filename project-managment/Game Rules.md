@@ -24,7 +24,7 @@ These rules describe the intended game. See the [root README](../README.md) for 
 - If the player took from the deck, the player must either discard this card or replace one of their facedown cards, and discard that card.
 - The player can choose to swap their drawn card with one of their facedown cards. This facedown card is then moved to the discard pile, face up.
 - If the player takes from the discard pile, they must replace one of their facedown cards and discard it.
-- If the player chooses to discard a deck-drawn card with a power, they may use or skip that power before the card is discarded. The card remains drawn while its power is resolved. Choosing to use the power reveals the held card to everyone before its effect, so all players can see which card granted it; skipping before use leaves the card private until discard. After the power is completed or skipped, the server automatically discards the card; the player does not make a second discard choice. Matching is unavailable throughout power resolution, including between a black queen/king peek and the subsequent swap or skip choice.
+- Drawing a deck card with a power immediately offers use or skip while own-hand replacement remains available. Choosing Use or clicking the held card commits to resolution and reveals it to all seated players before target selection. Activation alone does not apply the effect or advance the turn. Skipping before activation leaves the card private until discard; skipping during target selection leaves it public until discard. The held card is automatically discarded when the power completes or is skipped. Matching is unavailable throughout power resolution, including between a black queen/king peek and its subsequent swap or skip.
 - Once a card is swapped with one of the facedown cards, it loses its power.
 
 ## Card values and powers
@@ -45,10 +45,10 @@ These rules describe the intended game. See the [root README](../README.md) for 
 
 ### Power resolution and visibility
 
-- Only a deck-drawn card chosen for direct discard can grant its power. Replacing a hand card, giving a card, or receiving a penalty card does not activate a power.
+- Only a deck-drawn card committed to power resolution can grant its power. The initial offer alone does not commit it. Replacing a hand card, giving a card, or receiving a penalty card does not activate a power.
 - Power peeks reveal target faces only to the power user; everyone else may see the targeted slots, never their faces. Keep peeked faces visible until the user chooses Done; do not time them out. A 7–10 then automatically discards the held card and completes the turn. A black queen/king instead proceeds to swap or skip after Done, retaining the publicly revealed held power card until that choice resolves.
 - A black queen requires one peek target; a black king requires two distinct targets. Targets may be the user's or opponents' cards. Their subsequent swap may use any legal pair, whether peeked or not. All power swaps exchange existing slots belonging to different players; two opponents' cards may be swapped. The final-round caller protection is defined [below](#cambio-final-grace-and-scoring).
-- Skipping is permitted before using a power or after finishing a black queen/king peek to decline the swap. While viewing a peek, the user must finish it with Done before choosing the next action. A rejected power choice preserves the pending card and stage so the player can retry.
+- Skipping is permitted before activating a power, during target selection after activation, or after finishing a black queen/king peek to decline the swap. While viewing a peek, the user must finish it with Done before choosing the next action. A rejected power choice preserves the pending card and stage so the player can retry.
 - Hand cards are otherwise facedown during play; temporary peeks and accepted match flips do not permanently reveal them. A card swapped into a hand is facedown even if it was publicly drawn from discard. At round completion, reveal every hand and score. Never disclose hidden card identifiers to unauthorized recipients.
 
 ## Matching, gifts, and penalties

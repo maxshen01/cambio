@@ -13,3 +13,21 @@ export function nextEvent(socket, event, failureEvent) {
     if (failureEvent) socket.once(failureEvent, onFailure);
   });
 }
+
+// Observe only server events; remove catch-all listeners with the owning test.
+export function recordEvents(t, recipients) {
+  const records = recipients.map(() => []);
+  recipients.forEach((client, index) => {
+    const record = (event, payload) => records[index].push({ event, payload });
+    client.onAny(record);
+    t.after(() => client.offAny(record));
+  });
+  return { records, clear() { records.forEach(record => { record.length = 0; }); } };
+}
+
+// Same-connection ordering proves earlier requests were processed, not just sent.
+export function barrier(client) {
+  return new Promise((resolve, reject) => {
+    client.timeout(1500).emit('testBarrier', error => error ? reject(error) : resolve());
+  });
+}

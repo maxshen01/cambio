@@ -402,6 +402,67 @@ input {
   transform: translate(-50%, -50%);
 }
 
+/* Power choices sit below the fixed two-row piles without shifting the held card. */
+.power-controls {
+  position: absolute;
+  top: calc(50% + var(--card-height) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.power-controls button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #295e21;
+  border-radius: 6px;
+  background: #78d851;
+  color: #17212b;
+  cursor: pointer;
+}
+
+.power-controls button:disabled {
+  background: #d3d7da;
+  border-color: #9ca3aa;
+  color: #47535e;
+  cursor: default;
+}
+
+.power-controls button:focus-visible {
+  outline: 3px solid #295e21;
+  outline-offset: 3px;
+}
+
+.power-explanation {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  padding: 12px;
+  border: 1px solid #9ca3aa;
+  border-radius: 8px;
+  background: #eceeef;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.power-explanation p { margin: 0; }
+.power-explanation p + p { margin-top: 8px; font-weight: 600; }
+
+.setup-drawn--power {
+  outline: 3px solid #37852b;
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
+.setup-hand__slot--selected,
+.setup-hand__slot--peeked {
+  outline: 3px solid #f4d35e;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
 .setup-controls {
   position: absolute;
   right: 10%;

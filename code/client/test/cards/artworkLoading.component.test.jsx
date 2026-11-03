@@ -48,6 +48,39 @@ async function finish(...urls) {
   });
 }
 
+it.each(['selfPeek', 'opponentPeek'])('%s keeps the shared held card and baseline hands visible while peek artwork loads, fails, and retries', async power => {
+  const user = userEvent.setup();
+  const boardProps = {
+    ...props(), canReady: false, turnPlayerId: 'p1',
+    cards: cards().map(({ playerId, handSlotId }) => ({ playerId, handSlotId, faceUp: false })),
+    drawnCard: { playerId: 'p1', source: 'deck', faceUp: true, cardId: 7 },
+    power: { resolving: true, prompt: { power, stage: 'awaitingChoice' }, peekTargets: [],
+      pendingAction: null, canUse: true, canChooseTargets: false, canSkip: true, canDone: false,
+      onUse: vi.fn(), onChooseTargets: vi.fn(), onSkip: vi.fn(), onDone: vi.fn() },
+  };
+  const view = render(<GameBoard {...boardProps} />);
+  await finish(CARD_BACK_IMAGE, CARD_IMAGES[7]);
+  const shared = screen.getByRole('img', { name: 'Drawn card for Player 1, face up' });
+  const viewing = { ...boardProps, power: { ...boardProps.power,
+    prompt: { power, stage: 'awaitingPeekDone' }, canUse: false, canSkip: false, canDone: true,
+    peekTargets: [{ playerId: power === 'selfPeek' ? 'p1' : 'p2', handSlotId: 2, faceUp: true, cardId: 12 }],
+  } };
+  view.rerender(<GameBoard {...viewing} />);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading cards');
+  expect(screen.getByRole('img', { name: 'Drawn card for Player 1, face up' })).toBe(shared);
+  expect(screen.getAllByRole('img', { name: /Slot .*face down/ })).toHaveLength(16);
+  await act(async () => requests.get(CARD_IMAGES[12]).reject(new Error('peek offline')));
+  expect(screen.getByRole('alert')).toHaveTextContent('Card images could not be loaded');
+  expect(shared).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Done' })).toBeEnabled();
+  requests.delete(CARD_IMAGES[12]);
+  await user.click(screen.getByRole('button', { name: 'Retry card images' }));
+  await finish(CARD_IMAGES[12]);
+  expect(screen.getByRole('img', { name: 'Slot 2, face up' })).toHaveAttribute('src', CARD_IMAGES[12]);
+  expect(shared).toBeVisible();
+  expect(boardProps.cards.every(card => !card.faceUp && !('cardId' in card))).toBe(true);
+});
+
 it('begins preloading the public artwork while the join dialog is displayed', () => {
   render(<App socket={new FakeSocket()} />);
   expect(screen.getByRole('dialog', { name: 'Join the lobby' })).toBeInTheDocument();

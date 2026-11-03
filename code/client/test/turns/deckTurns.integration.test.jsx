@@ -34,21 +34,21 @@ it('IT-02/IT-03: plays private deck and public discard turns through all four bo
       io.sockets.sockets.get(socket.id).emit('turnChanged', { playerId: sockets[0].id });
     }
     await waitFor(() => expect(query(0).getByRole('button', { name: 'Draw from deck' })).toBeEnabled());
-    // A power card must behave exactly like an ordinary deck card in this milestone.
-    const powerIndex = gameState.deck.cards.findIndex(card => card.cardId === 7);
-    const [power] = gameState.deck.cards.splice(powerIndex, 1);
-    gameState.deck.cards.push(power);
+    // Keep ordinary-turn coverage independent of the backend-only self-peek flow.
+    const ordinaryIndex = gameState.deck.cards.findIndex(card => card.cardId === 6);
+    const [ordinary] = gameState.deck.cards.splice(ordinaryIndex, 1);
+    gameState.deck.cards.push(ordinary);
     await user.click(query(0).getByRole('button', { name: 'Draw from deck' }));
     for (let index = 0; index < 4; index++) {
       const image = await query(index).findByRole('img', { name: `Drawn card for Player 1, face ${index === 0 ? 'up' : 'down'}` });
-      expect(image).toHaveAttribute('src', index === 0 ? CARD_IMAGES[7] : CARD_BACK_IMAGE);
+      expect(image).toHaveAttribute('src', index === 0 ? CARD_IMAGES[6] : CARD_BACK_IMAGE);
       expect(query(index).getByRole('button', { name: 'Draw from deck' })).toBeDisabled();
       if (index !== 0) expect(query(index).getByRole('button', { name: 'Discard drawn card' })).toBeDisabled();
     }
     await user.click(query(0).getByRole('button', { name: 'Discard drawn card' }));
     for (let index = 0; index < 4; index++) {
       await waitFor(() => expect(query(index).getByRole('listitem', { name: 'Seat 2' })).toHaveAttribute('aria-current', 'true'));
-      expect(query(index).getByRole('img', { name: 'Discard pile' })).toHaveAttribute('src', CARD_IMAGES[7]);
+      expect(query(index).getByRole('img', { name: 'Discard pile' })).toHaveAttribute('src', CARD_IMAGES[6]);
       expect(query(index).queryByRole('img', { name: /Drawn card/ })).not.toBeInTheDocument();
       expect(query(index).getByRole('button', { name: 'Draw from discard' })).toHaveProperty('disabled', index !== 1);
       expect(query(index).queryByText(/Use power|Don't use/)).not.toBeInTheDocument();

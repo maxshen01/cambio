@@ -12,6 +12,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
   useEffect(() => {
     const guard = session.current;
     guard.active = true;
+    guard.socket = socket;
     const generation = ++guard.generation;
     const valid = () => guard.active && !guard.lost && guard.generation === generation;
     function onConnect() {
@@ -96,11 +97,35 @@ export function useGameSocketEvents(socket, dispatch, session) {
       dispatch({ type: 'discardPileReceived', top });
       logClientEvent('discardPileUpdated', 'received');
     }
-    /** @param {import('../../../shared/protocol.js').DrawnSwapNotice} notice */
+    /** @param {import('../../../shared/protocol.js').CardSwapNotice} notice */
     function onSwapped(notice) {
       if (!valid()) return;
       dispatch({ type: 'cardSwapReceived', notice });
       logClientEvent('cardSwapped', 'received');
+    }
+    /** @param {import('../../../shared/protocol.js').PowerResolutionStarted} notice */
+    function onPowerStarted(notice) {
+      if (!valid()) return;
+      dispatch({ type: 'powerResolutionStarted', notice });
+      logClientEvent('powerResolutionStarted', 'received');
+    }
+    /** @param {import('../../../shared/protocol.js').PowerAvailable} notice */
+    function onPowerAvailable(notice) {
+      if (!valid()) return;
+      dispatch({ type: 'powerAvailable', notice });
+      logClientEvent('powerAvailable', 'received');
+    }
+    /** @param {import('../../../shared/protocol.js').PowerCardRevealed} card */
+    function onPowerRevealed(card) {
+      if (!valid()) return;
+      dispatch({ type: 'powerCardRevealed', card });
+      logClientEvent('powerCardRevealed', 'received');
+    }
+    /** @param {import('../../../shared/protocol.js').PowerPeekResult} notice */
+    function onPowerPeek(notice) {
+      if (!valid()) return;
+      dispatch({ type: 'powerPeekResult', notice });
+      logClientEvent('powerPeekResult', 'received');
     }
     /** @param {import('../../../shared/protocol.js').LobbyError} error */
     function onError(error) {
@@ -120,6 +145,10 @@ export function useGameSocketEvents(socket, dispatch, session) {
     socket.on('cardDrawn', onDrawn);
     socket.on('discardPileUpdated', onPile);
     socket.on('cardSwapped', onSwapped);
+    socket.on('powerResolutionStarted', onPowerStarted);
+    socket.on('powerAvailable', onPowerAvailable);
+    socket.on('powerCardRevealed', onPowerRevealed);
+    socket.on('powerPeekResult', onPowerPeek);
     socket.on('playerReady', onReady);
     socket.on('playerUnready', onUnready);
     socket.on('error', onError);
@@ -130,6 +159,7 @@ export function useGameSocketEvents(socket, dispatch, session) {
     }
     return () => {
       guard.active = false;
+      guard.socket = null;
       ++guard.generation;
       socket.off('connect', onConnect);
       socket.off('connect_error', onConnectError);
@@ -142,6 +172,10 @@ export function useGameSocketEvents(socket, dispatch, session) {
       socket.off('cardDrawn', onDrawn);
       socket.off('discardPileUpdated', onPile);
       socket.off('cardSwapped', onSwapped);
+      socket.off('powerResolutionStarted', onPowerStarted);
+      socket.off('powerAvailable', onPowerAvailable);
+      socket.off('powerCardRevealed', onPowerRevealed);
+      socket.off('powerPeekResult', onPowerPeek);
       socket.off('playerReady', onReady);
       socket.off('playerUnready', onUnready);
       socket.off('error', onError);

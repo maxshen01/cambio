@@ -1,5 +1,5 @@
 // Composes the client state, derived view, socket lifecycle, and player commands.
-import { useReducer, useRef } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { initialGameClientState } from './gameClientState.js';
 import { gameClientReducer } from './gameClientReducer.js';
 import { selectGameClient } from './gameSelectors.js';
@@ -11,10 +11,18 @@ import { useGameActions } from './useGameActions.js';
  * @param {import('./sessionControl.js').GameSocket} socket
  */
 export function useGameClient(socket) {
-  const [state, dispatch] = useReducer(gameClientReducer, socket.connected, initialGameClientState);
-  const session = useRef(createSessionControl());
+  const [state, setState] = useState(() => initialGameClientState(socket.connected));
+  const session = useRef(createSessionControl(state));
+  // Apply the same pure reducer synchronously so event/action bursts cannot use stale render permissions.
+  /** @type {import('./sessionControl.js').ClientDispatch} */
+  const dispatch = useCallback(action => {
+    const next = gameClientReducer(session.current.state, action);
+    session.current.state = next;
+    session.current.turnPending = next.turnPending;
+    setState(next);
+  }, []);
   const { view, permissions } = selectGameClient(state);
   useGameSocketEvents(socket, dispatch, session);
-  const actions = useGameActions({ socket, state, view, permissions, dispatch, session });
+  const actions = useGameActions({ socket, dispatch, session });
   return { state, view, permissions, actions };
 }

@@ -24,6 +24,22 @@ Create `code/server/.env` locally if it is missing; an empty file is sufficient 
 
 ## Running locally
 
+### Development deck ordering
+
+For predictable manual card draws, add this to `code/server/.env` and run `npm.cmd run dev` from `code/server`:
+
+```dotenv
+PLAYTEST_TOP_CARDS=jack,7,queen_of_spades
+```
+
+The list specifies the first deck draws **after the 16 opening hand cards are dealt**, first entry first. It reapplies on every fresh deal, including after a replacement or aborted game. The starter remains random, and ordinary discard draws and deck refills still apply.
+
+Use comma-separated ranks (`ace`, `2`–`10`, `jack`, `queen`, `king`, `joker`) or exact faces such as `jack_of_hearts`, `7_of_clubs`, `black_joker`, or `red_joker`. Names are case-insensitive and surrounding whitespace is ignored. Bare ranks accept any available suit; repeated entries reserve separate physical cards. Exact faces are reserved first so a bare rank cannot consume a later exact request. The deck still contains its original 108 cards.
+
+Missing or blank configuration uses normal shuffling. Invalid entries, unavailable quantities, and lists longer than 92 cards stop development startup with an error. Restart the server after editing `.env`. The ordinary `npm.cmd start` command ignores this setting, and development playtesting mode refuses to start with `NODE_ENV=production`. No client controls expose deck configuration.
+
+### Server and client startup
+
 In `code/server`:
 
 ```powershell
@@ -40,11 +56,11 @@ The server defaults to port 3000. Open the URL Vite prints, normally `http://loc
 
 ### Environment and diagnostics
 
-| Variable | Package | Meaning |
-| --- | --- | --- |
-| `PORT` | Server | Listening port; defaults to 3000. |
-| `SOCKET_DEBUG` | Server | Set to `1` to enable routine Socket.IO diagnostics. |
-| `VITE_SOCKET_DEBUG` | Client | Set to `1` when starting Vite to enable client event diagnostics. |
+| Variable            | Package | Meaning                                                           |
+| ------------------- | ------- | ----------------------------------------------------------------- |
+| `PORT`              | Server  | Listening port; defaults to 3000.                                 |
+| `SOCKET_DEBUG`      | Server  | Set to `1` to enable routine Socket.IO diagnostics.               |
+| `VITE_SOCKET_DEBUG` | Client  | Set to `1` when starting Vite to enable client event diagnostics. |
 
 In `code/server`:
 
@@ -80,18 +96,19 @@ Use focused checks while developing. Broaden checks for changes affecting shared
 
 Run from `code/client`; scripts are defined in [package.json](client/package.json).
 
-| Command | Purpose or selection |
-| --- | --- |
-| `npm.cmd run dev` | Vite development server |
-| `npm.cmd test` | Complete client suite |
-| `npm.cmd run typecheck` | Strict JavaScript/JSX and shared public type checks; no output files |
-| `npm.cmd run build` | Production build |
-| `npm.cmd run test:lobby` | Join form, lobby, readiness, and real-socket lobby-to-deal flow |
-| `npm.cmd run test:setup` | Memorization, private faces, and departure/redeal behavior |
-| `npm.cmd run test:cards` | Artwork loading, caching, failure, and retry |
-| `npm.cmd run test:recovery` | Connection failure/loss, retry, stale callbacks, cleanup |
-| `npm.cmd run test:fast` | Unit and fake-socket component tests |
-| `npm.cmd run test:integration` | React connected to real Socket.IO servers under jsdom |
+| Command                        | Purpose or selection                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `npm.cmd run dev`              | Vite development server                                              |
+| `npm.cmd test`                 | Complete client suite                                                |
+| `npm.cmd run typecheck`        | Strict JavaScript/JSX and shared public type checks; no output files |
+| `npm.cmd run build`            | Production build                                                     |
+| `npm.cmd run test:lobby`       | Join form, lobby, readiness, and real-socket lobby-to-deal flow      |
+| `npm.cmd run test:setup`       | Memorization, private faces, and departure/redeal behavior           |
+| `npm.cmd run test:powers`      | Self-peek client state/actions, private faces, guards, and cleanup   |
+| `npm.cmd run test:cards`       | Artwork loading, caching, failure, and retry                         |
+| `npm.cmd run test:recovery`    | Connection failure/loss, retry, stale callbacks, cleanup             |
+| `npm.cmd run test:fast`        | Unit and fake-socket component tests                                 |
+| `npm.cmd run test:integration` | React connected to real Socket.IO servers under jsdom                |
 
 Select a single file, a test name, or a feature in watch mode:
 
@@ -107,18 +124,19 @@ Combine a level and feature, for example `npm.cmd run test:fast -- test/setup/`.
 
 Run from `code/server`; scripts are defined in [package.json](server/package.json).
 
-| Command | Purpose or selection |
-| --- | --- |
-| `npm.cmd start` | Start the server using the local `.env` file |
-| `npm.cmd test` | Complete server suite, including assets |
-| `npm.cmd run typecheck` | Strict JavaScript and shared public type checks; no output files |
-| `npm.cmd run test:lobby` | Joining, display names, seats, and lobby readiness |
-| `npm.cmd run test:setup` | Dealing, memorization, and departure/redeal behavior |
-| `npm.cmd run test:cards` | Deck rules and artwork integrity |
-| `npm.cmd run test:recovery` | Unexpected handler faults and room reset |
-| `npm.cmd run test:fast` | Isolated units; no sockets or asset checks |
-| `npm.cmd run test:integration` | Composed server and real-socket tests |
-| `npm.cmd run test:assets` | Public artwork compared with design originals |
+| Command                        | Purpose or selection                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `npm.cmd start`                | Start the server using the local `.env` file                                   |
+| `npm.cmd test`                 | Complete server suite, including assets                                        |
+| `npm.cmd run typecheck`        | Strict JavaScript and shared public type checks; no output files               |
+| `npm.cmd run test:lobby`       | Joining, display names, seats, and lobby readiness                             |
+| `npm.cmd run test:setup`       | Dealing, memorization, and departure/redeal behavior                           |
+| `npm.cmd run test:powers`      | All five powers: domain rules and representative four-client socket contracts |
+| `npm.cmd run test:cards`       | Deck rules and artwork integrity                                               |
+| `npm.cmd run test:recovery`    | Unexpected handler faults and room reset                                       |
+| `npm.cmd run test:fast`        | Isolated units; no sockets or asset checks                                     |
+| `npm.cmd run test:integration` | Composed server and real-socket tests                                          |
+| `npm.cmd run test:assets`      | Public artwork compared with design originals                                  |
 
 Select a single file, a test name, or a feature plus test level:
 
@@ -134,7 +152,9 @@ Keep Node runner options **before file paths**. Use the direct commands for name
 
 Keep tests in `test/<feature>/`: client `.unit.test.js`, `.component.test.jsx`, and `.integration.test.js(x)`; server `.unit.test.js`, `.integration.test.js`, and `.asset.test.js`. Put helpers in `test/helpers/`, outside discovery. Group cross-feature scenarios under their primary behavior while retaining representative transitions. Keep current scenario-to-test mappings in the [root README](../README.md#source-and-coverage-map). Run server-owned artwork integrity checks with `test:assets`.
 
-The [room harness](server/test/helpers/room.js) creates a fresh server per test, supports injected game state, bounds socket/acknowledgement/event waits, and tears down connections. `dealtHarness` exercises the real setup transition. New features need independent fixtures rather than replaying lobby scenarios. For example, powers belong in `test/powers/` with feature-specific fake sockets or injected state and a matching feature script; retain representative transition tests and avoid empty future suites.
+The [room harness](server/test/helpers/room.js) creates a fresh server per test, supports injected game state, bounds socket/acknowledgement/event waits, and tears down connections. `activeHarness` creates four real connections with explicit player-room membership and injected active state; use it for isolated turn/power cases. `dealtHarness` exercises real joins and lobby-to-deal transitions. Keep rule combinations in units and socket scenarios focused on handler wiring, recipient privacy, ordered events, and representative recovery. Powers belong in `test/powers/`; their controlled draw/actions build on the shared active fixture.
+
+Use `drain(sender)` after requests before asserting absent or requester-only events: it first acknowledges processing on the initiating connection, then drains every connected recipient. Use the harness `disconnect(client)` to wait for server-side departure handling before draining survivors; a survivor acknowledgment alone does not order another connection's departure. These bounded barriers are installed only by tests. The [socket helpers](server/test/helpers/socket.js) also provide event recording with test-owned listener cleanup. Do not use fixed sleeps to prove the absence of messages. Shared domain fixtures in `activeGame.js` select existing physical cards and acting players and assert immutable rejections. Test expectations must remain independent of production power definitions.
 
 Both type checks use strict TypeScript `checkJs` without emitting files. The [client config](client/tsconfig.json) includes browser JavaScript/JSX and shared public definitions; the [server config](server/tsconfig.json) includes server JavaScript and those shared definitions. Authoritative game-state types remain server-only.
 
@@ -161,17 +181,17 @@ These non-browser checks do not establish visual correctness. [Test Scenarios](.
 
 Paths in the first column are repository-relative; links resolve from this file.
 
-| Document | Owns; update when these facts change |
-| --- | --- |
-| [README.md](../README.md) | Current capabilities, limitations, temporary implementation exceptions, and capability-to-source/test mappings |
-| [project-managment/MVP.md](../project-managment/MVP.md) | Product goals, audience, scope/exclusions, and release acceptance |
-| [project-managment/Game Rules.md](../project-managment/Game%20Rules.md) | Gameplay, card visibility policy, powers, matching, scoring, turns, lifecycle |
-| [project-managment/Game Data Model.md](../project-managment/Game%20Data%20Model.md) | State ownership, field meaning, relationships, invariants; keep source JSDoc accurate |
-| [project-managment/Events Contract.md](../project-managment/Events%20Contract.md) | Events, payloads, acknowledgements, errors, recipient redaction, ordering; keep shared public types accurate |
-| [project-managment/designs/UI Rules.md](../project-managment/designs/UI%20Rules.md) | Layout, controls, accessibility, feedback, animations, screen transitions |
-| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md) | Intended acceptance sequences and manual validation procedures |
-| [code/Development.md](Development.md) | Setup, commands, dependencies, environment-variable names, diagnostics, documentation ownership |
-| [code/client/README.md](client/README.md) and [code/server/README.md](server/README.md) | Package purpose, minimal startup, entry links |
+| Document                                                                                | Owns; update when these facts change                                                                           |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [README.md](../README.md)                                                               | Current capabilities, limitations, temporary implementation exceptions, and capability-to-source/test mappings |
+| [project-managment/MVP.md](../project-managment/MVP.md)                                 | Product goals, audience, scope/exclusions, and release acceptance                                              |
+| [project-managment/Game Rules.md](../project-managment/Game%20Rules.md)                 | Gameplay, card visibility policy, powers, matching, scoring, turns, lifecycle                                  |
+| [project-managment/Game Data Model.md](../project-managment/Game%20Data%20Model.md)     | State ownership, field meaning, relationships, invariants; keep source JSDoc accurate                          |
+| [project-managment/Events Contract.md](../project-managment/Events%20Contract.md)       | Events, payloads, acknowledgements, errors, recipient redaction, ordering; keep shared public types accurate   |
+| [project-managment/designs/UI Rules.md](../project-managment/designs/UI%20Rules.md)     | Layout, controls, accessibility, feedback, animations, screen transitions                                      |
+| [project-managment/Test Scenarios.md](../project-managment/Test%20Scenarios.md)         | Intended acceptance sequences and manual validation procedures                                                 |
+| [code/Development.md](Development.md)                                                   | Setup, commands, dependencies, environment-variable names, diagnostics, documentation ownership                |
+| [code/client/README.md](client/README.md) and [code/server/README.md](server/README.md) | Package purpose, minimal startup, entry links                                                                  |
 
 For every implementation, read the [root README](../README.md), relevant source/tests, and affected specifications. Update the root README when delivered capabilities, limitations, temporary exceptions, or coverage change; it is the only documentation update required solely for implementation progress. Change documents under `project-managment/` only when intended design changes: rules, contracts, state semantics, UI requirements, or acceptance requirements. Implementing an existing requirement does not qualify. Keep design definitions in their canonical home and record temporary implementation exceptions only in the README. MVP changes require deliberate product-scope or acceptance decisions.
 

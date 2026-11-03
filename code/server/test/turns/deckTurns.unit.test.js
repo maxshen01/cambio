@@ -1,10 +1,11 @@
 // Covers private pending-card ownership, synchronous resolution, and refill conservation.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns.js';
+import { drawCard, discardDrawnCard, swapDrawnCard } from '../../src/game/turns/actions.js';
+import { skipPower } from '../../src/game/turns/powers.js';
 import { toDrawnCardView } from '../../src/game/views/drawnCardView.js';
 import { refillDeck, createDeck } from '../../src/game/deck.js';
-import { activeGame, allCards } from '../helpers/activeGame.js';
+import { activeGame, drawnPower, allCards, rejectsUnchanged as reject } from '../helpers/activeGame.js';
 
 test('one deck draw stays outside the hand and only its owner sees its face', () => {
   const state = activeGame();
@@ -26,6 +27,8 @@ test('discard and replacement each advance exactly once clockwise, including sea
   for (const id of ['p1', 'p2', 'p3', 'p4', 'p1']) {
     assert.equal(state.turn, id);
     const player = state.players.find(player => player.id === id);
+    const ordinary = state.deck.cards.findIndex(card => !card.power);
+    state.deck.cards.push(...state.deck.cards.splice(ordinary, 1));
     drawCard(state, id, { source: 'deck' });
     const held = player.drawnCard;
     const displaced = player.hand[0].card;
@@ -47,29 +50,42 @@ test('discard and replacement each advance exactly once clockwise, including sea
   }
 });
 
-test('every power card discards or swaps without starting power resolution or changing metadata', () => {
-  for (const card of createDeck().filter(card => card.power)) {
-    for (const action of ['discard', 'swap']) {
-      const state = activeGame();
-      state.deck.cards = [card];
-      drawCard(state, 'p1', { source: 'deck' });
-      if (action === 'discard') discardDrawnCard(state, 'p1');
-      else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
-      assert.equal(state.turn, 'p2');
-      assert.equal(state.pendingPower, null);
-      assert.equal(state.pendingPowerStage, null);
-      assert.ok(card.power);
-      assert.equal(action === 'discard' ? state.discardPile.cards.at(-1) : state.players[0].hand[1].card, card);
-    }
+test('ordinary and red face cards discard immediately without a power', () => {
+  for (const [rank, suit] of [[1, 'clubs'], [12, 'hearts'], [13, 'diamonds']]) {
+    const state = drawnPower(rank, 'p1', suit);
+    const held = state.players[0].drawnCard;
+    assert.deepEqual(discardDrawnCard(state, 'p1'), { kind: 'completed' });
+    assert.equal(state.discardPile.cards.at(-1), held);
+    assert.equal(state.pendingPower, null);
+    assert.equal(state.turn, 'p2');
   }
 });
 
+for (const power of ['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap']) {
+  for (const action of ['discard', 'swap']) {
+    test(`${power}: deck ${action} only activates a directly discarded power`, () => {
+      const state = activeGame();
+      const index = state.deck.cards.findIndex(card => card.power === power);
+      const [card] = state.deck.cards.splice(index, 1);
+      state.deck.cards.push(card);
+      drawCard(state, 'p1', { source: 'deck' });
+      if (action === 'discard') {
+        assert.deepEqual(discardDrawnCard(state, 'p1'), { kind: 'powerStarted', playerId: 'p1', power });
+        assert.equal(state.players[0].drawnCard, card);
+        assert.equal(state.discardPile.cards.length, 0);
+        assert.equal(state.turn, 'p1');
+        assert.equal(state.pendingPowerStage, 'awaitingChoice');
+        skipPower(state, 'p1');
+      } else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
+      assert.equal(state.turn, 'p2');
+      assert.equal(state.pendingPower, null);
+      assert.equal(state.pendingPowerStage, null);
+      assert.equal(action === 'discard' ? state.discardPile.cards.at(-1) : state.players[0].hand[1].card, card);
+    });
+  }
+}
+
 test('invalid draws and resolutions leave the entire state unchanged', () => {
-  const reject = (state, action, code) => {
-    const before = structuredClone(state);
-    assert.throws(action, { code });
-    assert.deepEqual(state, before);
-  };
   const state = activeGame();
   reject(state, () => drawCard(state, 'outsider', { source: 'deck' }), 'NOT_IN_ROOM');
   reject(state, () => drawCard(state, 'p2', { source: 'deck' }), 'NOT_YOUR_TURN');
@@ -100,9 +116,10 @@ test('invalid draws and resolutions leave the entire state unchanged', () => {
   reject(state, () => drawCard(state, 'p1', { source: 'deck' }), 'DECK_EMPTY');
 });
 
-test('refill uses the low-deck threshold, preserves both top pairs, and conserves physical cards', () => {
+test('refill uses the low-deck threshold, preserves both top pairs, and conserves physical cards', t => {
   for (const deckCount of [0, 1, 2, 3]) {
     for (const discardCount of [0, 1, 2, 3, 6]) {
+      t.diagnostic(`deck=${deckCount}, discard=${discardCount}`);
       const state = activeGame();
       const cards = state.deck.cards;
       state.deck.cards = cards.slice(0, deckCount);
@@ -138,7 +155,7 @@ test('long-running deck turns repeatedly refill without losing or duplicating ca
     drawCard(state, id, { source: 'deck' }, () => 0);
     if (state.deck.cards.length >= before) refills++;
     if (turn % 2) swapDrawnCard(state, id, { target: { playerId: id, handSlotId: 1 } }, () => 0);
-    else discardDrawnCard(state, id, () => 0);
+    else if (discardDrawnCard(state, id, () => 0).kind === 'powerStarted') skipPower(state, id, () => 0);
     assert.equal(allCards(state).length, 108);
     assert.deepEqual(new Set(allCards(state)), original);
   }

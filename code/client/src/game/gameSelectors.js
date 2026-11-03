@@ -1,4 +1,5 @@
 // Derives membership and action eligibility rather than storing duplicate flags.
+import { getPowerDefinition } from './powerPolicy.js';
 /** @typedef {import('./gameClientState.js').GameClientState} GameClientState */
 /** Single eligibility calculation used by rendering and request guards.
  * @param {GameClientState} state
@@ -10,12 +11,18 @@ export function selectGameClient(state) {
   const allReady = state.players.filter(player => player.isReady).length === 4;
   const ownTurn = connected && joined && state.stage === 'active' && state.turnPlayerId === state.identity?.playerId
     && !state.turnPending && !state.awaitingTurn;
-  const canReplace = ownTurn && state.drawnCard?.playerId === state.identity?.playerId;
-  const canDraw = ownTurn && !state.drawnCard;
+  const ownPendingCard = ownTurn && state.drawnCard?.playerId === state.identity?.playerId;
+  const canReplace = ownPendingCard && !state.resolvingPower;
+  const canDraw = ownTurn && !state.drawnCard && !state.resolvingPower;
+  const powerChoice = ownPendingCard && state.drawnCard?.source === 'deck'
+    && Boolean(state.powerPrompt);
+  const definition = getPowerDefinition(state.powerPrompt?.power);
+  const peekSwap = Boolean(definition?.postPeekSwap);
   return {
     view: {
       connected, connectionLost: state.connection === 'lost', localPlayer, joined, allReady,
       connectionStatus: selectConnectionStatus(state, joined),
+      powerPeekTargets: state.pendingPowerAction === 'finishPowerPeek' || state.powerPrompt?.stage === 'awaitingSwap' ? [] : state.powerPeekTargets,
     },
     permissions: {
       canJoin: connected && !state.joinPending && !state.identity,
@@ -25,7 +32,13 @@ export function selectGameClient(state) {
       canDraw,
       canDrawDiscard: canDraw && state.discardTop !== null,
       canReplace,
-      canDiscardDrawn: canReplace && state.drawnCard?.source === 'deck',
+      canDiscardDrawn: canReplace && state.drawnCard?.source === 'deck' && !state.powerPrompt,
+      canUsePower: powerChoice && state.powerPrompt?.stage === 'awaitingChoice',
+      canChoosePowerTargets: powerChoice && state.powerPrompt?.stage === 'awaitingTargets',
+      canChoosePowerSwap: powerChoice && peekSwap && state.powerPrompt?.stage === 'awaitingSwap',
+      canSkipPower: powerChoice && (state.powerPrompt?.stage === 'awaitingChoice' || state.powerPrompt?.stage === 'awaitingTargets'
+        || peekSwap && state.powerPrompt?.stage === 'awaitingSwap'),
+      canFinishPowerPeek: powerChoice && definition?.initial.kind === 'peek' && state.powerPrompt?.stage === 'awaitingPeekDone',
     },
   };
 }
