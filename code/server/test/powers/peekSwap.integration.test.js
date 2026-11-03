@@ -26,7 +26,7 @@ for (const rank of [12, 13]) {
     const beforeDone = structuredClone(state);
     owner.emit('finishPowerPeek', {});
     await room.drain();
-    assert.deepEqual(state, { ...beforeDone, pendingPowerStage: 'awaitingSwap' });
+    assert.deepEqual(state, { ...beforeDone, pendingPower: { ...beforeDone.pendingPower, stage: 'awaitingSwap' } });
     assert.ok(records.every(record => record.length === 0));
     // Rejection remains requester-only and does not discard the publicly held card.
     const invalid = { first: { playerId: clients[1].id, handSlotId: 1 }, second: { playerId: clients[1].id, handSlotId: 2 } };

@@ -23,7 +23,7 @@ for (const [rank, power] of [[7, 'selfPeek'], [9, 'opponentPeek'], [11, 'blindSw
     await room.activate();
     records.forEach((record, index) => assert.deepEqual(record.map(item => item.event),
       index === 4 ? [] : ['powerResolutionStarted', 'powerCardRevealed']));
-    assert.equal(state.pendingPowerStage, 'awaitingTargets');
+    assert.equal(state.pendingPower?.stage, 'awaitingTargets');
     const before = structuredClone(state);
     const error = nextEvent(clients[0], 'error');
     clients[0].emit('usePower', {});

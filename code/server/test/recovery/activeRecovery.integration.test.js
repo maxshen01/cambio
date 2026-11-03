@@ -11,8 +11,7 @@ test('active departure with a pending card preserves seats and allows replacemen
   gameState.discardPile.topMatchStatus = 'matched';
   Object.assign(gameState.players[0], { drawnCard: gameState.deck.cards.pop(), drawnFrom: 'deck', drawnCardRevealed: true });
   gameState.turnStep = 'awaitingDrawnCardResolution';
-  gameState.pendingPower = 'selfPeek';
-  gameState.pendingPowerStage = 'awaitingPeekDone';
+  gameState.pendingPower = { power: 'selfPeek', stage: 'awaitingPeekDone' };
   gameState.pendingMatch = { matcherPlayerId: clients[0].id, recipientPlayerId: clients[1].id, stage: 'awaitingGift' };
   gameState.cambioCalledBy = clients[0].id;
   gameState.finalMatchGraceDeadline = 123;

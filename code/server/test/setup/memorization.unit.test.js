@@ -86,7 +86,7 @@ test('memorization departures clear all round fields while preserving survivor o
   assert.equal(removeLobbyPlayer(state, 'outsider'), false);
   assert.deepEqual(state, before);
   Object.assign(state, {
-    turn: '1', turnStep: 'resolvingPower', pendingPower: 'selfPeek', pendingPowerStage: 'awaitingPeekDone',
+    turn: '1', turnStep: 'resolvingPower', pendingPower: { power: 'selfPeek', stage: 'awaitingPeekDone' },
     pendingMatch: { matcherPlayerId: '1', recipientPlayerId: '3', stage: 'awaitingGift' },
     cambioCalledBy: '1', finalMatchGraceDeadline: 100, winners: ['1'],
   });

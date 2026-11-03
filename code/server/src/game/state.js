@@ -12,7 +12,6 @@ export function createGameState() {
     turn: null,
     turnStep: null,
     pendingPower: null,
-    pendingPowerStage: null,
     pendingMatch: null,
     phase: 'deal',
     cambioCalledBy: null,

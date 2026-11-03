@@ -23,7 +23,7 @@ for (const rank of [12, 13]) {
     const state = pending(rank);
     const original = new Set(allCards(state));
     const held = state.players[0].drawnCard;
-    assert.equal(state.pendingPower, rank === 12 ? 'onePeekSwap' : 'twoPeekSwap');
+    assert.equal(state.pendingPower?.power, rank === 12 ? 'onePeekSwap' : 'twoPeekSwap');
     usePower(state, 'p1');
     const targets = rank === 12 ? [ref('p1')] : [ref('p1'), ref('p1', 2)];
     const result = choosePowerTargets(state, 'p1', { peekTargets: targets });
@@ -32,7 +32,7 @@ for (const rank of [12, 13]) {
     rejects(state, () => skipPower(state, 'p1'), 'POWER_NOT_AVAILABLE');
     const beforeDone = structuredClone(state);
     finishPowerPeek(state, 'p1');
-    assert.deepEqual(state, { ...beforeDone, pendingPowerStage: 'awaitingSwap' });
+    assert.deepEqual(state, { ...beforeDone, pendingPower: { ...beforeDone.pendingPower, stage: 'awaitingSwap' } });
     assert.equal(state.players[0].drawnCard, held);
     rejects(state, () => finishPowerPeek(state, 'p1'), 'POWER_NOT_AVAILABLE');
     rejects(state, () => choosePowerSwap(state, 'p1', { first: ref('p2'), second: ref('p2', 2) }), 'SWAP_NOT_ALLOWED');
@@ -46,7 +46,6 @@ for (const rank of [12, 13]) {
     assert.equal(state.players[0].drawnFrom, null);
     assert.equal(state.players[0].drawnCardRevealed, false);
     assert.equal(state.pendingPower, null);
-    assert.equal(state.pendingPowerStage, null);
     assert.equal(state.turn, 'p2');
     assert.equal(state.turnStep, 'awaitingDraw');
     assert.deepEqual(new Set(allCards(state)), original);

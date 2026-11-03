@@ -1,6 +1,8 @@
 // Authoritative model from Game Data Model.md; no game-state object is a public payload.
 /**
  * @typedef {'selfPeek' | 'opponentPeek' | 'blindSwap' | 'onePeekSwap' | 'twoPeekSwap'} Power
+ * @typedef {'awaitingChoice' | 'awaitingTargets' | 'awaitingPeekDone' | 'awaitingSwap'} PowerStage
+ * @typedef {{ power: Power, stage: PowerStage }} PendingPower
  * @typedef {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13} Rank
  * @typedef {'clubs' | 'diamonds' | 'hearts' | 'spades' | 'joker'} Suit
  * @typedef {Object} Card
@@ -29,8 +31,7 @@
  * @property {DiscardPile} discardPile
  * @property {string | null} turn
  * @property {'awaitingDraw' | 'awaitingDrawnCardResolution' | 'resolvingPower' | null} turnStep
- * @property {Power | null} pendingPower
- * @property {'awaitingChoice' | 'awaitingTargets' | 'awaitingPeekDone' | 'awaitingSwap' | null} pendingPowerStage
+ * @property {PendingPower | null} pendingPower Power identity and stage exist together during resolution.
  * @property {{ matcherPlayerId: string, recipientPlayerId: string, stage: 'awaitingGift' } | null} pendingMatch
  * @property {'deal' | 'active' | 'finalRound' | 'roundOver' | 'gameAborted'} phase
  * @property {string | null} cambioCalledBy

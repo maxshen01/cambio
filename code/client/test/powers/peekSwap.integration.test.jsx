@@ -54,7 +54,7 @@ it('four boards peek two king targets, close them with Done, then swap a differe
     await user.click(query(0).getByRole('button', { name: 'Done' }));
     expect(hand(0, 1).queryByRole('img', { name: /face up/ })).not.toBeInTheDocument();
     // Done does not advance or discard; the second fresh card click submits the swap.
-    expect(gameState.pendingPowerStage).toBe('awaitingSwap');
+    expect(gameState.pendingPower?.stage).toBe('awaitingSwap');
     expect(gameState.turn).toBe(sockets[0].id);
     for (let viewer = 0; viewer < 4; viewer++) expect(query(viewer).getByRole('img', { name: 'Drawn card for Player 1, face up' })).toBeVisible();
     const [a, b] = [gameState.players[1].hand[0].card, gameState.players[2].hand[0].card];

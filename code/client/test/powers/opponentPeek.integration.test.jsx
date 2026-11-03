@@ -56,7 +56,7 @@ it.each([7, 8, 9, 10])('%s: four boards activate, immediately select a peek, and
           expect(image).toHaveAttribute('src', CARD_IMAGES[held.cardId]);
           expect(views[index].container.querySelector('.setup-hand__slot--peeked')).toBeNull();
         }
-        expect(gameState.pendingPowerStage).toBe('awaitingTargets');
+        expect(gameState.pendingPower?.stage).toBe('awaitingTargets');
         const targetHand = within(query(owner).getByRole('listitem', { name: 'Seat ' + targetSeat }));
         await user.click(targetHand.getByRole('button', { name: 'Peek at slot 2' }));
         for (let index = 1; index < 4; index++) expect(views[index].container.querySelector('.setup-hand__slot--selected')).toBeNull();
@@ -75,7 +75,7 @@ it.each([7, 8, 9, 10])('%s: four boards activate, immediately select a peek, and
           }
         }
         expect(gameState.turn).toBe(sockets[owner].id);
-        expect(gameState.pendingPowerStage).toBe('awaitingPeekDone');
+        expect(gameState.pendingPower?.stage).toBe('awaitingPeekDone');
         await user.click(query(owner).getByRole('button', { name: 'Done' }));
       } else {
         if (owner === 1) {

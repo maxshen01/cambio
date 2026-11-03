@@ -25,7 +25,6 @@ export function finishTurn(state, player, discarded, random) {
   state.discardPile.topMatchStatus = 'eligible';
   clearDrawnCard(player);
   state.pendingPower = null;
-  state.pendingPowerStage = null;
   refillDeck(state, random);
   state.turn = nextPlayerInSeatOrder(state.players, player.id).id;
   state.turnStep = 'awaitingDraw';

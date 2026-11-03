@@ -25,8 +25,7 @@ test('a new deal clears every stale setup field and deals from the top in four s
   Object.assign(state, {
     deck: { cards: createDeck() },
     discardPile: { cards: createDeck().slice(0, 2), topMatchStatus: 'matched' },
-    turn: '1', turnStep: 'resolvingPower', pendingPower: 'selfPeek',
-    pendingPowerStage: 'awaitingPeekDone',
+    turn: '1', turnStep: 'resolvingPower', pendingPower: { power: 'selfPeek', stage: 'awaitingPeekDone' },
     pendingMatch: { matcherPlayerId: '1', recipientPlayerId: '2', stage: 'awaitingGift' },
     cambioCalledBy: '1', finalMatchGraceDeadline: 1234, winners: ['1'],
   });

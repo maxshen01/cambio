@@ -43,7 +43,6 @@ test('discard draws expose an older top or empty pile, remain public, and requir
     assert.equal(player.drawnFrom, null);
     assert.equal(player.drawnCardRevealed, false);
     assert.equal(state.pendingPower, null);
-    assert.equal(state.pendingPowerStage, null);
     reject(state, () => swapDrawnCard(state, 'p4', { target: { playerId: 'p4', handSlotId: 1 } }), 'NOT_YOUR_TURN');
     assert.equal(allCards(state).length, 108);
     assert.deepEqual(new Set(allCards(state)), originals);
@@ -61,7 +60,7 @@ test('discard draw guards reject without changing state', () => {
   state.pendingMatch = { matcherPlayerId: 'p2', recipientPlayerId: 'p3', stage: 'awaitingGift' };
   reject(state, () => drawCard(state, 'p1', { source: 'discard' }), 'MATCH_RESOLVING');
   state.pendingMatch = null;
-  state.pendingPower = 'selfPeek';
+  state.pendingPower = { power: 'selfPeek', stage: 'awaitingChoice' };
   reject(state, () => drawCard(state, 'p1', { source: 'discard' }), 'DRAW_NOT_AVAILABLE');
 });
 
@@ -103,7 +102,6 @@ test('each discard-drawn power replaces without activation or metadata changes',
     assert.equal(state.players[0].hand[0].card, card);
     assert.equal(card.power, power);
     assert.equal(state.pendingPower, null);
-    assert.equal(state.pendingPowerStage, null);
     assert.equal(state.turn, 'p2');
   }
 });

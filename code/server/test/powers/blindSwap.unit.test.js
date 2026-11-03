@@ -36,7 +36,6 @@ for (const opponents of [false, true]) {
     assert.equal(state.turn, 'p1');
     assert.equal(state.turnStep, 'awaitingDraw');
     assert.equal(state.pendingPower, null);
-    assert.equal(state.pendingPowerStage, null);
     assert.equal(state.players[3].drawnCard, null);
     assert.equal(state.players[3].drawnFrom, null);
     assert.equal(state.players[3].drawnCardRevealed, false);

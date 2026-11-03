@@ -4,7 +4,7 @@ import { requireTurnPlayer, finishTurn } from './lifecycle.js';
 /**
  * @typedef {import('../types.js').GameState} GameState
  * @typedef {import('../types.js').Power} Power
- * @typedef {NonNullable<GameState['pendingPowerStage']>} PowerStage
+ * @typedef {import('../types.js').PowerStage} PowerStage
  * @typedef {{ differentPlayers: boolean }} SwapPolicy
  * @typedef {{ payload: 'peekTarget' | 'peekTargets', count: 1 | 2, ownership: 'self' | 'opponent' | 'any' }} PeekPolicy
  * @typedef {{ initialAction: 'peek', peek: PeekPolicy, swap: SwapPolicy | null }
@@ -61,16 +61,16 @@ function requireHeldPower(state, id) {
   if (state.phase !== 'active' || player.drawnFrom !== 'deck' || !card?.power) {
     throw new DomainError('POWER_NOT_AVAILABLE', 'This power action is not available right now.');
   }
-  return { player, card, definition: powerDefinitions[card.power] };
+  return { player, card, power: card.power, definition: powerDefinitions[card.power] };
 }
 
-/** Starting resolution has no pending power or stage and keeps the card private.
+/** Starting resolution has no pending power context and keeps the card private.
  * @param {GameState} state @param {string} id
  */
 function requirePowerStart(state, id) {
   const held = requireHeldPower(state, id);
   const awaitingResolution = state.turnStep === 'awaitingDrawnCardResolution';
-  const noPendingPower = state.pendingPower === null && state.pendingPowerStage === null;
+  const noPendingPower = state.pendingPower === null;
   if (!awaitingResolution || !noPendingPower || held.player.drawnCardRevealed !== false) {
     throw new DomainError('POWER_NOT_AVAILABLE', 'This power action is not available right now.');
   }
@@ -82,8 +82,9 @@ function requirePowerStart(state, id) {
  */
 function requirePendingPower(state, id, allowedStages) {
   const held = requireHeldPower(state, id);
-  const stage = state.pendingPowerStage;
-  const resolvingHeldPower = state.turnStep === 'resolvingPower' && state.pendingPower === held.card.power;
+  const pending = state.pendingPower;
+  const stage = pending?.stage ?? null;
+  const resolvingHeldPower = state.turnStep === 'resolvingPower' && pending?.power === held.card.power;
   const allowedStage = stage !== null && allowedStages.includes(stage);
   const expectedReveal = stage !== null && revealedAtStage[stage];
   if (!resolvingHeldPower || !allowedStage || held.player.drawnCardRevealed !== expectedReveal) {
@@ -96,10 +97,9 @@ function requirePendingPower(state, id, allowedStages) {
  * @param {GameState} state @param {string} id
  */
 export function startPowerResolution(state, id) {
-  const { card } = requirePowerStart(state, id);
+  const { power } = requirePowerStart(state, id);
   state.turnStep = 'resolvingPower';
-  state.pendingPower = card.power;
-  state.pendingPowerStage = 'awaitingChoice';
+  state.pendingPower = { power, stage: 'awaitingChoice' };
 }
 
 /** Activate an offered or already-started power; report whether public resolution starts now.
@@ -107,11 +107,10 @@ export function startPowerResolution(state, id) {
  */
 export function usePower(state, id) {
   const started = state.turnStep === 'awaitingDrawnCardResolution';
-  const { player, card } = started ? requirePowerStart(state, id) : requirePendingPower(state, id, ['awaitingChoice']);
+  const { player, power } = started ? requirePowerStart(state, id) : requirePendingPower(state, id, ['awaitingChoice']);
   state.turnStep = 'resolvingPower';
-  state.pendingPower = card.power;
+  state.pendingPower = { power, stage: 'awaitingTargets' };
   player.drawnCardRevealed = true;
-  state.pendingPowerStage = 'awaitingTargets';
   return started;
 }
 
@@ -121,7 +120,7 @@ export function usePower(state, id) {
  * @param {() => number} [random]
  */
 export function choosePowerTargets(state, id, payload, random = Math.random) {
-  const { player, card, definition } = requirePendingPower(state, id, ['awaitingTargets']);
+  const { player, card, power, definition } = requirePendingPower(state, id, ['awaitingTargets']);
   if (definition.initialAction === 'swap') {
     const pair = validateSwapPair(state, payload, definition.swap);
     const result = exchangePair(pair);
@@ -129,7 +128,7 @@ export function choosePowerTargets(state, id, payload, random = Math.random) {
     return result;
   }
   const targets = validatePeekTargets(state, id, payload, definition.peek);
-  state.pendingPowerStage = 'awaitingPeekDone';
+  state.pendingPower = { power, stage: 'awaitingPeekDone' };
   return { kind: /** @type {const} */ ('peek'), targets };
 }
 
@@ -246,7 +245,7 @@ function requirePostPeekSwap(definition) {
 export function skipPower(state, id, random = Math.random) {
   const { player, card, definition } = state.turnStep === 'awaitingDrawnCardResolution'
     ? requirePowerStart(state, id) : requirePendingPower(state, id, ['awaitingChoice', 'awaitingTargets', 'awaitingSwap']);
-  if (state.pendingPowerStage === 'awaitingSwap') requirePostPeekSwap(definition);
+  if (state.pendingPower?.stage === 'awaitingSwap') requirePostPeekSwap(definition);
   finishTurn(state, player, card, random);
 }
 
@@ -254,12 +253,12 @@ export function skipPower(state, id, random = Math.random) {
  * @param {GameState} state @param {string} id @param {() => number} [random]
  */
 export function finishPowerPeek(state, id, random = Math.random) {
-  const { player, card, definition } = requirePendingPower(state, id, ['awaitingPeekDone']);
+  const { player, card, power, definition } = requirePendingPower(state, id, ['awaitingPeekDone']);
   if (definition.initialAction !== 'peek') {
     throw new DomainError('POWER_NOT_AVAILABLE', 'This power has no peek to finish.');
   }
   if (definition.swap) {
-    state.pendingPowerStage = 'awaitingSwap';
+    state.pendingPower = { power, stage: 'awaitingSwap' };
     return { completed: false };
   }
   finishTurn(state, player, card, random);

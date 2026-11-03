@@ -58,7 +58,7 @@ for (const source of [null, 'deck', 'discard']) {
         drawnCard: state.deck.cards.pop(), drawnFrom: source, drawnCardRevealed: true,
       });
       Object.assign(state, {
-        turnStep: 'resolvingPower', pendingPower: 'selfPeek', pendingPowerStage: 'awaitingPeekDone',
+        turnStep: 'resolvingPower', pendingPower: { power: 'selfPeek', stage: 'awaitingPeekDone' },
         pendingMatch: { matcherPlayerId: 'p1', recipientPlayerId: 'p2', stage: 'awaitingGift' },
         cambioCalledBy: 'p1', finalMatchGraceDeadline: 123, winners: ['p1'],
       });

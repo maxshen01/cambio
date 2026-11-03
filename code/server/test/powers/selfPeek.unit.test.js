@@ -28,18 +28,20 @@ for (const rank of [7, 9]) {
     const peeked = state.players.find(player => player.id === target.playerId).hand[1].card;
     startPowerResolution(state, 'p1');
     assert.deepEqual(state, {
-      ...before, turnStep: 'resolvingPower', pendingPower: power, pendingPowerStage: 'awaitingChoice',
+      ...before, turnStep: 'resolvingPower', pendingPower: { power, stage: 'awaitingChoice' },
     });
     rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     const beforeActivation = structuredClone(state);
+    const previousPower = state.pendingPower;
     usePower(state, 'p1');
-    beforeActivation.pendingPowerStage = 'awaitingTargets';
+    assert.deepEqual(previousPower, { power, stage: 'awaitingChoice' });
+    beforeActivation.pendingPower = { ...beforeActivation.pendingPower, stage: 'awaitingTargets' };
     beforeActivation.players[0].drawnCardRevealed = true;
     assert.deepEqual(state, beforeActivation);
     rejectsUnchanged(state, () => usePower(state, 'p1'), 'POWER_NOT_AVAILABLE');
     const started = structuredClone(state);
     const result = choosePowerTargets(state, 'p1', usePayload);
-    started.pendingPowerStage = 'awaitingPeekDone';
+    started.pendingPower = { ...started.pendingPower, stage: 'awaitingPeekDone' };
     started.players[0].drawnCardRevealed = true;
     assert.deepEqual(state, started);
     assert.equal(player.drawnCard, held);
@@ -76,7 +78,6 @@ for (const rank of [7, 9]) {
         assert.equal(player.drawnFrom, null);
         assert.equal(player.drawnCardRevealed, false);
         assert.equal(state.pendingPower, null);
-        assert.equal(state.pendingPowerStage, null);
         assert.deepEqual(state.players.map(player => player.hand), hands);
         assert.equal(allCards(state).length, 108);
         assert.deepEqual(new Set(allCards(state)), physical);
@@ -132,8 +133,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
   const ordinary = drawnPower(1);
   rejectsUnchanged(ordinary, () => startPowerResolution(ordinary, 'p1'), 'POWER_NOT_AVAILABLE');
   for (const change of [
-    state => { state.pendingPower = 'selfPeek'; },
-    state => { state.pendingPowerStage = 'awaitingChoice'; },
+    state => { state.pendingPower = { power: 'selfPeek', stage: 'awaitingChoice' }; },
     state => { state.players[0].drawnCardRevealed = true; },
   ]) {
     const state = drawnPower();
@@ -142,7 +142,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
   }
   for (const stage of [null, 'awaitingSwap', 'awaitingPeekDone']) {
     const state = pendingPower();
-    state.pendingPowerStage = stage;
+    state.pendingPower = stage === null ? null : { ...state.pendingPower, stage };
     rejectsUnchanged(state, () => choosePowerTargets(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     rejectsUnchanged(state, () => skipPower(state, 'p1'), 'POWER_NOT_AVAILABLE');
   }
@@ -150,7 +150,7 @@ test('unavailable phases, sources, powers, held cards, and stages leave state un
   rejectsUnchanged(state, () => finishPowerPeek(state, 'p1'), 'POWER_NOT_AVAILABLE');
   rejectsUnchanged(state, () => startPowerResolution(state, 'p1'), 'POWER_NOT_AVAILABLE');
   for (const power of [null, 'opponentPeek', 'blindSwap', 'onePeekSwap', 'twoPeekSwap']) {
-    state.pendingPower = power;
+    state.pendingPower = power === null ? null : { power, stage: 'awaitingTargets' };
     for (const action of [choosePowerTargets, skipPower, finishPowerPeek]) {
       rejectsUnchanged(state, () => action(state, 'p1', usePayload), 'POWER_NOT_AVAILABLE');
     }

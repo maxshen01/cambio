@@ -74,12 +74,11 @@ for (const power of ['selfPeek', 'opponentPeek', 'blindSwap', 'onePeekSwap', 'tw
         assert.equal(state.players[0].drawnCard, card);
         assert.equal(state.discardPile.cards.length, 0);
         assert.equal(state.turn, 'p1');
-        assert.equal(state.pendingPowerStage, 'awaitingChoice');
+        assert.equal(state.pendingPower?.stage, 'awaitingChoice');
         skipPower(state, 'p1');
       } else swapDrawnCard(state, 'p1', { target: { playerId: 'p1', handSlotId: 2 } });
       assert.equal(state.turn, 'p2');
       assert.equal(state.pendingPower, null);
-      assert.equal(state.pendingPowerStage, null);
       assert.equal(action === 'discard' ? state.discardPile.cards.at(-1) : state.players[0].hand[1].card, card);
     });
   }
